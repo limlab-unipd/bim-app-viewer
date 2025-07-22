@@ -3,8 +3,8 @@
 /* General settings */
 :root{
     --primary: #760000;
-    --background: #484960e3;
-    --background-100: rgba(94, 95, 131, 0.8);
+    --background: #3b3c4fe3;
+    --background-100: rgba(94, 95, 131, 0.95);
     --hover: rgba(255,255,255,0.1);
     --text: white;
     --text-title: rgb(4, 0, 255);
@@ -64,7 +64,7 @@
     overflow: auto;
     margin: 0px;
     border-radius: 5px;
-    background-color: white;
+    background-color: var(--background);
     position: absolute;
     top:0;
     left: 0;
