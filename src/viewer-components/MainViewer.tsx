@@ -1,7 +1,7 @@
 import * as React from 'react'
 import * as OBC from '@thatopen/components'
 import * as BUI from '@thatopen/ui'
-//import * as FRAGS from '@thatopen/fragments'
+import * as FRAGS from '@thatopen/fragments'
 import * as BUIC from '@thatopen/ui-obc'
 //import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
@@ -56,19 +56,16 @@ export function MainViewer () {
                 renderedFaces: 0,
             },
         });
-        highlighter.events.select.onHighlight.add(async (modelIdMap) => { //event triggered on element selection
-            console.log("Something was selected");
+        /*highlighter.events.select.onHighlight.add(async (modelIdMap) => { //event triggered on element selection
             const promises = [];
-            console.log('modelidmap',modelIdMap)
             for (const [modelId, localIds] of Object.entries(modelIdMap)) {
                 const model = fragments.list.get(modelId);
                 if (!model) continue;
                 promises.push(model.getItemsData([...localIds]));
-                console.log('model',model)
             }
             const data = (await Promise.all(promises)).flat();
             console.log(data);
-        });
+        });*/
 
         const ifcLoader = components.get(OBC.IfcLoader)
         await ifcLoader.setup({
@@ -100,14 +97,31 @@ export function MainViewer () {
         // #endregion
     
         // #region LOGIC FUNCTIONS
-
         //function to load the IFC file
         const loadIfcFile = async (path: string) => {
             const name = path.split('/').pop()?.split('.ifc')[0] || path.split('/').pop() || path
             const file = await fetch(path);
             const data = await file.arrayBuffer();
             const buffer = new Uint8Array(data);
+            const startTime = performance.now(); // Start timer
             await ifcLoader.load(buffer, false, name);
+            const endTime = performance.now(); // End timer
+            const loadTime = ((endTime - startTime) / 1000).toFixed(2); // seconds
+            console.log(`${name} IFC model loaded in ${loadTime} seconds`);
+            const overlay = document.getElementById("overlay");
+            if (overlay) {
+                const label = BUI.Component.create<HTMLDivElement>(() => {
+                    return BUI.html`
+                    <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.2); border-radius: 10px; margin: 5px">
+                        ${name} loaded in ${loadTime} seconds.
+                    </div>
+                    `
+                })
+                overlay.appendChild(label)
+                setTimeout(() => {
+                    label.style.display = "none";
+                }, 5000); // Nasconde dopo 4 secondi
+            }
         };
         
         // Function to load an IFC file triggered by the button
@@ -122,19 +136,56 @@ export function MainViewer () {
                     const url = URL.createObjectURL(file);
                     target.loading = true; // Set loading state
                     target.label = "Loading IFC...";
-                    
-                    const startTime = performance.now(); // Start timer
                     await loadIfcFile(url);
-                    const endTime = performance.now(); // End timer
-                    const loadTime = ((endTime - startTime) / 1000).toFixed(2); // seconds
-                    console.log(`IFC loaded in ${loadTime} seconds`);
-
                     target.loading = false; // Set loading state
-                    
+                    target.label = ""
                     URL.revokeObjectURL(url);
                 }
             };
             input.click();
+        }
+
+        // dowload fragment files
+        const onFragmentsExport = async () => {
+            for (const [, model] of fragments.list) {
+                const fragsBuffer = await model.getBuffer(false);
+                const file = new File([fragsBuffer], `${model.modelId}.frag`);
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(file);
+                link.download = file.name;
+                link.click();
+                URL.revokeObjectURL(link.href);
+            }
+        };
+        const onFragmentsImport = async () => {
+            const input = document.createElement('input')
+            input.type = 'file'
+            input.multiple = true
+            input.accept = '.frag'
+            const fragPaths: string[] = [];
+            input.onchange = async (event) => {
+                const files = (event.target as HTMLInputElement).files
+                if (!files) return
+                for (const file of files){
+                    fragPaths.push(URL.createObjectURL(file))
+                }
+                // Promise.all loads models concurrently for faster execution.
+                await Promise.all(
+                    fragPaths.map(async (path) => {
+                    const modelId = path.split("/").pop()?.split(".").shift();
+                    if (!modelId) return null;
+                    const file = await fetch(path);
+                    const buffer = await file.arrayBuffer();
+                    // this is the main function to load the fragments
+                    return fragments.core.load(buffer, { modelId });
+                    }),
+                );
+            }
+            input.click()
+        };
+        const onFragmentsPrint = async () => {
+            const selection = highlighter.selection.select
+            console.log(selection)
         }
         // #endregion
 
@@ -142,7 +193,7 @@ export function MainViewer () {
         const panelLeft = BUI.Component.create<BUI.Panel>(() => {
             return BUI.html`
             <bim-panel
-                label="PROPERTIES PANEL"
+                label="BIM PANEL"
                 style="background-color:rgba(0,0,0,0.85);">
             </bim-panel>
             `;
@@ -226,8 +277,64 @@ export function MainViewer () {
                     ${propertiesTable}
                 </bim-panel-section>
             `
+        })        
+        const selectElementByGuidPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
+            function parseCommaSeparatedString(input: string): string[] {
+                // Rimuove eventuali spazi prima/dopo ogni elemento
+                const trimmed = input.trim();
+                // Verifica se ci sono virgole nella stringa
+                if (trimmed.includes(',')) {
+                    // Divide in base alla virgola ed elimina spazi extra da ogni elemento
+                    return trimmed.split(',').map(item => item.trim());
+                } else {
+                    // Nessuna virgola: restituisce un array con la stringa intera
+                    return [trimmed];
+                }
+            }
+            //not used in the viewer
+            const onSelectAllElements = async () => {
+                const frMap: OBC.ModelIdMap = {}
+                for (const [entry,entryfr] of fragments.list.entries()){
+                    const localids = await entryfr.getLocalIds()
+                    const singleFrMap: OBC.ModelIdMap = {
+                        [entry] : new Set<number>([...localids])
+                    }
+                    Object.assign(frMap, singleFrMap)
+                }
+                //highlighter.highlightByID("select", frMap, true, true) //pay attention because too many elements to load their properties
+            }
+            const onSelectElementByGuid = async () => {
+                const target = document.getElementById('search-by-guid') as BUI.TextInput
+                const guids = parseCommaSeparatedString(target.value)
+                const frMap = await fragments.guidsToModelIdMap(guids)
+                console.log(frMap)
+                highlighter.highlightByID("select", frMap, true, true)
+            }
+            return BUI.html`
+            <bim-panel-section
+                label="Select elements by IfcGuid",
+                icon="material-symbols:highlight-mouse-cursor-rounded"
+                >
+                <bim-label>
+                    To select multiple elements let's separate guids with a comma
+                </bim-label>
+                <div style="display:flex; flex-direction:row; gap:0.5rem">
+                    <bim-text-input
+                        id="search-by-guid",
+                        placeholder="Type elements IfcGuid..."
+                    >
+                    </bim-text-input>
+                    <bim-button
+                        label="Select",
+                        @click=${onSelectElementByGuid}
+                        style="max-width:fit-content"
+                    >
+                    </bim-button>
+                </div>
+            </bim-panel-section>`;
         })
         panelLeft.appendChild(modelsListPanelSection)
+        panelLeft.appendChild(selectElementByGuidPanelSection)
         panelLeft.appendChild(spatialTreePanelSection)
         panelLeft.appendChild(propertiesPanelSection)
         
@@ -277,16 +384,45 @@ export function MainViewer () {
                         @click=${onSetLayout}>
                     </bim-button>
                 </bim-toolbar-section>
-                <bim-toolbar-section label="Load">
+                <bim-toolbar-section label="IFC">
                     <bim-button
                         label="Sample"
-                        @click=${() => {loadIfcFile("/assets/Sample elements with costs.ifc")}}>
+                        @click=${() => {
+                            loadIfcFile("/assets/Sample elements with costs.ifc")
+                            loadIfcFile("/assets/SFH_Single Family House.ifc")
+                            }}>
                     </bim-button>
                     <bim-button
                         icon="tabler:cube-plus"
                         tooltip-title="IFC"
                         @click=${onLoadIfc}>
                     </bim-button>
+                </bim-toolbar-section>
+                <bim-toolbar-section label="Fragments">
+                    <bim-button
+                        tooltip-title="Import"
+                        icon="lucide:upload"
+                        @click=${onFragmentsImport}
+                    ></bim-button>
+                    <bim-button
+                        tooltip-title="Export"
+                        icon="lucide:download"
+                        @click=${onFragmentsExport}
+                    ></bim-button>
+                    <bim-button
+                        tooltip-title="Print on console selected element fragment"
+                        icon="carbon:fragments"
+                        @click=${onFragmentsPrint}
+                    ></bim-button>
+                    <bim-button
+                        tooltip-title="Dispose all models"
+                        icon="tabler:trash"
+                        @click=${() => {
+                            for (const [modelId] of fragments.list) {
+                                fragments.core.disposeModel(modelId);
+                            }
+                        }}
+                    ></bim-button>
                 </bim-toolbar-section>
             </bim-toolbar>
             `;
@@ -422,11 +558,24 @@ export function MainViewer () {
         }
     }, [])
 
-    return( //return the whole BIM viewer component
-        <bim-viewport
-            id="main-viewer"
-            className="viewer"
-        />
+    return(
+        <>
+            <div
+            id="overlay"
+            style={{
+                position: "absolute",
+                top: "10%",
+                left: "40%",
+                width: "20%",
+                zIndex: 1000,
+                pointerEvents: "none"
+            }}>
+            </div>
+            <bim-viewport
+                id="main-viewer"
+                className="viewer"
+            />
+        </>
     )
     // #endregion
 }
