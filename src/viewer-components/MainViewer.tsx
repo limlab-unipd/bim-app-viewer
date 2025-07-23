@@ -4,8 +4,8 @@ import * as BUI from '@thatopen/ui'
 //import * as FRAGS from '@thatopen/fragments'
 //import * as CUI from '@thatopen/ui-obc'
 //import * as WEBIFC from 'web-ifc'
-//import * as THREE from "three"
-//import * as OBCF from '@thatopen/components-front'
+import * as THREE from "three"
+import * as OBCF from '@thatopen/components-front'
 
 export function MainViewer () {
 
@@ -36,13 +36,28 @@ export function MainViewer () {
         world.renderer = new OBC.SimpleRenderer(components, container)
         //CAMERA
         world.camera = new OBC.OrthoPerspectiveCamera(components)
-        await world.camera.controls.setLookAt(74, 16, 0.2, 30, -4, 27) // convenient position for the model we will load
+        await world.camera.controls.setLookAt(30,30,30,0,0,0) // convenient position for the model we will load
         //INITIALIZE ALL COMPONENTS
         components.init()
 
         const grids = components.get(OBC.Grids)
         const grid = grids.create(world)
         grid.config.color.set('#1C1C1C')
+
+        components.get(OBC.Raycasters).get(world);
+
+        const highlighter = components.get(OBCF.Highlighter);
+        highlighter.zoomToSelection = true;
+        highlighter.setup({
+            world,
+            selectMaterialDefinition: {
+                // you can change this to define the color of your highligthing
+                color: new THREE.Color("#bcf124"),
+                opacity: 1,
+                transparent: false,
+                renderedFaces: 0,
+            },
+        });
 
         globalScene = world.scene
         globalWorld = world
@@ -85,50 +100,79 @@ export function MainViewer () {
     
     
     // #region LOGIC FUNCTIONS
+    //components needed for logics
+    const ifcLoader = components.get(OBC.IfcLoader);
+    
+    //function to load the IFC file
+    const loadIfcFile = async (path: string) => {
+        const file = await fetch(path);
+        const data = await file.arrayBuffer();
+        const buffer = new Uint8Array(data);
+        await ifcLoader.load(buffer, false, "loadIfc");
+    };
+    
     // Function to load an IFC file triggered by the button
-    const onLoadIfc = async () => {
-        //ifc loader component
-        const ifcLoader = components.get(OBC.IfcLoader);
-        //function to load the IFC file
-        const loadIfcFile = async (path: string) => {
-            const file = await fetch(path);
-            const data = await file.arrayBuffer();
-            const buffer = new Uint8Array(data);
-            await ifcLoader.load(buffer, false, "loadIfc");
-        };
+    const onLoadIfc = async ({target}:{target:BUI.Button}) => {
         //methods to open the file dialog and select an IFC file
         const input = document.createElement("input");
         input.type = "file";
         input.accept = ".ifc";
-        input.onchange = (event) => {
+        input.onchange = async (event) => {
             const file = (event.target as HTMLInputElement).files?.[0];
             if (file) {
-            const url = URL.createObjectURL(file);
-            loadIfcFile(url);
-            console.log('ciao come va?')
-            URL.revokeObjectURL(url);
+                const url = URL.createObjectURL(file);
+                target.loading = true; // Set loading state
+                target.label = "Loading IFC...";
+                
+                const startTime = performance.now(); // Start timer
+                await loadIfcFile(url);
+                const endTime = performance.now(); // End timer
+                const loadTime = ((endTime - startTime) / 1000).toFixed(2); // seconds
+                console.log(`IFC loaded in ${loadTime} seconds`);
+
+                target.loading = false; // Set loading state
+                target.label = "Load IFC";
+                
+                URL.revokeObjectURL(url);
             }
         };
         input.click();
     }
     // #endregion
 
-    // #region UI COMPONENTS WITH LOGICS
-    const loadIfcButton = BUI.Component.create<BUI.Button>(() => {
+    // #region UI COMPONENTS WITH LOGICS    
+    const panelLeft = BUI.Component.create<BUI.Panel>(() => {
         return BUI.html`
-        <bim-button
-        label="Load IFC"
-        @click=${onLoadIfc}>
-        </bim-button>
-        `
+        <bim-panel
+            label="Left Panel"
+            style="background-color:rgba(0,0,0,0.85);">
+        </bim-panel>
+        `;
+    })
+    const panelRight = BUI.Component.create<BUI.Panel>(() => {
+        return BUI.html`
+        <bim-panel
+            label="Right Panel"
+            style="background-color:rgba(0,0,0,0.85);">
+        </bim-panel>
+        `;
+    })
+    const panelDown = BUI.Component.create<BUI.Panel>(() => {
+        return BUI.html`
+        <bim-panel
+            label="Down Panel"
+            style="background-color:rgba(0,0,0,0.85);">
+        </bim-panel>
+        `;
     })
     // #endregion
 
     // #region METHOD TO SETUP THE UI OF THE VIEWER
     const setupUI = async () => {
+        
         const viewerContainer = document.getElementById('main-viewer') as HTMLElement
         if (!viewerContainer) return
-        
+
         //FLOATING GRID TO HOST THE TOOLBAR
         const floatingGrid = BUI.Component.create<BUI.Grid>(() => {
             return BUI.html`
@@ -141,15 +185,61 @@ export function MainViewer () {
         
         //TOOLBAR COMPONENT
         const toolbar = BUI.Component.create<BUI.Toolbar>(() => {
-            
+            const onSetLayout = ({target}:{target:BUI.Button}) => {
+                const btn = target.id
+                if (floatingGrid.layout == undefined) return
+
+                if (floatingGrid.layout == btn) {
+                    floatingGrid.layout = "main" as any
+                } else if (floatingGrid.layout == 'main') {
+                    floatingGrid.layout = btn as any
+                } else {
+                    if (["left", "right"].includes(floatingGrid.layout) && ["left", "right"].includes(btn)) {
+                        floatingGrid.layout = "left_right" as any
+                        console.log('ok')
+                    } else if (floatingGrid.layout == "left_right" && btn == "left") {
+                        floatingGrid.layout = "right" as any
+                    } else if (floatingGrid.layout == "left_right" && btn == "right") {
+                        floatingGrid.layout = "left" as any
+                    } else {
+                        floatingGrid.layout = btn as any
+                    }
+                } 
+            }
             return BUI.html`
             <bim-toolbar style="justify-self: center">
-                <bim-toolbar-section label="Import">
-                    ${loadIfcButton}
+                <bim-toolbar-section label="Load">
+                    <bim-button
+                        label="Sample"
+                        @click=${() => {loadIfcFile("/assets/Sample elements with costs.ifc")}}>
+                    </bim-button>
+                    <bim-button
+                        icon="tabler:cube-plus"
+                        tooltip-title="IFC"
+                        @click=${onLoadIfc}>
+                    </bim-button>
                 </bim-toolbar-section>
+                <bim-toolbar-section label="Panels">
+                        <bim-button
+                            id="left"
+                            label="Left"
+                            @click=${onSetLayout}>
+                        </bim-button>
+                        <bim-button
+                            id="down"
+                            label="Down"
+                            @click=${onSetLayout}>
+                        </bim-button>
+                        <bim-button
+                            id="right"
+                            label="Right"
+                            @click=${onSetLayout}>
+                        </bim-button>
+                    </bim-toolbar-section>
             </bim-toolbar>
             `;
         })
+
         //GRID LAYOUT
         floatingGrid.layouts = {
             main: {
@@ -159,6 +249,52 @@ export function MainViewer () {
                     /1fr
                 `,
                 elements: {
+                    toolbar
+                }
+            },
+            left: {
+                template: `
+                    "panelLeft toolbar" auto
+                    "panelLeft empty" 1fr
+                    /20% 1fr
+                `,
+                elements: {
+                    panelLeft,
+                    toolbar
+                }
+            },
+            right: {
+                template: `
+                    "toolbar panelRight" auto
+                    "empty panelRight" 1fr
+                    /1fr 20%
+                `,
+                elements: {
+                    panelRight,
+                    toolbar
+                }
+            },
+            down: {
+                template: `
+                    "toolbar" auto
+                    "empty" 1fr
+                    "panelDown" 20%
+                    /1fr
+                `,
+                elements: {
+                    panelDown,
+                    toolbar
+                }
+            },
+            left_right: {
+                template: `
+                    "panelLeft toolbar panelRight" auto
+                    "panelLeft empty panelRight" 1fr
+                    /20% 1fr 20%
+                `,
+                elements: {
+                    panelLeft,
+                    panelRight,
                     toolbar
                 }
             },
