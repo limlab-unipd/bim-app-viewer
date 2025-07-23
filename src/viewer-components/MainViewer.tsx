@@ -2,7 +2,7 @@ import * as React from 'react'
 import * as OBC from '@thatopen/components'
 import * as BUI from '@thatopen/ui'
 //import * as FRAGS from '@thatopen/fragments'
-//import * as CUI from '@thatopen/ui-obc'
+import * as BUIC from '@thatopen/ui-obc'
 //import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
@@ -12,13 +12,10 @@ export function MainViewer () {
     // #region GENERAL START
     BUI.Manager.init()
     const components = new OBC.Components()
-    let globalScene: OBC.SimpleScene | undefined
-    let globalWorld: OBC.World | undefined
-    let globalCamera: OBC.OrthoPerspectiveCamera | undefined
     // #endregion
     
-    // #region SET VIEWER
     const setViewer = async () => {
+        // #region SET THREE VIEWER
         //VIEWER COMPONENT
         const worlds = components.get(OBC.Worlds)
         //SINGLE VIEWER
@@ -46,6 +43,7 @@ export function MainViewer () {
 
         components.get(OBC.Raycasters).get(world);
 
+        // #region COPONENTS GENERAL SETUP
         const highlighter = components.get(OBCF.Highlighter);
         highlighter.zoomToSelection = true;
         highlighter.setup({
@@ -58,12 +56,20 @@ export function MainViewer () {
                 renderedFaces: 0,
             },
         });
+        highlighter.events.select.onHighlight.add(async (modelIdMap) => { //event triggered on element selection
+            console.log("Something was selected");
+            const promises = [];
+            console.log('modelidmap',modelIdMap)
+            for (const [modelId, localIds] of Object.entries(modelIdMap)) {
+                const model = fragments.list.get(modelId);
+                if (!model) continue;
+                promises.push(model.getItemsData([...localIds]));
+                console.log('model',model)
+            }
+            const data = (await Promise.all(promises)).flat();
+            console.log(data);
+        });
 
-        globalScene = world.scene
-        globalWorld = world
-        globalCamera = world.camera
-
-        // #region IFC LOADER SETUP
         const ifcLoader = components.get(OBC.IfcLoader)
         await ifcLoader.setup({
             autoSetWasm: false,
@@ -78,101 +84,153 @@ export function MainViewer () {
         const workerFile = new File([workerBlob], "worker.mjs", {
             type: "text/javascript",
         });
-        const workerUrl = URL.createObjectURL(workerFile);
+        const workerURL = URL.createObjectURL(workerFile);
         const fragments = components.get(OBC.FragmentsManager);
-        fragments.init(workerUrl);
+        fragments.init(workerURL);
     
-        globalWorld?.camera.controls?.addEventListener("rest", () =>
+        world.camera.controls?.addEventListener("rest", () =>
         fragments.core.update(true),
         );
     
         fragments.list.onItemSet.add(({ value: model }) => {
-            const camera = globalCamera?.three
-            if(camera){
-                model.useCamera(camera);
-                globalWorld?.scene.three.add(model.object);
-                fragments.core.update(true);
-            }
+            model.useCamera(world.camera.three);
+            world.scene.three.add(model.object);
+            fragments.core.update(true);
         });
         // #endregion
-    }
-    // #endregion
     
-    
-    // #region LOGIC FUNCTIONS
-    //components needed for logics
-    const ifcLoader = components.get(OBC.IfcLoader);
-    
-    //function to load the IFC file
-    const loadIfcFile = async (path: string) => {
-        const file = await fetch(path);
-        const data = await file.arrayBuffer();
-        const buffer = new Uint8Array(data);
-        await ifcLoader.load(buffer, false, "loadIfc");
-    };
-    
-    // Function to load an IFC file triggered by the button
-    const onLoadIfc = async ({target}:{target:BUI.Button}) => {
-        //methods to open the file dialog and select an IFC file
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = ".ifc";
-        input.onchange = async (event) => {
-            const file = (event.target as HTMLInputElement).files?.[0];
-            if (file) {
-                const url = URL.createObjectURL(file);
-                target.loading = true; // Set loading state
-                target.label = "Loading IFC...";
-                
-                const startTime = performance.now(); // Start timer
-                await loadIfcFile(url);
-                const endTime = performance.now(); // End timer
-                const loadTime = ((endTime - startTime) / 1000).toFixed(2); // seconds
-                console.log(`IFC loaded in ${loadTime} seconds`);
+        // #region LOGIC FUNCTIONS
 
-                target.loading = false; // Set loading state
-                target.label = "Load IFC";
-                
-                URL.revokeObjectURL(url);
-            }
+        //function to load the IFC file
+        const loadIfcFile = async (path: string) => {
+            const name = path.split('/').pop()?.split('.ifc')[0] || path.split('/').pop() || path
+            const file = await fetch(path);
+            const data = await file.arrayBuffer();
+            const buffer = new Uint8Array(data);
+            await ifcLoader.load(buffer, false, name);
         };
-        input.click();
-    }
-    // #endregion
-
-    // #region UI COMPONENTS WITH LOGICS    
-    const panelLeft = BUI.Component.create<BUI.Panel>(() => {
-        return BUI.html`
-        <bim-panel
-            label="Left Panel"
-            style="background-color:rgba(0,0,0,0.85);">
-        </bim-panel>
-        `;
-    })
-    const panelRight = BUI.Component.create<BUI.Panel>(() => {
-        return BUI.html`
-        <bim-panel
-            label="Right Panel"
-            style="background-color:rgba(0,0,0,0.85);">
-        </bim-panel>
-        `;
-    })
-    const panelDown = BUI.Component.create<BUI.Panel>(() => {
-        return BUI.html`
-        <bim-panel
-            label="Down Panel"
-            style="background-color:rgba(0,0,0,0.85);">
-        </bim-panel>
-        `;
-    })
-    // #endregion
-
-    // #region METHOD TO SETUP THE UI OF THE VIEWER
-    const setupUI = async () => {
         
-        const viewerContainer = document.getElementById('main-viewer') as HTMLElement
-        if (!viewerContainer) return
+        // Function to load an IFC file triggered by the button
+        const onLoadIfc = async ({target}:{target:BUI.Button}) => {
+            //methods to open the file dialog and select an IFC file
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = ".ifc";
+            input.onchange = async (event) => {
+                const file = (event.target as HTMLInputElement).files?.[0];
+                if (file) {
+                    const url = URL.createObjectURL(file);
+                    target.loading = true; // Set loading state
+                    target.label = "Loading IFC...";
+                    
+                    const startTime = performance.now(); // Start timer
+                    await loadIfcFile(url);
+                    const endTime = performance.now(); // End timer
+                    const loadTime = ((endTime - startTime) / 1000).toFixed(2); // seconds
+                    console.log(`IFC loaded in ${loadTime} seconds`);
 
+                    target.loading = false; // Set loading state
+                    
+                    URL.revokeObjectURL(url);
+                }
+            };
+            input.click();
+        }
+        // #endregion
+
+        // #region UI PANELS   
+        const panelLeft = BUI.Component.create<BUI.Panel>(() => {
+            return BUI.html`
+            <bim-panel
+                label="PROPERTIES PANEL"
+                style="background-color:rgba(0,0,0,0.85);">
+            </bim-panel>
+            `;
+        })
+        const panelRight = BUI.Component.create<BUI.Panel>(() => {
+            return BUI.html`
+            <bim-panel
+                label="Right Panel"
+                style="background-color:rgba(0,0,0,0.85);">
+            </bim-panel>
+            `;
+        })
+        const panelDown = BUI.Component.create<BUI.Panel>(() => {
+            return BUI.html`
+            <bim-panel
+                label="Down Panel"
+                style="background-color:rgba(0,0,0,0.85);">
+            </bim-panel>
+            `;
+        })
+        // #endregion
+
+        // #region METHOD TO SETUP THE UI OF THE VIEWER (ex. setupUI method)
+        const modelsListPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
+            const [modelsList] = BUIC.tables.modelsList({
+                components,
+                metaDataTags: ["schema"],
+                actions: { download: true },
+            });
+            return BUI.html`
+                <bim-panel-section label='Loaded Models' icon="material-symbols:upload-rounded">
+                    ${modelsList}
+                </bim-panel-section>
+            `
+        })
+        const spatialTreePanelSection = BUI.Component.create<BUI.PanelSection>(() => {
+            const [spatialTree] = BUIC.tables.spatialTree({
+                components,
+                models: []
+            });
+            spatialTree.preserveStructureOnFilter = true
+            const onSearch = (e: Event) => {
+                const input = e.target as BUI.TextInput;
+                spatialTree.queryString = input.value;
+            };
+            return BUI.html`
+                <bim-panel-section label='Spatial Structure' icon="ri:node-tree">
+                    <bim-text-input @input=${onSearch} placeholder="Search..." debounce="200"></bim-text-input>
+                    ${spatialTree}
+                </bim-panel-section>
+            `
+        })
+        const propertiesPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
+            const [propertiesTable, updatePropertiesTable] = BUIC.tables.itemsData({
+                components,
+                modelIdMap: {},
+            });
+            propertiesTable.preserveStructureOnFilter = true;
+            propertiesTable.indentationInText = false;
+            highlighter.events.select.onHighlight.add((modelIdMap) => {
+                updatePropertiesTable({ modelIdMap });
+            });
+            highlighter.events.select.onClear.add(() =>
+                updatePropertiesTable({ modelIdMap: {} }),
+            );
+            const onSearch = (e: Event) => {
+                const input = e.target as BUI.TextInput;
+                propertiesTable.queryString = input.value !== "" ? input.value : null
+            };
+            const onExpandTable = (e: Event) => {
+                const button = e.target as BUI.Button;
+                propertiesTable.expanded = !propertiesTable.expanded;
+                button.label = propertiesTable.expanded ? "Collapse" : "Expand";
+            };
+            return BUI.html`
+                <bim-panel-section label='Properties' icon="hugeicons:property-new">
+                    <div style="display: flex; gap: 0.5rem;">
+                        <bim-button @click=${onExpandTable} label=${propertiesTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                        <bim-text-input @input=${onSearch} placeholder="Search..." debounce="200"></bim-text-input>
+                    </div>
+                    ${propertiesTable}
+                </bim-panel-section>
+            `
+        })
+        panelLeft.appendChild(modelsListPanelSection)
+        panelLeft.appendChild(spatialTreePanelSection)
+        panelLeft.appendChild(propertiesPanelSection)
+        
         //FLOATING GRID TO HOST THE TOOLBAR
         const floatingGrid = BUI.Component.create<BUI.Grid>(() => {
             return BUI.html`
@@ -187,27 +245,38 @@ export function MainViewer () {
         const toolbar = BUI.Component.create<BUI.Toolbar>(() => {
             const onSetLayout = ({target}:{target:BUI.Button}) => {
                 const btn = target.id
-                if (floatingGrid.layout == undefined) return
-
-                if (floatingGrid.layout == btn) {
+                const currentLayout = floatingGrid.layout as any
+                if (!currentLayout) return
+                if (currentLayout == btn) {
                     floatingGrid.layout = "main" as any
-                } else if (floatingGrid.layout == 'main') {
+                } else if (currentLayout == 'main') {
                     floatingGrid.layout = btn as any
                 } else {
-                    if (["left", "right"].includes(floatingGrid.layout) && ["left", "right"].includes(btn)) {
-                        floatingGrid.layout = "left_right" as any
-                        console.log('ok')
-                    } else if (floatingGrid.layout == "left_right" && btn == "left") {
-                        floatingGrid.layout = "right" as any
-                    } else if (floatingGrid.layout == "left_right" && btn == "right") {
-                        floatingGrid.layout = "left" as any
-                    } else {
-                        floatingGrid.layout = btn as any
-                    }
-                } 
+                    currentLayout.includes(btn) ? floatingGrid.layout = currentLayout.replace(btn, "") : floatingGrid.layout = currentLayout + btn as any
+                }
             }
             return BUI.html`
             <bim-toolbar style="justify-self: center">
+                <bim-toolbar-section label="Panels">
+                    <bim-button
+                        id="left"
+                        icon="mynaui:panel-left-open"
+                        tooltip-title="Open/Close left panel"
+                        @click=${onSetLayout}>
+                    </bim-button>
+                    <bim-button
+                        id="down"
+                        icon="mynaui:panel-bottom-open"
+                        tooltip-title="Open/Close bottom panel"
+                        @click=${onSetLayout}>
+                    </bim-button>
+                    <bim-button
+                        id="right"
+                        icon="mynaui:panel-right-open"
+                        tooltip-title="Open/Close right panel"
+                        @click=${onSetLayout}>
+                    </bim-button>
+                </bim-toolbar-section>
                 <bim-toolbar-section label="Load">
                     <bim-button
                         label="Sample"
@@ -219,27 +288,62 @@ export function MainViewer () {
                         @click=${onLoadIfc}>
                     </bim-button>
                 </bim-toolbar-section>
-                <bim-toolbar-section label="Panels">
-                        <bim-button
-                            id="left"
-                            label="Left"
-                            @click=${onSetLayout}>
-                        </bim-button>
-                        <bim-button
-                            id="down"
-                            label="Down"
-                            @click=${onSetLayout}>
-                        </bim-button>
-                        <bim-button
-                            id="right"
-                            label="Right"
-                            @click=${onSetLayout}>
-                        </bim-button>
-                    </bim-toolbar-section>
             </bim-toolbar>
             `;
         })
 
+        const left_right = {
+                template: `
+                    "panelLeft toolbar panelRight" auto
+                    "panelLeft empty panelRight" 1fr
+                    /20% 1fr 20%
+                `,
+                elements: {
+                    panelLeft,
+                    panelRight,
+                    toolbar
+                }
+            }
+        const left_down = {
+                template: `
+                    "panelLeft toolbar" auto
+                    "panelLeft empty" 1fr
+                    "panelLeft panelDown" 20%
+                    /20% 1fr
+                `,
+                elements: {
+                    panelLeft,
+                    panelDown,
+                    toolbar
+                }
+            }
+        const right_down = {
+                template: `
+                    "toolbar panelRight" auto
+                    "empty panelRight" 1fr
+                    "panelDown panelRight" 20%
+                    /1fr 20%
+                `,
+                elements: {
+                    panelRight,
+                    panelDown,
+                    toolbar
+                }
+            }
+        const left_down_right = {
+            template: `
+                "panelLeft toolbar panelRight" auto
+                "panelLeft empty panelRight" 1fr
+                "panelLeft panelDown panelRight" 20%
+                /20% 1fr 20%
+            `,
+            elements: {
+                panelLeft,
+                panelRight,
+                panelDown,
+                toolbar
+            }
+        }
         //GRID LAYOUT
         floatingGrid.layouts = {
             main: {
@@ -286,29 +390,31 @@ export function MainViewer () {
                     toolbar
                 }
             },
-            left_right: {
-                template: `
-                    "panelLeft toolbar panelRight" auto
-                    "panelLeft empty panelRight" 1fr
-                    /20% 1fr 20%
-                `,
-                elements: {
-                    panelLeft,
-                    panelRight,
-                    toolbar
-                }
-            },
+            leftright: left_right,
+            rightleft: left_right,
+            leftdown: left_down,
+            downleft: left_down,
+            rightdown: right_down,
+            downright: right_down,
+            leftdownright: left_down_right,
+            leftrightdown: left_down_right,
+            rightdownleft: left_down_right,
+            rightleftdown: left_down_right,
+            downrightleft: left_down_right,
+            downleftright: left_down_right,
         }
         floatingGrid.layout = "main" as any //set active layout
 
+        const viewerContainer = document.getElementById('main-viewer') as HTMLElement
+        if (!viewerContainer) return
         viewerContainer.appendChild(floatingGrid) //append grid to the viewer container
+        // #endregion
     }
-    // #endregion
 
     // #region FINAL PART
     React.useEffect(() => {
         setViewer() //set the viewer
-        setupUI() //setup the UI of the viewer
+        //setupUI() //setup the UI of the viewer
         return () => {
             if (components) {
                 components.dispose()

@@ -1,7 +1,6 @@
 import * as ReactDOM from 'react-dom/client'
 import * as Router from 'react-router-dom'
 
-import * as BUI from '@thatopen/ui'
 import { ViewerPage } from './viewer-components/ViewerPage'
 
 
@@ -25,8 +24,6 @@ declare global {
         }
     }
 }
-
-BUI.Manager.init()
 
 //#region REACT COMPONENTS
 const rootElement = document.getElementById('app') as HTMLDivElement
