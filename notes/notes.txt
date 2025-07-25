@@ -1,0 +1,77 @@
+ADDING IFC CLASSES TO IMPORTER
+
+    IfcImporter github: https://github.com/ThatOpen/engine_fragment/blob/main/packages/fragments/src/Importers/IfcImporter/index.ts
+    IfcLoader github: https://github.com/ThatOpen/engine_components/blob/main/packages/core/src/fragments/IfcLoader/index.ts#L101
+
+    Fragments 2.0 IfcImporter (and IfcLoader) imports only some IFC classes defined here:
+        https://github.com/ThatOpen/engine_fragment/blob/main/packages/fragments/src/Importers/IfcImporter/src/classes.ts
+    I can add the classes I want adding their relative numbers from webifc here:
+        https://app.unpkg.com/web-ifc@0.0.69/files/ifc-schema.d.ts
+
+    in IfcImporter.classes['elements'] and IfcImporter.classes['abstract']
+    it is a Set<number> so I can push new elements using the method .add() and adding its number or class (i.e. 3895139033 or WEBIFC.IFCCOSTITEM)
+
+    --> this is the full IFcLoader method to use to add classes and relations:
+        await ifcLoader.load(
+            buffer,
+            false,
+            name,
+            {instanceCallback(importer) {
+                //ADDING NEW CLASSES TO IMPORT
+                importer.classes['abstract'].add(
+                    WEBIFC.IFCCOSTITEM, 
+                    WEBIFC.IFCCOSTVALUE,
+                    WEBIFC.IFCMEASUREWITHUNIT,
+                    WEBIFC.IFCMONETARYUNIT,
+                    WEBIFC.IFCSIUNIT,
+                    WEBIFC.IFCCONVERSIONBASEDUNIT,
+                    WEBIFC.IFCCONTEXTDEPENDENTUNIT
+                )
+                //ADDING NEW RELATIONS TO IMPORT
+                importer.relations.set(WEBIFC.IFCRELASSIGNSTOCONTROL, {
+                    forRelated: "HasAssignments",
+                    forRelating: "Controls"
+                })
+                importer.relations.set(WEBIFC.IFCRELNESTS, {
+                    forRelated: "Nests",
+                    forRelating: "IsNestedBy"
+                })
+                console.log(importer.classes)
+                console.log(importer.relations)
+            }
+        });
+    
+    --> if using IfcImporter:
+        const importer = new FRAGS.IfcImporter
+        const ifccostitem = 3895139033
+        const ifcwall = 2391406946
+        const toInclude = ifccostitem
+        console.log(`ELEMENTS INCLUDES ${toInclude}:`,[...importer.classes['elements'].values()].includes(toInclude))
+        console.log(`ABSTRACT INCLUDES ${toInclude}:`,[...importer.classes['abstract'].values()].includes(toInclude))
+        importer.classes['abstract'].add(ifccostitem)
+        console.log('Added class', importer.classes['abstract'])
+
+
+GET ITEMS DATA
+    When using the method getItemsData from a FragmentModel it is needed to specify both attributes and relations:
+        - attributes refers to direct attributes, i.e. Name, Description, ecc..
+        - relations refers to complex attributes (attributes that refers to other entities) and inverse attributes (relations)
+    in this way:
+        const costCategoriesIds = await model.getItemsOfCategories([
+            new RegExp(`^${'IFCCOSTITEM'}$`),
+            new RegExp(`^${'IFCCOSTVALUE'}$`),
+            new RegExp(`^${'IFCMEASUREWITHUNIT'}$`),
+            new RegExp(`^${'IFCMONETARYUNIT'}$`),
+            new RegExp(`^${'IFCSIUNIT'}$`),
+            new RegExp(`^${'IFCCONVERSIONBASEDUNIT'}$`),
+            new RegExp(`^${'IFCCONTEXTDEPENDENTUNIT'}$`),
+            new RegExp(`^${'IFCRELASSIGNSTOCONTROL'}$`),
+            new RegExp(`^${'IFCRELNESTS'}$`),
+        ])
+        const costItemsData = await model.getItemsData(costCategoriesIds['IFCCOSTITEM'], {
+            attributesDefault: true,
+            relationsDefault: {
+                attributes: true,
+                relations: true
+            }
+        });

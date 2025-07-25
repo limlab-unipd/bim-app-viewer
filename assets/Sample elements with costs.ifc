@@ -920,7 +920,7 @@ DATA;
 
 /* ELEMENTS COST ITEMS */
 /* 3 WALLS ON THE FACADE: one cost item per each wall */
-#700100=IFCCOSTITEM('1zP7DzVNv0efzLrJGjUhbi',$,'07 21 1310 0000','Wall Insulation, Rigid, fiberglass, unfaced, 10cm thick, R8.7, 6#/CF','Cost assignment',$,.USERDEFINED.,(#700101),$);
+#700100=IFCCOSTITEM('1zP7DzVNv0efzLrJGjUhbi',#18,'07 21 1310 0000','Wall Insulation, Rigid, fiberglass, unfaced, 10cm thick, R8.7, 6#/CF','Cost assignment',$,.USERDEFINED.,(#700101),$);
 /* it is read as: with this article I have to pay 1303 dollars to build 31.745 square metres of the related object */
 #700101=IFCCOSTVALUE($,$,#700104,#700105,$,$,'Total cost',$,$,(#701001));
 #700104=IFCMEASUREWITHUNIT(IFCREAL(1303.29117108299),#700007);
