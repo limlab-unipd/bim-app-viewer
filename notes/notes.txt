@@ -75,3 +75,17 @@ GET ITEMS DATA
                 relations: true
             }
         });
+
+
+GET ITEMS
+    if you want to get all the item of a category (payattention that for relations they must be imported as class in the list of the importer!)
+        for (const [key,model] of fragments.list.entries()){
+            const catLocalIds = await model.getItemsOfCategories([new RegExp(`^${category}$`)]) //in this case category='IFCWALL'
+            const cvLocalIds = await model.getItemsOfCategories([/COSTVALUE/])
+            
+            const dataCV = await model.getItemsData(cvLocalIds['IFCCOSTVALUE'], { //data of all cost values
+                attributesDefault: true,
+                relationsDefault: {attributes:true,relations:true}
+            })                
+            console.log('all elements of IFCCOSTVALUE in the model:\n', dataCV)
+        }

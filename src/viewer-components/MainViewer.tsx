@@ -123,7 +123,9 @@ export function MainViewer () {
                         WEBIFC.IFCMONETARYUNIT,
                         WEBIFC.IFCSIUNIT,
                         WEBIFC.IFCCONVERSIONBASEDUNIT,
-                        WEBIFC.IFCCONTEXTDEPENDENTUNIT
+                        WEBIFC.IFCCONTEXTDEPENDENTUNIT,
+                        WEBIFC.IFCRELASSIGNSTOCONTROL,
+                        WEBIFC.IFCRELNESTS,
                     )
                     //ADDING NEW RELATIONS TO IMPORT
                     importer.relations.set(WEBIFC.IFCRELASSIGNSTOCONTROL, {
@@ -291,6 +293,11 @@ export function MainViewer () {
                 currentLayout.includes(btn) ? floatingGrid.layout = currentLayout.replace(btn, "") : floatingGrid.layout = currentLayout + btn as any
             }
         }
+        const onExpandTable = (e: Event, table:BUI.Table<any>) => {
+            const button = e.target as BUI.Button;
+            table.expanded = !table.expanded;
+            button.label = table.expanded ? "Collapse" : "Expand";
+        };
 
         //advanced functions
         const convertCurrency = (currency:string) => {
@@ -314,65 +321,123 @@ export function MainViewer () {
             }
             return unitMeasure
         }
-        const onColorByResource = async () => {
-            const [resource] = resourcesDropdown.value
-            const [category] = categoriesDropdown.value as string[]
-            if (!resource || !category) return
-            
-            //highlight category
-            const customHighlighterName = "Red";
-            highlighter.styles.set(customHighlighterName, {
-            color: new THREE.Color("red"),
-            opacity: 1,
-            transparent: false,
-            renderedFaces: 0,
-            });
+        function normalizeAndMapToColor(map: Record<string, number>): Record<string, string> {
+            const colorScale: [number, string][] = [
+                [0,     'rgba(26, 150, 65, 1)'],      // verde
+                [1 / 3, 'rgba(166, 217, 106, 1)'],    // verde chiaro
+                [2 / 3, 'rgba(253, 174, 97, 1)'],     // arancio
+                [1,     'rgba(215, 25, 28, 1)']       // rosso
+            ];
 
-            //all the cost values
-            const catModIdMap: OBC.ModelIdMap = {}
-            for (const [key,model] of fragments.list.entries()){
-                const catLocalIds = await model.getItemsOfCategories([new RegExp(`^${category}$`)])
-                const cvLocalIds = await model.getItemsOfCategories([/COSTVALUE/])
-                
-                const singleFrMap: OBC.ModelIdMap = { //items of category
-                    [key] : new Set<number>([...catLocalIds[category]])
+            const parseRGBA = (rgba: string): [number, number, number, number] => {
+                const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                if (!match) throw new Error(`Formato colore non valido: ${rgba}`);
+                return [
+                parseInt(match[1], 10),
+                parseInt(match[2], 10),
+                parseInt(match[3], 10),
+                parseFloat(match[4] ?? '1')
+                ];
+            };
+
+            const interpolateColor = (color1: string, color2: string, t: number): string => {
+                const [r1, g1, b1, a1] = parseRGBA(color1);
+                const [r2, g2, b2, a2] = parseRGBA(color2);
+                const r = Math.round(r1 + (r2 - r1) * t);
+                const g = Math.round(g1 + (g2 - g1) * t);
+                const b = Math.round(b1 + (b2 - b1) * t);
+                const a = +(a1 + (a2 - a1) * t).toFixed(3);
+                return `rgba(${r}, ${g}, ${b}, ${a})`;
+            };
+
+            const getColorForValue = (value: number): string => {
+                for (let i = 0; i < colorScale.length - 1; i++) {
+                const [v1, c1] = colorScale[i];
+                const [v2, c2] = colorScale[i + 1];
+                if (value >= v1 && value <= v2) {
+                    const t = (value - v1) / (v2 - v1);
+                    return interpolateColor(c1, c2, t);
                 }
-                Object.assign(catModIdMap, singleFrMap)
-                
-                const data = await model.getItemsData(cvLocalIds['IFCCOSTVALUE'], { //data of all cost values
-                    attributesDefault: true,
-                    relationsDefault: {attributes:true,relations:true}
-                })                
-                console.log('all cost values \n', data)
+                }
+                return colorScale[colorScale.length - 1][1]; // fallback
+            };
 
-                highlighter.highlightByID(customHighlighterName,catModIdMap,true,false)
+            const values = Object.values(map);
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const range = max - min || 1;
+
+            const result: Record<string, string> = {};
+            for (const [key, value] of Object.entries(map)) {
+                const normalized = (value - min) / range;
+                result[key] = getColorForValue(normalized);
             }
 
-            //filtered cost values by resource (Category attribute)
-            finder.create("colorByResource", [
-                {
-                    categories: [/COSTVALUE/],
-                    attributes: { queries: [{ name: /Category/, value: new RegExp(`^${resource}$`) }] }
-                },
-            ]);
-            const result = await finder.list.get('colorByResource')?.test()
-            if (!result) return
-            const filteredCostValues = await fragments.getData(
-                result,
-                {
-                    attributesDefault:true,
-                    relationsDefault:{attributes:true,relations:true}
-                    }
-                )
-            console.log('filtered cost values\n', filteredCostValues)
-            
+            return result;
         }
-        const onOpenPriceAnalysis = (resourcesCostValues: any, unitCostName:any, unitCostDescription: any, unitCost: any) => {
-            //aggiungere if se non sono presenti components
-            console.log('resourcesCostValues: ', resourcesCostValues)
-            console.log('unitCostName: ', unitCostName)
-            console.log('unitCostDescription: ', unitCostDescription)
-            console.log('unitCost: ', unitCost)
+
+        const onColorByResource = async () => {
+            const [resource] = resourcesDropdown.value
+            const category = categoriesDropdown.value //list is needed because multiple choiches are accepted from drowpdown menu
+            if (!resource || !category) return
+
+            //filtered cost items by selected category from dropdown menu
+            finder.create('COSTITEM_REL_CAT', [
+                {
+                    categories: [/COSTITEM/],
+                    relation: { 
+                        name: "Controls",
+                        query: {
+                            categories: Array.isArray(category) ? category.map(c => new RegExp(`^${c}$`)) : [new RegExp(`^${category}$`)]
+                        }
+                    }
+                },
+            ])
+            const costitem_rel_cat_result = await finder.list.get('COSTITEM_REL_CAT')?.test()
+            if (!costitem_rel_cat_result) return
+            const filteredCostItems = await fragments.getData(costitem_rel_cat_result, {attributesDefault:true,relationsDefault:{attributes:true,relations:true}})
+            console.log(filteredCostItems)
+
+            const model_resources_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
+            for (const [model,costItems] of Object.entries(filteredCostItems)){
+                const elem_resources_Map: {[key:number]:number} = {} //map to associate to each element id its related IfcCostValue with the choosen resource category
+                for (const ci of costItems) { //loop over each filtered cost item
+                    const elemId = (((ci['Controls'] as any)[0] as FRAGS.ItemData)['_localId'] as FRAGS.ItemAttribute).value as number //localId of filtered elements
+                    const elemQuantity = (ci['CostValues'] as any)[0]['UnitBasis'][0]['ValueComponent'].value //quantity of the element used to calculate its cost
+                    const priceAnalysisComponents = (ci['CostValues'] as any )[0]['Components'][0]['Components'] //components per each unit cost
+                    const resourceValuesArray: any[] = [] //array is needed if there are more then one components with the same resource category
+                    for (const pac of priceAnalysisComponents){ //loop over each component
+                        const res = pac['Category'].value
+                        if (res == resource){ //checks the correspondance between components resource category and the one selected
+                            const resourceUnitCost = pac['AppliedValue'][0]['ValueComponent'].value
+                            resourceValuesArray.push(resourceUnitCost*elemQuantity) //multiply the single resource with the quantity to obtain the element specific resource cost
+                        }
+                    }
+                    if (resourceValuesArray.length !== 0){ //checks if the array is not empty
+                        //adds specific element resource cost to the map using the related element id as key
+                        //if there are more then one values adds their sum
+                        elem_resources_Map[elemId] = resourceValuesArray.length>1 ? resourceValuesArray.reduce((s,v)=>s+v,0) : resourceValuesArray[0]
+                    }
+                }
+                model_resources_Map[model] = elem_resources_Map //creates the models map
+            }
+
+            await highlighter.clear()
+            for (const [model,map] of Object.entries(model_resources_Map)){
+                const colorMap = normalizeAndMapToColor(map)
+                console.log(colorMap)
+                for (const [elemId,value] of Object.entries(map)){
+                    const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([Number(elemId)]) }
+                    const customHighlighterName = elemId;
+                    highlighter.styles.set(customHighlighterName, {
+                        color: new THREE.Color(colorMap[elemId]),
+                        opacity: 1,
+                        transparent: false,
+                        renderedFaces: 0,
+                    });
+                    highlighter.highlightByID(customHighlighterName,modelIdMap,true,false)
+                }
+            }
         }
         // #endregion
 
@@ -453,15 +518,10 @@ export function MainViewer () {
                 const input = e.target as BUI.TextInput;
                 propertiesTable.queryString = input.value !== "" ? input.value : null
             };
-            const onExpandTable = (e: Event) => {
-                const button = e.target as BUI.Button;
-                propertiesTable.expanded = !propertiesTable.expanded;
-                button.label = propertiesTable.expanded ? "Collapse" : "Expand";
-            };
             return BUI.html`
                 <bim-panel-section label='Properties' icon="hugeicons:property-new">
                     <div style="display: flex; gap: 0.5rem;">
-                        <bim-button @click=${onExpandTable} label=${propertiesTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                        <bim-button @click=${(e:Event) => onExpandTable(e,propertiesTable)} label=${propertiesTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
                         <bim-text-input @input=${onSearch} placeholder="Search..." debounce="200"></bim-text-input>
                     </div>
                     ${propertiesTable}
@@ -543,13 +603,12 @@ export function MainViewer () {
         //const categories = await model.getCategories();
         const categories = ['IFCWALL','IFCCOLUMN','IFCWINDOW','IFCBUILDINGELEMENTPART']
         const categoriesDropdown = BUI.Component.create<BUI.Dropdown>(
-            () => BUI.html`<bim-dropdown name="categories" label='Category' icon='material-symbols:category-rounded'>
+            () => BUI.html`<bim-dropdown name="categories" label='Category' icon='material-symbols:category-rounded' multiple>
                 ${categories.map(
                 (category) => BUI.html`<bim-option label=${category} style="padding:0 10px 0 10px"></bim-option>`,
                 )}
             </bim-dropdown>`,
         );
-
         const colorResourcesPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
             return BUI.html`
                 <bim-panel-section
@@ -570,7 +629,7 @@ export function MainViewer () {
         panelLeft.appendChild(propertiesPanelSection)
         panelLeft.appendChild(colorResourcesPanelSection)
 
-        const onOpenCostXElementPanel = async () => {
+        const onOpenElementXCostPanel = async () => {
             //clean panel
             panelDown.innerHTML = ''
             panelDown.label = 'Element X Costs Panel'
@@ -705,7 +764,7 @@ export function MainViewer () {
                 }
             }
 
-            const costXElementPanelSection = BUI.Component.create<BUI.Panel>(() => {
+            const elementXCostPanel = BUI.Component.create<BUI.Panel>(() => {
                 //search text in table to filter in panel
                 const onSearch = (e: Event) => {
                     const input = e.target as BUI.TextInput
@@ -716,17 +775,99 @@ export function MainViewer () {
                 <bim-panel
                     style="display:'flex', flex-direction:'column', gap:'10px', margin:'10px'">
                     <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px'})}>
-                        <bim-text-input 
-                            placeholder="Search..." 
-                            @input=${onSearch}
-                        >
-                        </bim-text-input>
+                        <div style="display: flex; gap: 0.5rem;">    
+                            <bim-button @click=${(e:Event) => onExpandTable(e,elementXcostTable)} label=${elementXcostTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                            <bim-text-input 
+                                placeholder="Search..." 
+                                @input=${onSearch}
+                            >
+                            </bim-text-input>
+                        </div>
                         ${elementXcostTable}
                     </div>
                 </bim-panel>`
             })
-            panelDown.appendChild(costXElementPanelSection)
-            onSetLayout({target:'down'})
+
+            panelDown.appendChild(elementXCostPanel)
+            const gridLayout = floatingGrid.layout as any
+            if (!gridLayout.includes('down')){
+                onSetLayout({target:'down'})
+            }
+        }
+        
+        const onOpenPriceAnalysis = (resourcesCostValues: any, unitCostName:any, unitCostDescription: any, unitCost: any) => {
+            //reset panel to update with new values
+            panelRight.innerHTML = ''
+            panelRight.label = 'Price Analysis'
+            //table type
+            type PriceAnalysisTableData = {
+                Name: string;
+                Cost: string;
+                Quantity: string;
+                Category: string;
+            }
+            //general unit cost info
+            const unitCostInfo = BUI.Component.create<HTMLDivElement>(() => {
+                return BUI.html`
+                <div style=${BUI.styleMap({padding:'5px', fontSize:'var(--bim-ui_size-xs)', color:'var(--bim-ui_bg-contrast-60)'})}>
+                    <div style=${BUI.styleMap({margin:'5px'})}>Name: ${unitCostName}</div>
+                    <div style=${BUI.styleMap({margin:'5px'})}>Description: ${unitCostDescription}</div>
+                    <div style=${BUI.styleMap({margin:'5px'})}>Unit cost: ${unitCost}</div>
+                </div>
+                `
+            })
+            panelRight.appendChild(unitCostInfo)
+
+            //div if there is no price analysis
+            const noPriceAnalysisDiv = BUI.Component.create<HTMLDivElement>(() => {
+                return BUI.html`
+                <div style=${BUI.styleMap({padding:'5px', fontSize:'var(--bim-ui_size-m)', color:'red'})}>
+                    <div style=${BUI.styleMap({margin:'5px'})}>This item does not have price analysis related!</div>
+                </div>
+                `
+            })
+            //price analysis table creation
+            if (resourcesCostValues){
+                const priceAnalysisTable = document.createElement("bim-table") as BUI.Table<PriceAnalysisTableData>
+                priceAnalysisTable.data = [
+                    {
+                        data: {
+                            Name: '',
+                            Cost: '',
+                            Quantity: '',
+                            Category: ''
+                        },
+                    },
+                ]
+                priceAnalysisTable.data = [] //reset table to remove the previous empty line
+                priceAnalysisTable.preserveStructureOnFilter = true
+                priceAnalysisTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
+                priceAnalysisTable.style.padding = '5px'
+                //loop over component of cost item extracting data
+                for (const component of resourcesCostValues){
+                    let row: BUI.TableGroupData<PriceAnalysisTableData> = {
+                        data: {},
+                    }
+                    row.data.Name = component['Description'].value
+                    row.data.Category = component['Category'].value
+                    const valueComponent = component['AppliedValue'][0]['ValueComponent'].value
+                    const unitComponent = component['AppliedValue'][0]['UnitComponent'][0]['Currency'].value
+                    row.data.Cost = `${Math.round(valueComponent*1000)/1000} ${convertCurrency(unitComponent)}`
+                    const unitBasisValueComponent = component['UnitBasis'][0]['ValueComponent'].value
+                    const unitBasisUnitComponent = component['UnitBasis'][0]['UnitComponent'][0]['Name'].value
+                    row.data.Quantity = `${Math.round(unitBasisValueComponent*1000)/1000} ${convertUnits(unitBasisUnitComponent)}`
+                    priceAnalysisTable.data.push(row)
+                }
+                //append table to the panel
+                panelRight.appendChild(priceAnalysisTable)
+            } else {
+                panelRight.appendChild(noPriceAnalysisDiv)
+            }
+            //update grid layout if panel is closed
+            const gridLayout = floatingGrid.layout as any
+            if (!gridLayout.includes('right')){
+                onSetLayout({target:'right'})
+            }
         }
         
         //FLOATING GRID TO HOST THE TOOLBAR
@@ -807,11 +948,12 @@ export function MainViewer () {
                     <bim-button
                         tooltip-title="Open cost assignment panel of selected elements - organized by element"
                         icon="tabler:home-dollar"
+                        @click=${() => {console.log('TO DO ...')}}
                     ></bim-button>
                     <bim-button
                         tooltip-title="Open cost assignment panel of selected elements - organized by cost item"
                         icon="tabler:filter-2-dollar"
-                        @click=${onOpenCostXElementPanel}
+                        @click=${onOpenElementXCostPanel}
                     ></bim-button>
                 </bim-toolbar-section>
             </bim-toolbar>
@@ -863,7 +1005,7 @@ export function MainViewer () {
             template: `
                 "panelLeft toolbar panelRight" auto
                 "panelLeft empty panelRight" 1fr
-                "panelLeft panelDown panelRight" ${panelDownHeight}
+                "panelLeft panelDown panelDown" ${panelDownHeight}
                 /${panelLeftWidth} 1fr ${panelRightWidth}
             `,
             elements: {
