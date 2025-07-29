@@ -16,14 +16,14 @@ export function MainViewer () {
     // #endregion
     
     const setViewer = async () => {
-        // #region SET THREE VIEWER
-        //VIEWER COMPONENT
+        //VIEWER COMPONENTS
         const worlds = components.get(OBC.Worlds)
         const finder = components.get(OBC.ItemsFinder)
         const highlighter = components.get(OBCF.Highlighter)
         const ifcLoader = components.get(OBC.IfcLoader)
         const fragments = components.get(OBC.FragmentsManager)
 
+        // #region SET THREE VIEWER
         //SINGLE VIEWER
         const world = worlds.create<
         OBC.SimpleScene,
@@ -40,6 +40,9 @@ export function MainViewer () {
         //CAMERA
         world.camera = new OBC.OrthoPerspectiveCamera(components)
         await world.camera.controls.setLookAt(30,30,30,0,0,0) // convenient position for the model we will load
+        // #endregion
+
+        // #region COPONENTS GENERAL SETUP
         //INITIALIZE ALL COMPONENTS
         components.init()
 
@@ -49,7 +52,6 @@ export function MainViewer () {
 
         components.get(OBC.Raycasters).get(world);
 
-        // #region COPONENTS GENERAL SETUP
         highlighter.zoomToSelection = true;
         highlighter.setup({
             world,
@@ -60,17 +62,7 @@ export function MainViewer () {
                 transparent: false,
                 renderedFaces: 0,
             },
-        });
-        /*highlighter.events.select.onHighlight.add(async (modelIdMap) => { //event triggered on element selection
-            const promises = [];
-            for (const [modelId, localIds] of Object.entries(modelIdMap)) {
-                const model = fragments.list.get(modelId);
-                if (!model) continue;
-                promises.push(model.getItemsData([...localIds]));
-            }
-            const data = (await Promise.all(promises)).flat();
-            console.log(data);
-        });*/
+        })
 
         await ifcLoader.setup({
             autoSetWasm: false,
@@ -178,7 +170,7 @@ export function MainViewer () {
             input.click();
         }
 
-        // download fragment files
+        // handle fragment files
         const onFragmentsExport = async () => {
             for (const [, model] of fragments.list) {
                 const fragsBuffer = await model.getBuffer(false);
@@ -216,7 +208,7 @@ export function MainViewer () {
             }
             input.click()
         }
-        const onFragmentsPrint = async () => {
+        const onFragmentsPrint = async () => { //test function on fragments
             //it doesn't work with non geometric elements (IfcCostItem)
             const selection = highlighter.selection.select //modelIdMap -> association to exp id
             console.log("ModelIdMap: ", selection)
@@ -297,7 +289,11 @@ export function MainViewer () {
             const button = e.target as BUI.Button;
             table.expanded = !table.expanded;
             button.label = table.expanded ? "Collapse" : "Expand";
-        };
+        }
+        const onClearPanel = (panel: BUI.Panel) => {
+            panel.innerHTML = ''
+            panel.label = 'Void Panel'
+        }
 
         //advanced functions
         const convertCurrency = (currency:string) => {
@@ -321,7 +317,7 @@ export function MainViewer () {
             }
             return unitMeasure
         }
-        function normalizeAndMapToColor(map: Record<string, number>): Record<string, string> {
+        const normalizeAndMapToColor = (map: Record<string, number>): [Record<string, string>,Record<string, number>] => {
             const colorScale: [number, string][] = [
                 [0,     'rgba(26, 150, 65, 1)'],      // verde
                 [1 / 3, 'rgba(166, 217, 106, 1)'],    // verde chiaro
@@ -368,18 +364,54 @@ export function MainViewer () {
             const range = max - min || 1;
 
             const result: Record<string, string> = {};
+            const resultNormalized: Record<string, number> = {};
             for (const [key, value] of Object.entries(map)) {
                 const normalized = (value - min) / range;
                 result[key] = getColorForValue(normalized);
+                resultNormalized[key] = normalized;
             }
 
-            return result;
+            return [result, resultNormalized];
         }
 
-        const onColorByResource = async () => {
+        const onColorByResource = async ({target}: {target: BUI.Button | string}) => {
+            const btn = typeof target === 'string' ? target : target.label            
+
             const [resource] = resourcesDropdown.value
             const category = categoriesDropdown.value //list is needed because multiple choiches are accepted from drowpdown menu
             if (!resource || !category) return
+            
+            onClearPanel(panelDown)
+            panelDown.label = `${resource} Resource Cost X Elements`
+            const gridLayout = floatingGrid.layout as any
+            if (!gridLayout.includes('down')){
+                onSetLayout({target:'down'})
+            }
+
+            //table type
+            type ResourceTableData = {
+                ElemId?: number, //optional because it is not needed in the first row
+                Name: string,
+                ResourceCost: string,
+                NormalizedValue: string,
+                ResourceUnitCost: string,
+                ElementQuantity: string,
+            }
+            //table
+            const resourceTable = document.createElement("bim-table") as BUI.Table<ResourceTableData>
+            resourceTable.data = [{
+                data: {
+                    Name: '',
+                    ResourceCost: '',
+                    NormalizedValue: '',
+                    ResourceUnitCost: '',
+                    ElementQuantity: '',
+                }
+            }]
+            resourceTable.data = []
+            resourceTable.preserveStructureOnFilter = true
+            resourceTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
+            resourceTable.hiddenColumns = ['ElemId']
 
             //filtered cost items by selected category from dropdown menu
             finder.create('COSTITEM_REL_CAT', [
@@ -394,50 +426,165 @@ export function MainViewer () {
                 },
             ])
             const costitem_rel_cat_result = await finder.list.get('COSTITEM_REL_CAT')?.test()
-            if (!costitem_rel_cat_result) return
+            console.log('costitem_rel_cat_result: ', costitem_rel_cat_result)
+            if (!costitem_rel_cat_result || Object.keys(costitem_rel_cat_result).length === 0 || Object.values(costitem_rel_cat_result).every(set => set.size === 0)) {
+                panelDown.innerHTML = `<bim-label style="padding:15px">Any COST ITEM related to ${category} category.</bim-label>`
+                return
+            }
             const filteredCostItems = await fragments.getData(costitem_rel_cat_result, {attributesDefault:true,relationsDefault:{attributes:true,relations:true}})
-            console.log(filteredCostItems)
 
             const model_resources_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
+            const category_elements_map: {[key:string]:any} = {} //map to associate to each category the related elements
+            const elem_resourcesDetails_Map: {[key:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string}[]} = {}
+
             for (const [model,costItems] of Object.entries(filteredCostItems)){
-                const elem_resources_Map: {[key:number]:number} = {} //map to associate to each element id its related IfcCostValue with the choosen resource category
+                let resourceCurrency = 'nd' //default value
+                const elem_resources_Map: {[key:number]:number} = {} //map to associate to each element id the related sum of costs of the choosen resource category
                 for (const ci of costItems) { //loop over each filtered cost item
+                    // --> pay attention: multiple cost items could be related to the same object and moreover each cost item could have more than one unit cost of the same category
+                    // example: one column with 5 cost items related and each cost item has 1,2,3 or more unit costs of the same category
                     const elemId = (((ci['Controls'] as any)[0] as FRAGS.ItemData)['_localId'] as FRAGS.ItemAttribute).value as number //localId of filtered elements
+                    const elemName = (ci['Controls'] as any)[0]['Name'].value //name of the element
+                    const elemCategory = (ci['Controls'] as any)[0]['_category'].value //category of the element
                     const elemQuantity = (ci['CostValues'] as any)[0]['UnitBasis'][0]['ValueComponent'].value //quantity of the element used to calculate its cost
+                    const elemQuantityUnitMeasure = convertUnits((ci['CostValues'] as any)[0]['UnitBasis'][0]['UnitComponent'][0]['Name'].value) //quantity of the element used to calculate its cost
                     const priceAnalysisComponents = (ci['CostValues'] as any )[0]['Components'][0]['Components'] //components per each unit cost
+                    
+                    elem_resourcesDetails_Map[elemId] = elem_resourcesDetails_Map[elemId] || [] //initialize the array if it does not exist
+                    
                     const resourceValuesArray: any[] = [] //array is needed if there are more then one components with the same resource category
-                    for (const pac of priceAnalysisComponents){ //loop over each component
-                        const res = pac['Category'].value
-                        if (res == resource){ //checks the correspondance between components resource category and the one selected
+                    for (const pac of priceAnalysisComponents){ //loop over each component of single cost item --> so to keep together the more unit costs related to the same resource category
+                        if (!pac['Category']) continue //checks if the component has a category
+                        if (pac['Category'].value == resource){ //checks the correspondance between components resource category and the one selected
+                            const resourceDescription = pac['Description'].value //description of the resource
                             const resourceUnitCost = pac['AppliedValue'][0]['ValueComponent'].value
+                            resourceCurrency = convertCurrency(pac['AppliedValue'][0]['UnitComponent'][0]['Currency'].value) //currency of the resource unit cost
                             resourceValuesArray.push(resourceUnitCost*elemQuantity) //multiply the single resource with the quantity to obtain the element specific resource cost
+                            elem_resourcesDetails_Map[elemId].push({
+                                resourceUnitCost: `${resourceUnitCost} ${resourceCurrency}`,
+                                elemQuantity: `${Math.round(elemQuantity*100)/100} ${elemQuantityUnitMeasure}`, //round the quantity to 2 decimal places
+                                resourceDescription: resourceDescription,
+                            })
                         }
                     }
                     if (resourceValuesArray.length !== 0){ //checks if the array is not empty
-                        //adds specific element resource cost to the map using the related element id as key
-                        //if there are more then one values adds their sum
-                        elem_resources_Map[elemId] = resourceValuesArray.length>1 ? resourceValuesArray.reduce((s,v)=>s+v,0) : resourceValuesArray[0]
+                        const resourceCost = resourceValuesArray.length>1 ? resourceValuesArray.reduce((s,v)=>s+v,0) : resourceValuesArray[0] //sums all the values of the same resource category within the same unit cost
+                        elem_resources_Map[elemId] ? elem_resources_Map[elemId] += resourceCost : elem_resources_Map[elemId] = resourceCost //in the case there are more than one cost item related to the same element id sums the resource cost
                     }
+                    //it does not have any sense to add here object to organize elements because until the end of costitems loops could always be new cost items related to the same element
                 }
-                model_resources_Map[model] = elem_resources_Map //creates the models map
+                for (const [elemId,resourceCost] of Object.entries(elem_resources_Map)){ //loop over each element id and its resource cost
+                    const item = await fragments.list.get(model)?.getItemsData([Number(elemId)])
+                    if (!item) continue //checks if the item exists
+                    const elemData = {
+                        elemId: Number(elemId),
+                        elemName: (item as any)[0]['Name'].value,
+                        totalResourceCost: resourceCost,
+                        currency: resourceCurrency,
+                    }
+                    category_elements_map[(item as any)[0]['_category'].value] ? category_elements_map[(item as any)[0]['_category'].value].push(elemData) : category_elements_map[(item as any)[0]['_category'].value] = [elemData]
+                }
+                model_resources_Map[model] = elem_resources_Map
+            }
+
+            console.log('elem_resourcesDetails_Map: ',elem_resourcesDetails_Map)
+            console.log('category_elements_map: ',category_elements_map)
+
+            for (const [cat,elements] of Object.entries(category_elements_map)) {
+                const tempChildren = []
+                for (const elem of elements) {
+                    const tempResourceDetailsChildren = []
+                    for (const resourceDetails of elem_resourcesDetails_Map[elem.elemId]){
+                        console.log(resourceDetails)
+                        tempResourceDetailsChildren.push({
+                            data: {
+                                Name: resourceDetails.resourceDescription,
+                                ResourceUnitCost: resourceDetails.resourceUnitCost,
+                                ElementQuantity: resourceDetails.elemQuantity,
+                            }
+                        })
+                    }
+                    const row: BUI.TableGroupData<ResourceTableData> = {
+                        data: {
+                            ElemId: elem.elemId,
+                            Name: elem.elemName,
+                            ResourceCost: `${Math.round(elem.totalResourceCost*100)/100} ${elem.currency}`,
+                            NormalizedValue: '',
+                        },
+                        children: tempResourceDetailsChildren
+                    }
+                    tempChildren.push(row)
+                }
+                resourceTable.data.push({
+                    data: {
+                        Name: cat,
+                    },
+                    children: tempChildren
+                })
             }
 
             await highlighter.clear()
             for (const [model,map] of Object.entries(model_resources_Map)){
-                const colorMap = normalizeAndMapToColor(map)
-                console.log(colorMap)
+                const [colorMap, normalizedValues] = normalizeAndMapToColor(map)
+                    
+                resourceTable.dataTransform.NormalizedValue = (value, rowData) => {
+                    const { ElemId } = rowData
+                    if (!ElemId) return value //if ElemId is not defined, return the original value
+                    console.log(normalizedValues[ElemId])
+                    return Math.round(normalizedValues[ElemId]*1000)/1000
+                }
+
                 for (const [elemId,value] of Object.entries(map)){
                     const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([Number(elemId)]) }
-                    const customHighlighterName = elemId;
-                    highlighter.styles.set(customHighlighterName, {
-                        color: new THREE.Color(colorMap[elemId]),
-                        opacity: 1,
-                        transparent: false,
-                        renderedFaces: 0,
-                    });
-                    highlighter.highlightByID(customHighlighterName,modelIdMap,true,false)
+                    if (btn == 'Color') {
+                        const customHighlighterName = elemId;
+                        highlighter.styles.set(customHighlighterName, {
+                            color: new THREE.Color(colorMap[elemId]),
+                            opacity: 1,
+                            transparent: false,
+                            renderedFaces: 0,
+                        });
+                        highlighter.highlightByID(customHighlighterName,modelIdMap,true,false)
+                        resourceTable.dataTransform.ResourceCost = (value, rowData) => {
+                            const { ElemId } = rowData
+                            if (!ElemId) return value //if ElemId is not defined, return the original value
+                            return BUI.html`
+                            <bim-label style="color:${colorMap[ElemId]};">${value}</bim-label>
+                            `
+                        }
+                    } else if (btn =='Select') {
+                        highlighter.highlightByID("select", modelIdMap, false, false)
+                    }
                 }
             }
+
+            const categoryXResourcePanel = BUI.Component.create<BUI.Panel>(() => {
+                //search text in table to filter in panel
+                const onSearch = (e: Event) => {
+                    const input = e.target as BUI.TextInput
+                    resourceTable.queryString = input.value
+                }
+
+                return BUI.html`
+                    <bim-panel
+                        style="display:'flex', flex-direction:'column', gap:'10px', margin:'10px'">
+                        <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px'})}>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <bim-button @click=${(e:Event) => onExpandTable(e,resourceTable)} label=${resourceTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                                <bim-text-input 
+                                    placeholder="Search..." 
+                                    @input=${onSearch}
+                                >
+                                </bim-text-input>
+                                <bim-button @click=${() => {onClearPanel(panelDown)}} label='Clear Panel' style="max-width:fit-content"></bim-button>
+                            </div>
+                            ${resourceTable ? resourceTable : 'Any resource cost found for this cateogory.'}
+                        </div>
+                    </bim-panel>
+                `
+            })
+            panelDown.appendChild(categoryXResourcePanel)
+
         }
         // #endregion
 
@@ -462,7 +609,7 @@ export function MainViewer () {
             return BUI.html`
             <bim-panel
                 label="Down Panel"
-                style="background-color:rgba(0,0,0,0.85);">
+                style="background-color:rgba(0,0,0,0.85); display:flex">
             </bim-panel>
             `;
         })
@@ -541,7 +688,7 @@ export function MainViewer () {
                     return [trimmed];
                 }
             }
-            //not used in the viewer
+            //not used in the viewer because requires too many time to load properties
             const onSelectAllElements = async () => {
                 const frMap: OBC.ModelIdMap = {}
                 for (const [entry,entryfr] of fragments.list.entries()){
@@ -585,8 +732,10 @@ export function MainViewer () {
         })
 
         //resources dropdown menu
-        const resources: string[] = ['Labor','Equipment','Material']
+        const resources: string[] = ['TotalCost','Labor','Equipment','Material']
+        resources.sort() //sort resources
         const resourcesIcon: {[key:string]:string} = {
+            TotalCost: 'ic:round-monetization-on',
             Labor: 'hugeicons:labor',
             Equipment: 'fa-solid:tools',
             Material: 'game-icons:brick-pile',
@@ -601,7 +750,8 @@ export function MainViewer () {
         //categories dropdown menu
         //capire come aggiungere tutte le categorie
         //const categories = await model.getCategories();
-        const categories = ['IFCWALL','IFCCOLUMN','IFCWINDOW','IFCBUILDINGELEMENTPART']
+        const categories = ['IFCWALL','IFCCOLUMN','IFCWINDOW','IFCBUILDINGELEMENTPART', 'IFCBEAM']
+        categories.sort() //sort categories
         const categoriesDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`<bim-dropdown name="categories" label='Category' icon='material-symbols:category-rounded' multiple>
                 ${categories.map(
@@ -616,8 +766,10 @@ export function MainViewer () {
                     icon = "ic:round-format-color-fill">
                     ${resourcesDropdown}
                     ${categoriesDropdown}
-                    <bim-button label='Color' @click=${onColorByResource}>
-                    </bim-button>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <bim-button label='Color' @click=${onColorByResource}></bim-button>
+                        <bim-button label='Select' @click=${onColorByResource}></bim-button>                        
+                    </div>
                 </bim-panel-section>
             `
         })
@@ -629,6 +781,7 @@ export function MainViewer () {
         panelLeft.appendChild(propertiesPanelSection)
         panelLeft.appendChild(colorResourcesPanelSection)
 
+        //advanced costs functions and components
         const onOpenElementXCostPanel = async () => {
             //clean panel
             panelDown.innerHTML = ''
@@ -690,6 +843,7 @@ export function MainViewer () {
             elementXcostTable.data = []
             elementXcostTable.preserveStructureOnFilter = true
             elementXcostTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
+            elementXcostTable.hiddenColumns = ['ComponentsCostValues']
             // #endregion
 
             //get cost data
@@ -755,7 +909,6 @@ export function MainViewer () {
                             </bim-button>
                             `
                         }
-                        elementXcostTable.hiddenColumns = ['ComponentsCostValues']
 
                     } catch (error) {
                         console.warn(error)
@@ -775,13 +928,14 @@ export function MainViewer () {
                 <bim-panel
                     style="display:'flex', flex-direction:'column', gap:'10px', margin:'10px'">
                     <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px'})}>
-                        <div style="display: flex; gap: 0.5rem;">    
+                        <div style="display: flex; gap: 0.5rem;">
                             <bim-button @click=${(e:Event) => onExpandTable(e,elementXcostTable)} label=${elementXcostTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
                             <bim-text-input 
                                 placeholder="Search..." 
                                 @input=${onSearch}
                             >
                             </bim-text-input>
+                            <bim-button @click=${() => {onClearPanel(panelDown)}} label='Clear Panel' style="max-width:fit-content"></bim-button>
                         </div>
                         ${elementXcostTable}
                     </div>
@@ -793,8 +947,7 @@ export function MainViewer () {
             if (!gridLayout.includes('down')){
                 onSetLayout({target:'down'})
             }
-        }
-        
+        }        
         const onOpenPriceAnalysis = (resourcesCostValues: any, unitCostName:any, unitCostDescription: any, unitCost: any) => {
             //reset panel to update with new values
             panelRight.innerHTML = ''
@@ -1094,7 +1247,6 @@ export function MainViewer () {
     // #region FINAL PART
     React.useEffect(() => {
         setViewer() //set the viewer
-        //setupUI() //setup the UI of the viewer
         return () => {
             if (components) {
                 components.dispose()
