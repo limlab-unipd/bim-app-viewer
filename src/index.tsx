@@ -10,7 +10,7 @@ appRoot.render(
     <>
     <Router.BrowserRouter>
         <Router.Routes>
-            <Router.Route path='/home' element={ <ViewerPage /> } />
+            <Router.Route path='/' element={ <ViewerPage /> } />
         </Router.Routes>
     </Router.BrowserRouter>
     </>
