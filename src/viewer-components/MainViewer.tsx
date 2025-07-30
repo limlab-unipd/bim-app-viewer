@@ -7,7 +7,6 @@ import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
 import Stats, { Panel } from 'stats.js'
-import '../../custom-element.d.ts'
 
 export function MainViewer () {
 
