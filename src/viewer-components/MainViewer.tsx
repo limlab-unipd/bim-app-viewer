@@ -72,8 +72,8 @@ export function MainViewer () {
                 absolute: true,
             },
         });
-        const githubUrl ="./node_modules/@thatopen/fragments/dist/Worker/worker.mjs";
-        const fetchedUrl = await fetch(githubUrl);
+        const workerUrl ="/Worker/worker.mjs";
+        const fetchedUrl = await fetch(workerUrl);
         const workerBlob = await fetchedUrl.blob();
         const workerFile = new File([workerBlob], "worker.mjs", {
             type: "text/javascript",
