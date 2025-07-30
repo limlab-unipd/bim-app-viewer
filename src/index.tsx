@@ -1,6 +1,6 @@
 import * as ReactDOM from 'react-dom/client'
 import * as Router from 'react-router-dom'
-import './custom-element.d.ts'
+import './custom-elements'
 
 import { ViewerPage } from './viewer-components/ViewerPage'
 
