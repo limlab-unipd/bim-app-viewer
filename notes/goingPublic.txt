@@ -1,0 +1,13 @@
+Thanks to this chatgpt chat all the things was followed to make the viewer public with Vercel.
+
+https://chatgpt.com/c/68890f35-689c-832e-b4bb-eb5a2ebb482e
+
+Main changes:
+- packages.json file: from "build": "tsc -b && vite build" to "build": "vite build" --> this resolved the problem of typescript JSX.IntrinsecElements because it won't do the types checks
+- copied the Worker/worker.mjs folder from "node_modules/@thatopen/fragments/dist" to "public"
+    - and so changed the variable in ifcLoader.setup in MainViewer.tsx to const workerUrl ="/Worker/worker.mjs"
+
+Other changes without effects:
+- created the types folder and moved here the custom-elements.d.ts file
+- added the types folder in the include of tsconfig.app.json file
+- added the single custom-elements.d.ts file directly in the tsconfig.app.json

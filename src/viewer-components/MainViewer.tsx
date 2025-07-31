@@ -58,7 +58,7 @@ export function MainViewer () {
             world,
             selectMaterialDefinition: {
                 // you can change this to define the color of your highligthing
-                color: new THREE.Color("#bcf124"),
+                color: new THREE.Color("rgba(36, 241, 234, 1)"),
                 opacity: 1,
                 transparent: false,
                 renderedFaces: 0,
@@ -223,7 +223,6 @@ export function MainViewer () {
             const result = await finderQuery?.test()
             console.log('finder query: ', result)
 
-
             for (const model of modelsIds){ //loop over each single loaded model
                 console.warn(model)
                 const item = model.getItem(700100) //get the item from local id
@@ -291,12 +290,28 @@ export function MainViewer () {
             table.expanded = !table.expanded;
             button.label = table.expanded ? "Collapse" : "Expand";
         }
+        const onLoadTable = (updateFunction:BUI.UpdateFunction<any>) => {
+            updateFunction({ modelIdMap: highlighter.selection.select })
+        }
+        const onSearch = (e: Event, table:BUI.Table<any>) => {
+            const input = e.target as BUI.TextInput;
+            table.queryString = input.value !== "" ? input.value : null
+        }
         const onClearPanel = (panel: BUI.Panel) => {
             panel.innerHTML = ''
             panel.label = 'Void Panel'
         }
 
         //advanced functions
+        const getVolume = async () => {
+            const models = fragments.list.values()
+            for (const model of models) {
+                const selection = await model.getHighlightItemIds()
+                if (!selection) continue
+                const volumes = await model.getItemsVolume(selection)
+                console.log(volumes)
+            }
+        }
         const convertCurrency = (currency:string) => {
             if (currency == 'EUR'){
                 currency = '€'
@@ -383,7 +398,7 @@ export function MainViewer () {
             if (!resource || !category) return //if one of the two is not selected return the function (nothing will be done)
             
             onClearPanel(panelDown) //clear down panel
-            panelDown.label = `${resource} Resource Cost X Elements` //change the title of the panel
+            resource!='TotalCost' ? panelDown.label = `${resource} Resource Cost X Elements` : panelDown.label = 'Elements Total Cost' //change the title of the panel
             const gridLayout = floatingGrid.layout as any //change the grid layout
             if (!gridLayout.includes('down')){
                 onSetLayout({target:'down'})
@@ -391,7 +406,7 @@ export function MainViewer () {
 
             //table type for resource table
             type ResourceTableData = {
-                ElemId?: number, //optional because it is not needed in the first row
+                itemId?: number, //optional because it is not needed in the first row
                 Name: string,
                 ResourceCost: string,
                 NormalizedValue: string,
@@ -412,7 +427,7 @@ export function MainViewer () {
             resourceTable.data = [] //initialize the table and some settings
             resourceTable.preserveStructureOnFilter = true
             resourceTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
-            resourceTable.hiddenColumns = ['ElemId']
+            resourceTable.hiddenColumns = ['itemId']
 
             //step 1: find all cost items ids related to all object of the selected category
             finder.create('COSTITEM_REL_CAT', [
@@ -438,172 +453,252 @@ export function MainViewer () {
             }
 
             //step 2: get data of found cost items
-            const filteredCostItems = await fragments.getData(costitem_rel_cat_result, {attributesDefault:true,relationsDefault:{attributes:true,relations:true}})
-
-            //initialize some maps needed for the process
-            const model_resources_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
-            const category_elements_map: {[key:string]:any} = {} //map to associate to each category the related elements
-            const elem_resourcesDetails_Map: {[key:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string}[]} = {} //resource details object
-
-            for (const [model,costItems] of Object.entries(filteredCostItems)){ //loop over each model
-                let resourceCurrency = 'nd' //default value, here because is supposed that is used always the same currency in the same project
-                const elem_resources_Map: {[key:number]:number} = {} //map to associate to each element id the related sum of ALL costs of the choosen resource category
-                for (const ci of costItems) { //loop over each filtered cost item (cost items are not ordered)
-                    // --> pay attention: multiple cost items could be related to the same object and moreover each cost item could have more than one unit cost of the same category
-                    // example: one column with 5 cost items related and each cost item has 1,2,3 or more unit costs of the same category
-                    const elemId = (((ci['Controls'] as any)[0] as FRAGS.ItemData)['_localId'] as FRAGS.ItemAttribute).value as number //localId of filtered elements
-                    const elemName = (ci['Controls'] as any)[0]['Name'].value //name of the element
-                    const elemCategory = (ci['Controls'] as any)[0]['_category'].value //category of the element
-                    const elemQuantity = (ci['CostValues'] as any)[0]['UnitBasis'][0]['ValueComponent'].value //quantity of the element used to calculate its cost
-                    const elemQuantityUnitMeasure = convertUnits((ci['CostValues'] as any)[0]['UnitBasis'][0]['UnitComponent'][0]['Name'].value) //quantity of the element used to calculate its cost
-                    const priceAnalysisComponents = (ci['CostValues'] as any )[0]['Components'][0]['Components'] //components per each unit cost
-                    
-                    elem_resourcesDetails_Map[elemId] = elem_resourcesDetails_Map[elemId] || [] //initialize the array if it does not exist
-                    
-                    const resourceValuesArray: any[] = [] //array is needed if there are more then one components with the same resource category within the same unitary cost item
-                    for (const pac of priceAnalysisComponents){ //loop over each component of single cost item --> so to keep together the more unit costs related to the same resource category
-                        if (!pac['Category']) continue //checks if the component has a category
-                        if (pac['Category'].value == resource){ //checks the correspondance between components resource category and the one selected
-                            const resourceDescription = pac['Description'].value //description of the resource
-                            const resourceUnitCost = pac['AppliedValue'][0]['ValueComponent'].value //unit cost of the resource
-                            resourceCurrency = convertCurrency(pac['AppliedValue'][0]['UnitComponent'][0]['Currency'].value) //currency of the resource unit cost
-                            resourceValuesArray.push(resourceUnitCost*elemQuantity) //multiply the single resource with the quantity to obtain the element specific resource cost
-                            elem_resourcesDetails_Map[elemId].push({ //save in the object the details of the single resource
-                                resourceUnitCost: `${resourceUnitCost} ${resourceCurrency}`,
-                                elemQuantity: `${Math.round(elemQuantity*100)/100} ${elemQuantityUnitMeasure}`, //round the quantity to 2 decimal places
-                                resourceDescription: resourceDescription,
-                            })
-                        }
+            const filteredCostItems = await fragments.getData(costitem_rel_cat_result, {
+                attributesDefault: false,
+                attributes: ['ObjectType'],
+                relations: {
+                    'Controls': {attributes:true,relations:false},
+                    'CostValues': {attributes:true,relations:false}
                     }
-                    if (resourceValuesArray.length !== 0){ //checks if the array is not empty (empty = no resources found)
-                        //case 1a: more than one resource of the choosen category within the same unit cost item: sums all of the values
-                        const resourceCost = resourceValuesArray.length>1 ? resourceValuesArray.reduce((s,v)=>s+v,0) : resourceValuesArray[0]
-                        //case 1b: more than one cost item related to the same element: sums all the resources values across them
-                        elem_resources_Map[elemId] ? elem_resources_Map[elemId] += resourceCost : elem_resources_Map[elemId] = resourceCost
-                    }
-                    //it does not have any sense to add here object to organize elements because until the end of costitems loops could always be new cost items related to the same element
-                }
-                //step 3: organize elements by category in a new object
-                // this map is needed only for creating the table
-                for (const [elemId,resourceCost] of Object.entries(elem_resources_Map)){ //loop over each element id and its total resource cost
-                    const item = await fragments.list.get(model)?.getItemsData([Number(elemId)])
-                    if (!item) continue //checks if the item exists
-                    const elemData = {
-                        elemId: Number(elemId),
-                        elemName: (item as any)[0]['Name'].value,
-                        totalResourceCost: resourceCost,
-                        currency: resourceCurrency,
-                    }
-                    category_elements_map[(item as any)[0]['_category'].value] ? category_elements_map[(item as any)[0]['_category'].value].push(elemData) : category_elements_map[(item as any)[0]['_category'].value] = [elemData]
-                }
-                //step 4: associate to each model the map of element id and total resource cost
-                //category map is not needed here, because this one is used for selecting and color elements
-                model_resources_Map[model] = elem_resources_Map
-            }
+                })
+            console.log('filtered cost items: ', filteredCostItems)
 
-            //step 5: create the table as:
-            // category
-            //    |--- elements
-            //            |--- resources
-            //initialize also NormalizedValue column which will be populated after
-            for (const [cat,elements] of Object.entries(category_elements_map)) {
-                const tempChildren = []
-                for (const elem of elements) {
-                    const tempResourceDetailsChildren = []
-                    for (const resourceDetails of elem_resourcesDetails_Map[elem.elemId]){
-                        tempResourceDetailsChildren.push({
-                            data: {
-                                Name: resourceDetails.resourceDescription,
-                                ResourceUnitCost: resourceDetails.resourceUnitCost,
-                                ElementQuantity: resourceDetails.elemQuantity,
+            if (resource != 'TotalCost'){
+                //initialize some maps needed for the process
+                const model_resources_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
+                const category_elements_map: {[key:string]:any} = {} //map to associate to each category the related elements
+                const elem_resourcesDetails_Map: {[key:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string}[]} = {} //resource details object
+    
+                for (const [model,costItems] of Object.entries(filteredCostItems)){ //loop over each model
+                    let resourceCurrency = 'nd' //default value, here because is supposed that is used always the same currency in the same project
+                    const elem_resources_Map: {[key:number]:number} = {} //map to associate to each element id the related sum of ALL costs of the choosen resource category
+                    for (const ci of costItems) { //loop over each filtered cost item (cost items are not ordered)
+                        // --> pay attention: multiple cost items could be related to the same object and moreover each cost item could have more than one unit cost of the same category
+                        // example: one column with 5 cost items related and each cost item has 1,2,3 or more unit costs of the same category
+                        const elemId = (((ci['Controls'] as any)[0] as FRAGS.ItemData)['_localId'] as FRAGS.ItemAttribute).value as number //localId of filtered elements
+                        //const elemName = (ci['Controls'] as any)[0]['Name'].value //name of the element
+                        //const elemCategory = (ci['Controls'] as any)[0]['_category'].value //category of the element
+                        
+                        //get cost values
+                        const cvId = (ci['CostValues'] as any)[0]._localId.value ? (ci['CostValues'] as any)[0]._localId.value : 'nd'
+                        const costValue_Record = await fragments.getData({[model]:new Set<number>([cvId])},{
+                            attributesDefault: true,
+                            relationsDefault: {
+                                attributes: true,
+                                relations: true //here is the only point where could be accepted because there are only few relations to load and they are in a closed loop
                             }
                         })
+                        const costValue = costValue_Record[model][0] as any
+
+                        const elemQuantity = costValue['UnitBasis'][0]['ValueComponent'].value //quantity of the element used to calculate its cost
+                        const elemQuantityUnitMeasure = convertUnits(costValue['UnitBasis'][0]['UnitComponent'][0]['Name'].value) //quantity of the element used to calculate its cost
+                        const priceAnalysisComponents = costValue['Components'][0]['Components'] //components per each unit cost
+                        
+                        elem_resourcesDetails_Map[elemId] = elem_resourcesDetails_Map[elemId] || [] //initialize the array if it does not exist
+                        
+                        const resourceValuesArray: any[] = [] //array is needed if there are more then one components with the same resource category within the same unitary cost item
+                        for (const pac of priceAnalysisComponents){ //loop over each component of single cost item --> so to keep together the more unit costs related to the same resource category
+                            if (!pac['Category']) continue //checks if the component has a category
+                            if (pac['Category'].value == resource){ //checks the correspondance between components resource category and the one selected
+                                const resourceDescription = pac['Description'].value //description of the resource
+                                const resourceUnitCost = pac['AppliedValue'][0]['ValueComponent'].value //unit cost of the resource
+                                resourceCurrency = convertCurrency(pac['AppliedValue'][0]['UnitComponent'][0]['Currency'].value) //currency of the resource unit cost
+                                resourceValuesArray.push(resourceUnitCost*elemQuantity) //multiply the single resource with the quantity to obtain the element specific resource cost
+                                elem_resourcesDetails_Map[elemId].push({ //save in the object the details of the single resource
+                                    resourceUnitCost: `${resourceUnitCost} ${resourceCurrency}`,
+                                    elemQuantity: `${Math.round(elemQuantity*100)/100} ${elemQuantityUnitMeasure}`, //round the quantity to 2 decimal places
+                                    resourceDescription: resourceDescription,
+                                })
+                            }
+                        }
+                        if (resourceValuesArray.length !== 0){ //checks if the array is not empty (empty = no resources found)
+                            //case 1a: more than one resource of the choosen category within the same unit cost item: sums all of the values
+                            const resourceCost = resourceValuesArray.length>1 ? resourceValuesArray.reduce((s,v)=>s+v,0) : resourceValuesArray[0]
+                            //case 1b: more than one cost item related to the same element: sums all the resources values across them
+                            elem_resources_Map[elemId] ? elem_resources_Map[elemId] += resourceCost : elem_resources_Map[elemId] = resourceCost
+                        }
+                        //it does not have any sense to add here object to organize elements because until the end of costitems loops could always be new cost items related to the same element
                     }
-                    const row: BUI.TableGroupData<ResourceTableData> = {
+                    //step 3: organize elements by category in a new object
+                    // this map is needed only for creating the table
+                    for (const [elemId,resourceCost] of Object.entries(elem_resources_Map)){ //loop over each element id and its total resource cost
+                        const item = await fragments.list.get(model)?.getItemsData([Number(elemId)])
+                        if (!item) continue //checks if the item exists
+                        const elemData = {
+                            elemId: Number(elemId),
+                            elemName: (item as any)[0]['Name'].value,
+                            totalResourceCost: resourceCost,
+                            currency: resourceCurrency,
+                        }
+                        category_elements_map[(item as any)[0]['_category'].value] ? category_elements_map[(item as any)[0]['_category'].value].push(elemData) : category_elements_map[(item as any)[0]['_category'].value] = [elemData]
+                    }
+                    //step 4: associate to each model the map of element id and total resource cost
+                    //category map is not needed here, because this one is used for selecting and color elements
+                    model_resources_Map[model] = elem_resources_Map
+                }
+    
+                //step 5: create the table as:
+                // category
+                //    |--- elements
+                //            |--- resources
+                //initialize also NormalizedValue column which will be populated after
+                for (const [cat,elements] of Object.entries(category_elements_map)) {
+                    const tempChildren = []
+                    let totalCategoryCost = 0
+                    let totalCategoryCurrency = 'nd'
+                    for (const elem of elements) {
+                        const tempResourceDetailsChildren = []
+                        for (const resourceDetails of elem_resourcesDetails_Map[elem.elemId]){
+                            tempResourceDetailsChildren.push({
+                                data: {
+                                    Name: resourceDetails.resourceDescription,
+                                    ResourceUnitCost: resourceDetails.resourceUnitCost,
+                                    ElementQuantity: resourceDetails.elemQuantity,
+                                }
+                            })
+                        }
+                        const row: BUI.TableGroupData<ResourceTableData> = {
+                            data: {
+                                itemId: elem.elemId,
+                                Name: elem.elemName,
+                                ResourceCost: `${Math.round(elem.totalResourceCost*100)/100} ${elem.currency}`,
+                                NormalizedValue: '',
+                            },
+                            children: tempResourceDetailsChildren
+                        }
+                        tempChildren.push(row)
+                        totalCategoryCost += elem.totalResourceCost
+                        totalCategoryCurrency = elem.currency
+                    }
+                    resourceTable.data.push({
                         data: {
-                            ElemId: elem.elemId,
-                            Name: elem.elemName,
-                            ResourceCost: `${Math.round(elem.totalResourceCost*100)/100} ${elem.currency}`,
-                            NormalizedValue: '',
+                            Name: cat,
+                            ResourceCost: `${Math.round(totalCategoryCost*100)/100} ${totalCategoryCurrency}`,
                         },
-                        children: tempResourceDetailsChildren
+                        children: tempChildren
+                    })
+                }
+    
+                //step 6: highlight or color element
+                await highlighter.clear() //reset previous selections of highlighter
+                for (const [model,map] of Object.entries(model_resources_Map)){ //loop over each model, map=[element id : total resource cost]
+                    //step 6.1: normalize total resource cost to color
+                    const [colorMap, normalizedValues] = normalizeAndMapToColor(map) //use this function to normalize values between 0 and 1 and return color and normalized value
+    
+                    //step 6.2: add the normalized value to the table, pay attention: it is only a render value, it will not be saved in the table
+                    resourceTable.dataTransform.NormalizedValue = (value, rowData) => {
+                        const { itemId } = rowData
+                        if (!itemId) return value //if itemId is not defined, return the original value
+                        return Math.round(normalizedValues[itemId]*1000)/1000
                     }
-                    tempChildren.push(row)
+    
+                    //step 6.3: color or select elements
+                    for (const [elemId,value] of Object.entries(map)){ //getting elem ids from the map to highlight them
+                        const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([Number(elemId)]) } //create the model id map
+                        if (btn == 'Color') { //if color button is clicked
+                            const customHighlighterName = elemId //create a new selection with only related elements to associate a different color to each one
+                            highlighter.styles.set(customHighlighterName, {
+                                color: new THREE.Color(colorMap[elemId]),
+                                opacity: 1,
+                                transparent: false,
+                                renderedFaces: 0,
+                            });
+                            highlighter.highlightByID(customHighlighterName,modelIdMap,true,false) //color elements using highlighter
+                            resourceTable.dataTransform.ResourceCost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+                                const { itemId } = rowData
+                                if (!itemId) return value //if itemId is not defined, return the original value
+                                return BUI.html`
+                                <bim-label style="color:${colorMap[itemId]};">${value}</bim-label>
+                                `
+                            }
+                        } else if (btn =='Select') { //if select button is clicked
+                            highlighter.highlightByID("select", modelIdMap, false, false) //only select elements removing colors
+                        }
+                    }
                 }
-                resourceTable.data.push({
-                    data: {
-                        Name: cat,
-                    },
-                    children: tempChildren
+    
+                //step 7: create the panel component to show the table
+                const categoryXResourcePanel = BUI.Component.create<BUI.Panel>(() => {
+                    //return the UI of the component
+                    return BUI.html`
+                        <bim-panel
+                            style="display:flex; flex-direction:column; gap:10px; margin:10px; background-color:transparent">
+                            <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px'})}>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <bim-button @click=${(e:Event) => onExpandTable(e,resourceTable)} label=${resourceTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                                    <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,resourceTable)}}></bim-text-input>
+                                    <bim-button @click=${() => {onClearPanel(panelDown)}} label='Clear Panel' style="max-width:fit-content"></bim-button>
+                                </div>
+                                ${resourceTable ? resourceTable : 'Any resource cost found for this cateogory.'}
+                            </div>
+                        </bim-panel>
+                    `
                 })
-            }
+                //step 8: append the component to the down panel
+                panelDown.appendChild(categoryXResourcePanel)
 
-            //step 6: highlight or color element
-            await highlighter.clear() //reset previous selections of highlighter
-            for (const [model,map] of Object.entries(model_resources_Map)){ //loop over each model, map=[element id : total resource cost]
-                //step 6.1: normalize total resource cost to color
-                const [colorMap, normalizedValues] = normalizeAndMapToColor(map) //use this function to normalize values between 0 and 1 and return color and normalized value
+            } else if (resource == 'TotalCost'){
+                await highlighter.clear() //reset previous selections of highlighter
+                for (const [model,costItems] of Object.entries(filteredCostItems)){
+                    const category_item_totalCost_map: {[key:string]:{[key:number]:number}} = {}
+                    for (const ci of costItems){
+                        const itemId = (((ci.Controls as any)[0] as FRAGS.ItemData)._localId as FRAGS.ItemAttribute).value as number //localId of filtered elements
+                        const itemCategory = (((ci.Controls as any)[0] as FRAGS.ItemData)._category as FRAGS.ItemAttribute).value as string //localId of filtered elements
+                        const costItemObjectType = (ci['ObjectType'] as FRAGS.ItemAttribute).value as string
 
-                //step 6.2: add the normalized value to the table, pay attention: it is only a render value, it will not be saved in the table
-                resourceTable.dataTransform.NormalizedValue = (value, rowData) => {
-                    const { ElemId } = rowData
-                    if (!ElemId) return value //if ElemId is not defined, return the original value
-                    return Math.round(normalizedValues[ElemId]*1000)/1000
-                }
+                        //get cost values to get cost item cost
+                        const cvId = (ci['CostValues'] as any)[0]._localId.value ? (ci['CostValues'] as any)[0]._localId.value : 'nd'
+                        const costValue_Record = await fragments.getData({[model]:new Set<number>([cvId])},{
+                            attributesDefault: true,
+                            relationsDefault: {
+                                attributes: true,
+                                relations: true //here is the only point where could be accepted because there are only few relations to load and they are in a closed loop
+                            }
+                        })
+                        const costValue = costValue_Record[model][0] as any
+                        
+                        const costItemCost = ((costValue.AppliedValue as any)[0].ValueComponent as FRAGS.ItemAttribute).value
+                        
+                        if (costItemObjectType != 'Cost assignment') continue //ATTENTION!!! this value is USERDEFINED so it could be different in projects
+                        category_item_totalCost_map[itemCategory] ? category_item_totalCost_map[itemCategory]=category_item_totalCost_map[itemCategory] : category_item_totalCost_map[itemCategory] = {}
+                        category_item_totalCost_map[itemCategory][itemId] ? category_item_totalCost_map[itemCategory][itemId]+=costItemCost : category_item_totalCost_map[itemCategory][itemId]=costItemCost
+                    }
+                    
+                    const item_totalCost_map: {[key:number]:number} = Object.assign({}, ...Object.values( category_item_totalCost_map ))
 
-                //step 6.3: color or select elements
-                for (const [elemId,value] of Object.entries(map)){ //getting elem ids from the map to highlight them
-                    const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([Number(elemId)]) } //create the model id map
-                    if (btn == 'Color') { //if color button is clicked
-                        const customHighlighterName = elemId //create a new selection with only related elements to associate a different color to each one
-                        highlighter.styles.set(customHighlighterName, {
-                            color: new THREE.Color(colorMap[elemId]),
-                            opacity: 1,
-                            transparent: false,
-                            renderedFaces: 0,
-                        });
-                        highlighter.highlightByID(customHighlighterName,modelIdMap,true,false) //color elements using highlighter
-                        resourceTable.dataTransform.ResourceCost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-                            const { ElemId } = rowData
-                            if (!ElemId) return value //if ElemId is not defined, return the original value
+                    const [colorMap,normalizedValue] = normalizeAndMapToColor(item_totalCost_map)
+
+                    const allSelectedItemsModelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([]) } //create the model id map
+                    for (const [itemId,totalCost] of Object.entries(item_totalCost_map)) {
+                        const singleItemModelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([Number(itemId)]) } //create the model id map
+                        allSelectedItemsModelIdMap[model].add(Number(itemId))
+                        if (btn == 'Color') { //if color button is clicked
+                            const customHighlighterName = `${itemId}` //create a new selection with only related elements to associate a different color to each one
+                            highlighter.styles.set(customHighlighterName, {
+                                color: new THREE.Color(colorMap[itemId]),
+                                opacity: 1,
+                                transparent: false,
+                                renderedFaces: 0,
+                            });
+                            highlighter.highlightByID(customHighlighterName,singleItemModelIdMap,true,false) //color elements using highlighter
+                        }
+                    }
+                    await onOpenElementXCostPanel(allSelectedItemsModelIdMap)
+                    if (btn=='Color'){
+                        highlighter.highlightByID("select", {}, true, false)
+                        const elementXCostTable = document.getElementById('elementXCostTable') as BUI.Table
+                        elementXCostTable.dataTransform.Cost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+                            const { ItemId } = rowData
+                            if (!ItemId) return value //if ItemId is not defined, return the original value
                             return BUI.html`
-                            <bim-label style="color:${colorMap[ElemId]};">${value}</bim-label>
+                                <bim-label style="color:${colorMap[ItemId as number]};">${value}</bim-label>
                             `
                         }
                     } else if (btn =='Select') { //if select button is clicked
-                        highlighter.highlightByID("select", modelIdMap, false, false) //only select elements removing colors
+                        highlighter.highlightByID("select", allSelectedItemsModelIdMap, true, false) //only select elements removing colors
                     }
                 }
             }
-
-            //step 7: create the panel component to show the table
-            const categoryXResourcePanel = BUI.Component.create<BUI.Panel>(() => {
-                //search text in table to filter in panel
-                const onSearch = (e: Event) => {
-                    const input = e.target as BUI.TextInput
-                    resourceTable.queryString = input.value
-                }
-                //return the UI of the component
-                return BUI.html`
-                    <bim-panel
-                        style="display:'flex', flex-direction:'column', gap:'10px', margin:'10px'">
-                        <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px'})}>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <bim-button @click=${(e:Event) => onExpandTable(e,resourceTable)} label=${resourceTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
-                                <bim-text-input 
-                                    placeholder="Search..." 
-                                    @input=${onSearch}
-                                >
-                                </bim-text-input>
-                                <bim-button @click=${() => {onClearPanel(panelDown)}} label='Clear Panel' style="max-width:fit-content"></bim-button>
-                            </div>
-                            ${resourceTable ? resourceTable : 'Any resource cost found for this cateogory.'}
-                        </div>
-                    </bim-panel>
-                `
-            })
-            //step 8: append the component to the down panel
-            panelDown.appendChild(categoryXResourcePanel)
         }
         // #endregion
 
@@ -651,19 +746,20 @@ export function MainViewer () {
             `
         })
         const spatialTreePanelSection = BUI.Component.create<BUI.PanelSection>(() => {
-            const [spatialTree] = BUIC.tables.spatialTree({
+            /*const [spatialTree] = BUIC.tables.spatialTree({
                 components,
                 models: []
             });
             spatialTree.preserveStructureOnFilter = true
-            const onSearch = (e: Event) => {
-                const input = e.target as BUI.TextInput;
-                spatialTree.queryString = input.value;
-            };
             return BUI.html`
                 <bim-panel-section label='Spatial Structure' icon="ri:node-tree">
-                    <bim-text-input @input=${onSearch} placeholder="Search..." debounce="200"></bim-text-input>
+                    <bim-text-input @input=${(e:Event)=>{onSearch(e,spatialTree)}} placeholder="Search..." debounce="200"></bim-text-input>
                     ${spatialTree}
+                </bim-panel-section>
+            `*/
+            return BUI.html`
+                <bim-panel-section label='Spatial Structure' icon="ri:node-tree" collapsed>
+                    <bim-label>Disabled ...</bim-label>
                 </bim-panel-section>
             `
         })
@@ -675,20 +771,22 @@ export function MainViewer () {
             propertiesTable.preserveStructureOnFilter = true;
             propertiesTable.indentationInText = false;
             highlighter.events.select.onHighlight.add((modelIdMap) => {
-                updatePropertiesTable({ modelIdMap });
+                if (Object.values(modelIdMap).reduce((sum, currentSet) => sum + currentSet.size, 0) < 6){
+                    updatePropertiesTable({ modelIdMap })
+                } else {
+                    updatePropertiesTable({ modelIdMap: {} })
+                }
             });
             highlighter.events.select.onClear.add(() =>
-                updatePropertiesTable({ modelIdMap: {} }),
+                updatePropertiesTable({ modelIdMap: {} })
             );
-            const onSearch = (e: Event) => {
-                const input = e.target as BUI.TextInput;
-                propertiesTable.queryString = input.value !== "" ? input.value : null
-            };
             return BUI.html`
                 <bim-panel-section label='Properties' icon="hugeicons:property-new">
+                    <bim-label>Click the Load button to show properties of more than 5 items.</bim-label>
                     <div style="display: flex; gap: 0.5rem;">
+                        <bim-button @click=${() => onLoadTable(updatePropertiesTable)} label="Load" style="max-width:fit-content"></bim-button>
                         <bim-button @click=${(e:Event) => onExpandTable(e,propertiesTable)} label=${propertiesTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
-                        <bim-text-input @input=${onSearch} placeholder="Search..." debounce="200"></bim-text-input>
+                        <bim-text-input @input=${(e:Event)=>{onSearch(e,propertiesTable)}} placeholder="Search..." debounce="200"></bim-text-input>
                     </div>
                     ${propertiesTable}
                 </bim-panel-section>
@@ -762,19 +860,19 @@ export function MainViewer () {
         const resourcesDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`<bim-dropdown name="resources" label='Resource' icon='clarity:resource-pool-outline-alerted'>
                 ${resources.map(
-                (resource) => BUI.html`<bim-option label=${resource} style="padding:0 10px 0 10px" icon=${resourcesIcon[resource]}></bim-option>`
+                    (x) => BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px" icon=${resourcesIcon[x]}></bim-option>`
                 )}
             </bim-dropdown>`,
         );
         //categories dropdown menu
         //capire come aggiungere tutte le categorie
         //const categories = await model.getCategories();
-        const categories = ['IFCWALL','IFCCOLUMN','IFCWINDOW','IFCBUILDINGELEMENTPART', 'IFCBEAM']
+        const categories = ['IFCWALL','IFCCOLUMN','IFCWINDOW','IFCBUILDINGELEMENTPART', 'IFCBEAM', 'IFCWALLSTANDARDCASE']
         categories.sort() //sort categories
         const categoriesDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`<bim-dropdown name="categories" label='Category' icon='material-symbols:category-rounded' multiple>
                 ${categories.map(
-                (category) => BUI.html`<bim-option label=${category} style="padding:0 10px 0 10px"></bim-option>`,
+                    (x) => BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px"></bim-option>`,
                 )}
             </bim-dropdown>`,
         );
@@ -801,19 +899,29 @@ export function MainViewer () {
         panelLeft.appendChild(colorResourcesPanelSection)
 
         //advanced costs functions and components
-        const onOpenElementXCostPanel = async () => {
+        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined) => {
             //clean panel
             panelDown.innerHTML = ''
             panelDown.label = 'Element X Costs Panel'
 
             //get selected elements
-            const selection = highlighter.selection.select ? highlighter.selection.select : await getAllItems() //selection = selected items or all items
+            //const selection = highlighter.selection.select ? highlighter.selection.select : await getAllItems() //selection = selected items or all items
+            let selection: OBC.ModelIdMap = {}
+            if (modelIdMap != undefined){
+                selection = modelIdMap
+            } else {
+                selection = highlighter.selection.select
+            }
             const selectionData = await fragments.getData(selection, {
                         attributesDefault: true,
-                        relationsDefault: {
-                            attributes: true,
-                            relations: true
-                        }
+                        relations: {
+                            'HasAssignments': {
+                                attributes: true,
+                                relations: false //ATTENTION: in large models the requesto for relations here could stop the viewer completely !!!
+                                //--> these relations allow to read complex attributes of cost items, i.e. cost values.
+                                // without these it is not possible to do anything, so it is necessary to take the cost item ID and re-derive the object
+                                // with getData from fragments or getItemsData from model (= fragments.list.values())
+                        }}
                     })
             console.log('selection data: \n', selectionData)
 
@@ -827,6 +935,7 @@ export function MainViewer () {
                 Quantity: string,
             }
             type elementXcostTableData = {
+                ItemId?: number,
                 Name: string,
                 Description: string,
                 Cost: string,
@@ -849,6 +958,7 @@ export function MainViewer () {
             costXelementTable.preserveStructureOnFilter = true
 
             const elementXcostTable = document.createElement("bim-table") as BUI.Table<elementXcostTableData>
+            elementXcostTable.id = 'elementXCostTable'
             elementXcostTable.data = [{
                 data: {
                     Name: '',
@@ -862,16 +972,17 @@ export function MainViewer () {
             elementXcostTable.data = []
             elementXcostTable.preserveStructureOnFilter = true
             elementXcostTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
-            elementXcostTable.hiddenColumns = ['ComponentsCostValues']
+            elementXcostTable.hiddenColumns = ['ComponentsCostValues','ItemId']
             // #endregion
 
             //get cost data
-            let itemName, itemIfcClass, costItemName, costItemDescription, costItemObjectType, costItemTotalCost, costItemUnitBasis, costItemUnitCost //initialize variables
+            let itemId, itemName, itemIfcClass, costItemName, costItemId, costItemDescription, costItemObjectType, costItemTotalCost, costItemUnitBasis, costItemUnitCost //initialize variables
             for (const [model,selectedItems] of Object.entries(selectionData)) { //loop over models of selected items
                 for (const item of selectedItems) { //loop over selected items
                     try { //needed to skip potential errors and do not interrupt the loop over items
                         if (!item['HasAssignments']) continue //checks if item has assignments --> it could have also different assignments
                         //item identity data
+                        itemId = (item['_localId'] as FRAGS.ItemAttribute).value ? (item['_localId'] as FRAGS.ItemAttribute).value : 'nd'
                         itemName = (item['Name'] as FRAGS.ItemAttribute).value ? (item['Name'] as FRAGS.ItemAttribute).value : 'nd'
                         itemIfcClass = (item['_category'] as FRAGS.ItemAttribute).value ? (item['_category'] as FRAGS.ItemAttribute).value : 'nd'
                         let itemTotalCost: number = 0
@@ -886,7 +997,32 @@ export function MainViewer () {
                             costItemName = row.data.Name = costItem['Name'].value ? costItem['Name'].value : 'nd'
                             costItemDescription = row.data.Description = costItem['Description'].value ? costItem['Description'].value : 'nd'
                             costItemObjectType = costItem['ObjectType'].value ? costItem['ObjectType'].value : 'nd'
-                            for (const [b,costValue] of Object.entries(costItem['CostValues']) as any){ //technically it will be always one when inspecting cost item as total cost
+
+                            //here I have to do what I said before: get the single cost item without relations, otherwise it will get relations also of related elements such as walls ecc
+                            costItemId = costItem['_localId'].value ? costItem['_localId'].value : 'nd'
+                            const costItemFull_Record = await fragments.getData({[model]:new Set<number>([costItemId])},{
+                                attributesDefault: true,
+                                relations: {
+                                    'CostValues': {
+                                        attributes: true,
+                                        relations: false //in this way the problem is that it will not read also the complex attributes, such as cost values, so I need to get them below
+                                }}
+                            })
+                            const costItemFull = costItemFull_Record[model][0]
+
+                            for (const [b,cv] of Object.entries(costItemFull['CostValues']) as any){ //technically it will be always one when inspecting cost item as total cost
+                                
+                                //again: the same thing of before but for cost values of cost item
+                                const cvId = cv['_localId'].value ? cv['_localId'].value : 'nd'
+                                const costValue_Record = await fragments.getData({[model]:new Set<number>([cvId])},{
+                                    attributesDefault: true,
+                                    relationsDefault: {
+                                        attributes: true,
+                                        relations: true //here is the only point where could be accepted because there are only few relations to load and they are in a closed loop
+                                    }
+                                })
+                                const costValue = costValue_Record[model][0] as any
+
                                 //total cost of item
                                 const costValueAppliedValue = costValue['AppliedValue'][0]['ValueComponent'].value ? costValue['AppliedValue'][0]['ValueComponent'].value : 'nd'
                                 const costValueUnitComponent = costValue['AppliedValue'][0]['UnitComponent'][0]['Currency'].value ? costValue['AppliedValue'][0]['UnitComponent'][0]['Currency'].value : 'nd'
@@ -913,6 +1049,7 @@ export function MainViewer () {
                         
                         elementXcostTable.data.push({
                             data: {
+                                ItemId: itemId,
                                 Name: `[${itemIfcClass}] ${itemName}`,
                                 Cost: `${Math.round(itemTotalCost*100)/100} ${itemTotalCurrency}`
                             },
@@ -937,23 +1074,13 @@ export function MainViewer () {
             }
 
             const elementXCostPanel = BUI.Component.create<BUI.Panel>(() => {
-                //search text in table to filter in panel
-                const onSearch = (e: Event) => {
-                    const input = e.target as BUI.TextInput
-                    elementXcostTable.queryString = input.value
-                }
-
                 return BUI.html`
                 <bim-panel
-                    style="display:'flex', flex-direction:'column', gap:'10px', margin:'10px'">
+                    style="display:flex; flex-direction:column; gap:10px; margin:10px; background-color:transparent">
                     <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px'})}>
                         <div style="display: flex; gap: 0.5rem;">
                             <bim-button @click=${(e:Event) => onExpandTable(e,elementXcostTable)} label=${elementXcostTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
-                            <bim-text-input 
-                                placeholder="Search..." 
-                                @input=${onSearch}
-                            >
-                            </bim-text-input>
+                            <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,elementXcostTable)}}></bim-text-input>
                             <bim-button @click=${() => {onClearPanel(panelDown)}} label='Clear Panel' style="max-width:fit-content"></bim-button>
                         </div>
                         ${elementXcostTable}
@@ -1123,9 +1250,17 @@ export function MainViewer () {
                         @click=${() => {console.log('TO DO ...')}}
                     ></bim-button>
                     <bim-button
+                        id='elementXCostButton'
                         tooltip-title="Open cost assignment panel of selected elements - organized by cost item"
                         icon="tabler:filter-2-dollar"
-                        @click=${onOpenElementXCostPanel}
+                        @click=${()=>{onOpenElementXCostPanel()}}
+                    ></bim-button>
+                </bim-toolbar-section>
+                <bim-toolbar-section label="TEST">
+                    <bim-button
+                        label='test'
+                        tooltip-title="Test"
+                        @click=${getVolume}
                     ></bim-button>
                 </bim-toolbar-section>
             </bim-toolbar>
