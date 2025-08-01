@@ -1658,7 +1658,7 @@ export function MainViewer () {
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer(true) //set the viewer
+        setViewer() //set the viewer
         return () => {
             if (components) {
                 components.dispose()
