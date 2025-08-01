@@ -813,7 +813,7 @@ export function MainViewer () {
                                 <bim-label>${Math.round(normCost*100)/100} ${Currency} (${Math.round(normValue*100)/100})</bim-label>
                             `
                         }
-                        elementXCostTable.hiddenColumns = ['ComponentsCostValues','ItemId', 'Currency']
+                        elementXCostTable.hiddenColumns = ['ComponentsCostValues','ItemId', 'Currency', 'IfcClass']
                     }
                 } else if (btn == 'Select') { //if select button is clicked
                     highlighter.highlightByID("select", allSelectedItemsModelIdMap, false, false) //only select elements removing colors
@@ -1035,7 +1035,7 @@ export function MainViewer () {
         //categories dropdown menu
         //capire come aggiungere tutte le categorie
         //const categories = await model.getCategories();
-        const categories = ['IFCWALL','IFCCOLUMN','IFCWINDOW','IFCBUILDINGELEMENTPART', 'IFCBEAM', 'IFCWALLSTANDARDCASE', 'IFCROOF']
+        const categories = ['IFCWALL','IFCCOLUMN','IFCWINDOW','IFCBUILDINGELEMENTPART', 'IFCBEAM', 'IFCWALLSTANDARDCASE', 'IFCROOF', 'IFCFLOOR', 'IFCRAILING', 'IFCDOOR', 'IFCSITE', 'IFCPROJECT', 'IFCSLAB', 'IFCCEILING', 'IFCFURNITURE', 'IFCBUILDINGELEMENTPROXY']
         interface categoriesUI {
             listCategories: string[]
         }
@@ -1309,7 +1309,7 @@ export function MainViewer () {
                 groupedTableData.push({
                     data: {
                         Name: ifcClass,
-                        Cost: `${totalCost} ${totalCurrency}`,
+                        Cost: `${Math.round(totalCost*100)/100} ${totalCurrency}`,
                         IfcClass: ifcClass,
                     },
                     children: rows
@@ -1658,7 +1658,7 @@ export function MainViewer () {
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer() //set the viewer
+        setViewer(true) //set the viewer
         return () => {
             if (components) {
                 components.dispose()
