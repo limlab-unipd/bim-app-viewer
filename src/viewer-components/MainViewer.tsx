@@ -1594,6 +1594,13 @@ export function MainViewer () {
             <bim-toolbar style="justify-self: center">
                 <bim-toolbar-section label="IFC">
                     <bim-button
+                        icon="material-symbols:sound-sampler-rounded"
+                        tooltip-title="Load sample IFC model"
+                        @click=${() => {
+                            loadIfcFile("/public/IFC/Sample_with costs.ifc")
+                            }}>
+                    </bim-button>
+                    <bim-button
                         icon="tabler:cube-plus"
                         tooltip-title="Load IFC model"
                         @click=${onLoadIfc}>
@@ -1832,7 +1839,7 @@ export function MainViewer () {
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer(true) //set the viewer
+        setViewer() //set the viewer
         return () => {
             if (components) {
                 components.dispose()
