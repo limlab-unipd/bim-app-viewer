@@ -67,6 +67,13 @@ export function MainViewer () {
                 renderedFaces: 0,
             },
         })
+        highlighter.styles.set('transparent', {
+            // you can change this to define the color of your highligthing
+            color: new THREE.Color("rgba(123, 123, 123, 1)"),
+            opacity: 0.3,
+            transparent: true,
+            renderedFaces: 0, //render only front side
+        })
 
         await ifcLoader.setup({
             autoSetWasm: false,
@@ -235,6 +242,17 @@ export function MainViewer () {
         const onResetVisibility = () => {
             hider.set(true) //show all items
             fragments.resetHighlight() //reset colors or other overrides
+        }
+        const onInvertVisibility = async () => {
+            for (const [,model] of fragments.list){
+                const visible = await model.getItemsByVisibility(true)
+                const hidden = await model.getItemsByVisibility(false)
+                model.toggleVisible([...visible,...hidden])
+            }
+        }
+        const onSetTransparency = (modelIdMap?:OBC.ModelIdMap|null) => {
+            if (!modelIdMap) { modelIdMap = highlighter.selection.select }
+            highlighter.highlightByID('transparent', modelIdMap, false, false)
         }
         
         const getAllItems = async () => {
@@ -702,11 +720,11 @@ export function MainViewer () {
                     Object.entries(model_resources_Map).map(([k, v]) => [k, new Set(Object.keys(v).map(Number))])
                 )
 
+                await highlighter.clear() //reset previous selections of highlighter
+                
                 //color rows indipendentely form models
                 if (btn == 'Color'){
                     //step 6: highlight or color element
-                    await highlighter.clear() //reset previous selections of highlighter
-    
                     //step 6.0 flatten map removing models level
                     const model_resources_Map_flat = flattenModelMap(model_resources_Map)
     
@@ -731,6 +749,8 @@ export function MainViewer () {
                     if (countItems < 100) { //this is important to not crash the viewer: colors will be remapped in few ranges
                         for (const [model,map] of Object.entries(model_resources_Map)){ //loop over each model, map=[element id : total resource cost]
                             //step 6.3: color or select elements
+                            const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
+                            onSetTransparency({[model]:new Set(geomItems)})
                             for (const [elemId,] of Object.entries(map)){ //getting elem ids from the map to highlight them
                                 const singleElementModelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([Number(elemId)]) } //create the model id map
                                 const customHighlighterName = `${model}_${elemId}` //create a new selection with only related elements to associate a different color to each one
@@ -743,6 +763,7 @@ export function MainViewer () {
                                 highlighter.highlightByID(customHighlighterName,singleElementModelIdMap,true,false) //color elements using highlighter
                             }
                         }
+                        console.log(highlighter.selection)
                     } else {
                         const groupedColors = groupIdsByNormalizedValuePerModel(normalizedValue as Record<string,number>, model_resources_Map)
                         highlighter.styles.set('darkGreen', {color: new THREE.Color('#006400'),opacity: 1,transparent: false,renderedFaces: 0,})
@@ -751,6 +772,8 @@ export function MainViewer () {
                         highlighter.styles.set('orange', {color: new THREE.Color('#FFA500'),opacity: 1,transparent: false,renderedFaces: 0,})
                         highlighter.styles.set('red', {color: new THREE.Color('#FF0000'),opacity: 1,transparent: false,renderedFaces: 0,})
                         for (const [model,colorMap] of Object.entries(groupedColors)) {
+                            const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
+                            onSetTransparency({[model]:new Set(geomItems)})
                             for (const [color,ids] of Object.entries(colorMap)) {
                                 const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
                                 highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
@@ -917,6 +940,8 @@ export function MainViewer () {
                         //this is to color each item with a very specific and different color
                         const startTime_8 = performance.now(); // Start timer
                         for (const [model,totalCostMap] of Object.entries(model_cost_map)) {
+                            const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
+                            onSetTransparency({[model]:new Set(geomItems)})
                             for (const [itemId,] of Object.entries(totalCostMap)) {
                                 const singleItemModelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([Number(itemId)]) } //create the model id map
                                 const customHighlighterName = `${model}_${itemId}` //create a new selection with only related elements to associate a different color to each one
@@ -931,7 +956,7 @@ export function MainViewer () {
                         }
                         const endTime_8 = performance.now(); // End timer
                         const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
-                        console.warn(`highlighter color items with spcific color in ${loadTime_8} seconds`);
+                        console.log(`highlighter color items with spcific color in ${loadTime_8} seconds`);
                     } else {
                         const startTime_8 = performance.now(); // Start timer
                         //this is to color items within a range of 5 colors (faster)
@@ -942,6 +967,8 @@ export function MainViewer () {
                         highlighter.styles.set('orange', {color: new THREE.Color('#FFA500'),opacity: 1,transparent: false,renderedFaces: 0,})
                         highlighter.styles.set('red', {color: new THREE.Color('#FF0000'),opacity: 1,transparent: false,renderedFaces: 0,})
                         for (const [model,colorMap] of Object.entries(groupedColors)) {
+                            const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
+                            onSetTransparency({[model]:new Set(geomItems)})
                             for (const [color,ids] of Object.entries(colorMap)) {
                                 const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
                                 highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
@@ -949,7 +976,7 @@ export function MainViewer () {
                         }
                         const endTime_8 = performance.now(); // End timer
                         const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
-                        console.warn(`highlighter color items with color ranges in ${loadTime_8} seconds`);
+                        console.log(`highlighter color items with color ranges in ${loadTime_8} seconds`);
                     }
 
                 } else if (btn == 'Select') { //if select button is clicked
@@ -1662,6 +1689,16 @@ export function MainViewer () {
                         tooltip-title="Isolate Selection"
                         icon="mdi:show-outline"
                         @click=${onIsolate}
+                    ></bim-button>
+                    <bim-button
+                        tooltip-title="Invert Visibility"
+                        icon="material-symbols:change-circle-outline-rounded"
+                        @click=${onInvertVisibility}
+                    ></bim-button>
+                    <bim-button
+                        tooltip-title="Set Transparency"
+                        icon="ph:cube-transparent-duotone"
+                        @click=${() => {onSetTransparency()}}
                     ></bim-button>
                     <bim-button
                         tooltip-title="Reset Visibility"
