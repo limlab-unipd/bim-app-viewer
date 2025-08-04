@@ -177,12 +177,12 @@ export function MainViewer () {
         const onFragmentsExport = async () => {
             for (const [, model] of fragments.list) {
                 const fragsBuffer = await model.getBuffer(false);
-                const file = new File([fragsBuffer], `${model.modelId}.frag`);
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(file);
-                link.download = file.name;
-                link.click();
-                URL.revokeObjectURL(link.href);
+                const file = new File([fragsBuffer], `${model.modelId}.frag`)
+                const link = document.createElement("a")
+                link.href = URL.createObjectURL(file)
+                link.download = file.name
+                link.click()
+                URL.revokeObjectURL(link.href)
             }
         }
         const onFragmentsImport = async () => {
@@ -190,7 +190,7 @@ export function MainViewer () {
             input.type = 'file'
             input.multiple = true
             input.accept = '.frag'
-            const fragPaths: string[] = [];
+            const fragPaths: string[] = []
             input.onchange = async (event) => {
                 const files = (event.target as HTMLInputElement).files
                 if (!files) return
@@ -198,16 +198,20 @@ export function MainViewer () {
                     fragPaths.push(URL.createObjectURL(file))
                 }
                 // Promise.all loads models concurrently for faster execution.
+                const startTime = performance.now() // Start timer
                 await Promise.all(
                     fragPaths.map(async (path) => {
-                    const modelId = path.split("/").pop()?.split(".").shift();
-                    if (!modelId) return null;
-                    const file = await fetch(path);
-                    const buffer = await file.arrayBuffer();
+                    const modelId = path.split("/").pop()?.split(".").shift()
+                    if (!modelId) return null
+                    const file = await fetch(path)
+                    const buffer = await file.arrayBuffer()
                     // this is the main function to load the fragments
-                    return fragments.core.load(buffer, { modelId });
+                    return fragments.core.load(buffer, { modelId })
                     }),
-                );
+                )
+                const endTime = performance.now() // End timer
+                const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
+                console.log(`Fragments loaded in ${loadTime} seconds`)
             }
             input.click()
         }
@@ -425,14 +429,54 @@ export function MainViewer () {
 
             return [result, resultNormalized];
         }
+        
+        type ColorRangeKey = "darkGreen" | "green" | "yellow" | "orange" | "red";
+        type GroupedData = Record<ColorRangeKey, string[]>;
+        type PerModelInput = Record<string, Record<string, any>>;
+        type PerModelGrouped = Record<string, GroupedData>;
+        function groupIdsByNormalizedValuePerModel(normalizedData: Record<string, number>, perModelData: PerModelInput): PerModelGrouped {
+            const colorForValue = (value: number): ColorRangeKey | null => {
+                if (value >= 0 && value < 0.20) return "darkGreen";
+                if (value >= 0.20 && value < 0.40) return "green";
+                if (value >= 0.40 && value < 0.60) return "yellow";
+                if (value >= 0.60 && value < 0.80) return "orange";
+                if (value >= 0.80 && value <= 1.00) return "red";
+                return null;
+            }
+            const result: PerModelGrouped = {}
+            for (const [modelName, elements] of Object.entries(perModelData)) {
+                const grouped: GroupedData = {
+                    darkGreen: [],
+                    green: [],
+                    yellow: [],
+                    orange: [],
+                    red: []
+                }
+                for (const id of Object.keys(elements)) {
+                const value = normalizedData[id];
+                    if (value !== undefined) {
+                        const color = colorForValue(value);
+                        if (color) {
+                            grouped[color].push(id);
+                        }
+                    }
+                }
+                result[modelName] = grouped;
+            }
+            return result;
+        }
 
         const onColorByResource = async ({target}: {target: BUI.Button | string}) => {
-            updateCountLabel({countItems:0, countResources:0})
+            const startTime_tot = performance.now(); // Start timer
+            updateCountLabel({countItems:'loading...', countCostItems:'loading...', countResources:'loading...'})
             const btn = typeof target === 'string' ? target : target.label //read if the clicked button is "color" or "select"
             const [resource] = resourcesDropdown.value //read the value of the resource dropdown menu (single choice)
             const category = categoriesDropdown.value //read the value of category dropdown menu, list is kept because multiple choices are accepted
             const [normalization] = unitMeasureDropdown.value //read the value of normalization by button (single choice)
-            if (!resource || !category) return //if one of the two is not selected return the function (nothing will be done)
+            if (!resource || !category) {
+                updateCountLabel({countItems:0, countCostItems:0, countResources:0})
+                return //if one of the two is not selected return the function (nothing will be done)
+            }
             
             onClearPanel(panelDown) //clear down panel
             resource!='TotalCost' ? panelDown.label = `${resource} Resource Cost X Elements` : panelDown.label = 'Elements Total Cost' //change the title of the panel
@@ -467,7 +511,8 @@ export function MainViewer () {
             resourceTable.hiddenColumns = ['itemId']
 
             //step 1: find all cost items ids related to all object of the selected category
-            finder.create('COSTITEM_REL_CAT', [
+            //here query is only created
+            finder.create('COSTITEM_REL_CATEGORY', [
                 {
                     categories: [/COSTITEM/],
                     relation: { 
@@ -478,19 +523,26 @@ export function MainViewer () {
                     }
                 },
             ])
-            const costitem_rel_cat_result = await finder.list.get('COSTITEM_REL_CAT')?.test()
-            for (const key in costitem_rel_cat_result) { //remove models if there is any founded cost item
-                if (costitem_rel_cat_result[key] instanceof Set && costitem_rel_cat_result[key].size === 0) {
-                    delete costitem_rel_cat_result[key];
+            //here query is executed
+            const startTime_1 = performance.now(); // Start timer
+            const costitem_rel_category_ids = await finder.list.get('COSTITEM_REL_CATEGORY')?.test()
+            const endTime_1 = performance.now(); // End timer
+            const loadTime_1 = ((endTime_1 - startTime_1) / 1000).toFixed(2); // seconds
+            console.log(`finder.list.get('COSTITEM_REL_CATEGORY')?.test() in ${loadTime_1} seconds`);
+            
+            for (const key in costitem_rel_category_ids) { //remove models if there is any founded cost item
+                if (costitem_rel_category_ids[key] instanceof Set && costitem_rel_category_ids[key].size === 0) {
+                    delete costitem_rel_category_ids[key];
                 }
             }
-            if (!costitem_rel_cat_result || Object.keys(costitem_rel_cat_result).length == 0) { //return the function if any cost item is found and print the message in the panel
+            if (!costitem_rel_category_ids || Object.keys(costitem_rel_category_ids).length == 0) { //return the function if any cost item is found and print the message in the panel
                 panelDown.innerHTML = `<bim-label style="padding:15px">Any COST ITEM related to ${category} category.</bim-label>`
                 return
             }
 
             //step 2: get data of found cost items
-            const filteredCostItems = await fragments.getData(costitem_rel_cat_result, {
+            const startTime_2 = performance.now(); // Start timer
+            const filteredCostItems = await fragments.getData(costitem_rel_category_ids, {
                 attributesDefault: false,
                 attributes: ['ObjectType'],
                 relations: {
@@ -498,14 +550,17 @@ export function MainViewer () {
                     'CostValues': {attributes:true,relations:false}
                     }
                 })
-            console.log('filtered cost items: ', filteredCostItems)
+            const endTime_2 = performance.now(); // End timer
+            const loadTime_2 = ((endTime_2 - startTime_2) / 1000).toFixed(2); // seconds
+            console.log(`filteredCostItems loaded in ${loadTime_2} seconds`)
 
             if (resource != 'TotalCost'){
                 //initialize some maps needed for the process
                 const model_resources_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
                 const category_elements_map: {[key:string]:any} = {} //map to associate to each category the related elements
                 const elem_resourcesDetails_Map: {[key:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string}[]} = {} //resource details object
-    
+                let countCostItems = 0
+
                 for (const [model,costItems] of Object.entries(filteredCostItems)){ //loop over each model
                     let resourceCurrency = 'nd' //default value, here because is supposed that is used always the same currency in the same project
                     const elem_resources_Map: {[key:number]:number} = {} //map to associate to each element id the related sum of ALL costs of the choosen resource category
@@ -557,6 +612,8 @@ export function MainViewer () {
                             const resourceCost = resourceValuesArray.length>1 ? resourceValuesArray.reduce((s,v)=>s+v,0) : resourceValuesArray[0]
                             //case 1b: more than one cost item related to the same element: sums all the resources values across them
                             elem_resources_Map[elemId] ? elem_resources_Map[elemId] += resourceCost : elem_resources_Map[elemId] = resourceCost
+                            //update cost items count
+                            countCostItems += 1
                         }
                         //it does not have any sense to add here object to organize elements because until the end of costitems loops could always be new cost items related to the same element
                     }
@@ -625,52 +682,72 @@ export function MainViewer () {
                     })
                 }
 
-                updateCountLabel({countItems:countItems, countResources:countResources})
+                updateCountLabel({countItems:countItems, countCostItems:countCostItems, countResources:countResources})
 
-                //step 6: highlight or color element
-                await highlighter.clear() //reset previous selections of highlighter
-
-                //step 6.0 flatten map removing models level
-                const model_resources_Map_flat = flattenModelMap(model_resources_Map)
-
-                //step 6.1: normalize total resource cost to color across models
-                const [colorMap, normalizedValues] = normalizeAndMapToColor(model_resources_Map_flat) //use this function to normalize values between 0 and 1 and return color and normalized value
                 
-                //step 6.2: add the normalized value to the table, pay attention: it is only a render value, it will not be saved in the table
-                //changing this value here is indipendent from model
-                resourceTable.dataTransform.NormalizedValue = (value, rowData) => {
-                    const { itemId } = rowData
-                    if (!itemId) return value //if itemId is not defined, return the original value
-                    return Math.round(normalizedValues[itemId]*1000)/1000
-                }
+                const allSelectedItemsModelIdMap = Object.fromEntries(
+                    Object.entries(model_resources_Map).map(([k, v]) => [k, new Set(Object.keys(v).map(Number))])
+                )
+
                 //color rows indipendentely form models
                 if (btn == 'Color'){
+                    //step 6: highlight or color element
+                    await highlighter.clear() //reset previous selections of highlighter
+    
+                    //step 6.0 flatten map removing models level
+                    const model_resources_Map_flat = flattenModelMap(model_resources_Map)
+    
+                    //step 6.1: normalize total resource cost to color across models
+                    const [colorMap, normalizedValue] = normalizeAndMapToColor(model_resources_Map_flat) //use this function to normalize values between 0 and 1 and return color and normalized value
+                    
+                    //step 6.2: add the normalized value to the table, pay attention: it is only a render value, it will not be saved in the table
+                    //changing this value here is independent from model
+                    resourceTable.dataTransform.NormalizedValue = (value, rowData) => {
+                        const { itemId } = rowData
+                        if (!itemId) return value //if itemId is not defined, return the original value
+                        return Math.round(normalizedValue[itemId]*1000)/1000
+                    }
                     resourceTable.dataTransform.ResourceCost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
                         const { itemId } = rowData
                         if (!itemId) return value //if itemId is not defined, return the original value
                         return BUI.html`<bim-label style="color:${colorMap[itemId]};">${value}</bim-label>`
                     }
-                }
-
-                for (const [model,map] of Object.entries(model_resources_Map)){ //loop over each model, map=[element id : total resource cost]
-                //here things comes different because to highlight and color elements the model is needed
-                //so, the highlighting is by model but the color and the normal value is kept from the map calculated outside of this loop
-                //step 6.3: color or select elements
-                    for (const [elemId,] of Object.entries(map)){ //getting elem ids from the map to highlight them
-                        const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([Number(elemId)]) } //create the model id map
-                        if (btn == 'Color') { //if color button is clicked
-                            const customHighlighterName = `${model}_${elemId}` //create a new selection with only related elements to associate a different color to each one
-                            highlighter.styles.set(customHighlighterName, {
-                                color: new THREE.Color(colorMap[elemId]),
-                                opacity: 1,
-                                transparent: false,
-                                renderedFaces: 0,
-                            });
-                            highlighter.highlightByID(customHighlighterName,modelIdMap,true,false) //color elements using highlighter
-                        } else if (btn =='Select') { //if select button is clicked
-                            highlighter.highlightByID("select", modelIdMap, false, false) //only select elements removing colors
+                    
+                    //here things comes different because to highlight and color elements the model is needed
+                    //so, the highlighting is by model but the color and the normal value is kept from the map calculated outside of this loop
+                    if (countItems < 100) { //this is important to not crash the viewer: colors will be remapped in few ranges
+                        for (const [model,map] of Object.entries(model_resources_Map)){ //loop over each model, map=[element id : total resource cost]
+                            //step 6.3: color or select elements
+                            for (const [elemId,] of Object.entries(map)){ //getting elem ids from the map to highlight them
+                                const singleElementModelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([Number(elemId)]) } //create the model id map
+                                const customHighlighterName = `${model}_${elemId}` //create a new selection with only related elements to associate a different color to each one
+                                highlighter.styles.set(customHighlighterName, {
+                                    color: new THREE.Color(colorMap[elemId]),
+                                    opacity: 1,
+                                    transparent: false,
+                                    renderedFaces: 0,
+                                })
+                                highlighter.highlightByID(customHighlighterName,singleElementModelIdMap,true,false) //color elements using highlighter
+                            }
+                        }
+                    } else {
+                        const groupedColors = groupIdsByNormalizedValuePerModel(normalizedValue as Record<string,number>, model_resources_Map)
+                        highlighter.styles.set('darkGreen', {color: new THREE.Color('#006400'),opacity: 1,transparent: false,renderedFaces: 0,})
+                        highlighter.styles.set('green', {color: new THREE.Color('#90EE90'),opacity: 1,transparent: false,renderedFaces: 0,})
+                        highlighter.styles.set('yellow', {color: new THREE.Color('#FFFF00'),opacity: 1,transparent: false,renderedFaces: 0,})
+                        highlighter.styles.set('orange', {color: new THREE.Color('#FFA500'),opacity: 1,transparent: false,renderedFaces: 0,})
+                        highlighter.styles.set('red', {color: new THREE.Color('#FF0000'),opacity: 1,transparent: false,renderedFaces: 0,})
+                        for (const [model,colorMap] of Object.entries(groupedColors)) {
+                            for (const [color,ids] of Object.entries(colorMap)) {
+                                const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
+                                highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
+                            }
                         }
                     }
+                    
+
+                } else if (btn == 'Select') { //if select button is clicked
+                    highlighter.highlightByID("select", allSelectedItemsModelIdMap, false, false) //only select elements removing colors
                 }
 
                 sortbyResourcesDropdown.addEventListener('change', (e) => {
@@ -702,14 +779,19 @@ export function MainViewer () {
                 panelDown.appendChild(categoryXResourcePanel)
 
             } else if (resource == 'TotalCost'){
+
+                const startTime_4 = performance.now(); // Start timer
+
                 await highlighter.clear() //reset previous selections of highlighter
                 const model_volume_map: {[key:string]:any} = {}
                 const model_cost_map: {[key:string]:any} = {}
                 const model_category_map: {[key:string]:any} = {}
+                let countCostItems = 0
                 for (const [model,costItems] of Object.entries(filteredCostItems)){
                     const category_item_totalCost_map: {[key:string]:{[key:number]:number}} = {}
                     const item_volume_map: {[key:number]:number|undefined} = {}
                     for (const ci of costItems){
+                        countCostItems += 1
                         const itemId = (((ci.Controls as any)[0] as FRAGS.ItemData)._localId as FRAGS.ItemAttribute).value as number //localId of filtered elements
                         const itemCategory = (((ci.Controls as any)[0] as FRAGS.ItemData)._category as FRAGS.ItemAttribute).value as string //localId of filtered elements
                         const costItemObjectType = (ci['ObjectType'] as FRAGS.ItemAttribute).value as string
@@ -742,49 +824,43 @@ export function MainViewer () {
                     model_volume_map[model] = item_volume_map
                 }
 
-                const model_category_map_flat = flattenModelMap(model_category_map)
+                //const model_category_map_flat = flattenModelMap(model_category_map)
                 const model_cost_map_flat = flattenModelMap(model_cost_map)
                 const model_volume_map_flat = flattenModelMap(model_volume_map)
-
-                const normalized_cost: {[key:string]:number} = {}
-                for (const [itemId,cost] of Object.entries(model_cost_map_flat)){
-                    normalized_cost[itemId] = cost / model_volume_map_flat[itemId]
-                }
-
-                updateCountLabel({countItems:Object.keys(model_cost_map_flat).length,countResources:0})
-
-                let colorMap: Record<string, string>
-                let normalizedValue: Record<string, string|number>
-                if (normalization=='Volume'){
-                    [colorMap,normalizedValue] = normalizeAndMapToColor(normalized_cost)                    
-                } else {
-                    [colorMap,normalizedValue] = normalizeAndMapToColor(model_cost_map_flat)
-                }
-
-                for (const [model,totalCostMap] of Object.entries(model_cost_map)) {
-                    for (const [itemId,] of Object.entries(totalCostMap)) {
-                        const singleItemModelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([Number(itemId)]) } //create the model id map
-                        if (btn == 'Color') { //if color button is clicked
-                            const customHighlighterName = `${model}_${itemId}` //create a new selection with only related elements to associate a different color to each one
-                            highlighter.styles.set(customHighlighterName, {
-                                color: new THREE.Color(colorMap[itemId]),
-                                opacity: 1,
-                                transparent: false,
-                                renderedFaces: 0,
-                            });
-                            highlighter.highlightByID(customHighlighterName,singleItemModelIdMap,true,false) //color elements using highlighter
-                        }
-                    }
-                }
 
                 const allSelectedItemsModelIdMap = Object.fromEntries(
                     Object.entries(model_cost_map).map(([k, v]) => [k, new Set(Object.keys(v).map(Number))])
                 )
 
-                await onOpenElementXCostPanel(allSelectedItemsModelIdMap)
+                const countItems = Object.keys(model_cost_map_flat).length
+                updateCountLabel({countItems:countItems,countCostItems:countCostItems,countResources:0})
 
-                if (btn == 'Color'){
+                const endTime_4 = performance.now(); // End timer
+                const loadTime_4 = ((endTime_4 - startTime_4) / 1000).toFixed(2); // seconds
+                console.log(`Total cost getting alla data loaded in ${loadTime_4} seconds`);
+
+                if (btn=='Color') {
                     highlighter.highlightByID("select", {}, true, false)
+                    
+                    const startTime_5 = performance.now(); // Start timer
+                    await onOpenElementXCostPanel(allSelectedItemsModelIdMap)
+                    const endTime_5 = performance.now(); // End timer
+                    const loadTime_5 = ((endTime_5 - startTime_5) / 1000).toFixed(2); // seconds
+                    console.log(`onOpenElementXCostPanel loaded in ${loadTime_5} seconds`);
+                    
+                    const normalized_cost: {[key:string]:number} = {}
+
+                    let colorMap: Record<string, string>
+                    let normalizedValue: Record<string, string|number>
+                    if (normalization=='Volume'){
+                        for (const [itemId,cost] of Object.entries(model_cost_map_flat)){
+                            normalized_cost[itemId] = cost / model_volume_map_flat[itemId]
+                        }
+                        [colorMap,normalizedValue] = normalizeAndMapToColor(normalized_cost)
+                    } else {
+                        [colorMap,normalizedValue] = normalizeAndMapToColor(model_cost_map_flat)
+                    }
+
                     const elementXCostTable = document.getElementById('elementXCostTable') as BUI.Table
                     elementXCostTable.dataTransform.Cost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
                         const { ItemId } = rowData
@@ -815,10 +891,55 @@ export function MainViewer () {
                         }
                         elementXCostTable.hiddenColumns = ['ComponentsCostValues','ItemId', 'Currency', 'IfcClass']
                     }
+                    
+                    if (countItems < 100) { //this is important to not crash the viewer: colors will be remapped in few ranges
+                        //this is to color each item with a very specific and different color
+                        const startTime_8 = performance.now(); // Start timer
+                        for (const [model,totalCostMap] of Object.entries(model_cost_map)) {
+                            for (const [itemId,] of Object.entries(totalCostMap)) {
+                                const singleItemModelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([Number(itemId)]) } //create the model id map
+                                const customHighlighterName = `${model}_${itemId}` //create a new selection with only related elements to associate a different color to each one
+                                highlighter.styles.set(customHighlighterName, {
+                                    color: new THREE.Color(colorMap[itemId]),
+                                    opacity: 1,
+                                    transparent: false,
+                                    renderedFaces: 0,
+                                })
+                                highlighter.highlightByID(customHighlighterName,singleItemModelIdMap,true,false) //color elements using highlighter
+                            }
+                        }
+                        const endTime_8 = performance.now(); // End timer
+                        const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
+                        console.warn(`highlighter color items with spcific color in ${loadTime_8} seconds`);
+                    } else {
+                        const startTime_8 = performance.now(); // Start timer
+                        //this is to color items within a range of 5 colors (faster)
+                        const groupedColors = groupIdsByNormalizedValuePerModel(normalizedValue as Record<string,number>, model_cost_map)
+                        highlighter.styles.set('darkGreen', {color: new THREE.Color('#006400'),opacity: 1,transparent: false,renderedFaces: 0,})
+                        highlighter.styles.set('green', {color: new THREE.Color('#90EE90'),opacity: 1,transparent: false,renderedFaces: 0,})
+                        highlighter.styles.set('yellow', {color: new THREE.Color('#FFFF00'),opacity: 1,transparent: false,renderedFaces: 0,})
+                        highlighter.styles.set('orange', {color: new THREE.Color('#FFA500'),opacity: 1,transparent: false,renderedFaces: 0,})
+                        highlighter.styles.set('red', {color: new THREE.Color('#FF0000'),opacity: 1,transparent: false,renderedFaces: 0,})
+                        for (const [model,colorMap] of Object.entries(groupedColors)) {
+                            for (const [color,ids] of Object.entries(colorMap)) {
+                                const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
+                                highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
+                            }
+                        }
+                        const endTime_8 = performance.now(); // End timer
+                        const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
+                        console.warn(`highlighter color items with color ranges in ${loadTime_8} seconds`);
+                    }
+
                 } else if (btn == 'Select') { //if select button is clicked
                     highlighter.highlightByID("select", allSelectedItemsModelIdMap, false, false) //only select elements removing colors
+                    await onOpenElementXCostPanel(allSelectedItemsModelIdMap)
                 }
             }
+            
+            const endTime_tot = performance.now(); // End timer
+            const loadTime_tot = ((endTime_tot - startTime_tot) / 1000).toFixed(2); // seconds
+            console.log(`TOTAL TIME FOR onColorByResource method: ${loadTime_tot} seconds`);
         }
         // #endregion
 
@@ -854,19 +975,24 @@ export function MainViewer () {
 
         // #region ADVANCED COMPONENTS
         interface countLabelUI {
-            countItems: number,
-            countResources: number
+            countItems: number | 'loading...',
+            countCostItems: number | 'loading...',
+            countResources: number | 'loading...',
         }
         const [countLabel, updateCountLabel] = BUI.Component.create<HTMLDivElement, countLabelUI>((state: countLabelUI) => {
-            const { countItems, countResources } = state
+            const { countItems, countResources, countCostItems } = state
+            const resDisplay: string = (countResources==0||countResources=='loading...') ? 'none' : ''
+            const colorRangeDisplay : string = (Number(countItems)<100||countItems=='loading...') ? 'none' : ''
             return BUI.html`
-                <div>
-                    <bim-label>Corresponding elements count: ${countItems}</bim-label>
-                    <bim-label>Corresponding resources count: ${countResources}</bim-label>
+                <div style="margin-top:5px; border-top:1px solid var(--bim-ui_bg-contrast-20); padding-top:0.5rem">
+                    <bim-label>Elements count: ${countItems}</bim-label>
+                    <bim-label>Cost Items count: ${countCostItems}</bim-label>
+                    <bim-label style="display:${resDisplay}">Resources count: ${countResources}</bim-label>
+                    <bim-label style="display:${colorRangeDisplay}; margin-top: 10px" icon="ion:warning-outline">More than 100 elements: geometries colors remapped in five ranges.</bim-label>
                 </div>
             `;
             },
-            { countItems: 0, countResources: 0},
+            { countItems: 0, countResources: 0, countCostItems: 0},
         );
         const modelsListPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
             const [modelsList] = BUIC.tables.modelsList({
@@ -875,7 +1001,7 @@ export function MainViewer () {
                 actions: { download: true },
             });
             return BUI.html`
-                <bim-panel-section label='Loaded Models' icon="material-symbols:upload-rounded">
+                <bim-panel-section label="Loaded Models" icon="material-symbols:upload-rounded">
                     ${modelsList}
                 </bim-panel-section>
             `
@@ -1112,6 +1238,7 @@ export function MainViewer () {
                     delete selection[key];
                 }
             }
+            const startTime_3 = performance.now(); // Start timer
             const selectionData = await fragments.getData(selection, {
                         attributesDefault: true,
                         relations: {
@@ -1123,8 +1250,12 @@ export function MainViewer () {
                                 // with getData from fragments or getItemsData from model (= fragments.list.values())
                         }}
                     })
+            const endTime_3 = performance.now(); // End timer
+            const loadTime_3 = ((endTime_3 - startTime_3) / 1000).toFixed(2); // seconds
+            console.log(`selectionData loaded in ${loadTime_3} seconds`);
             console.log('selection data: \n', selectionData)
 
+            const startTime_6 = performance.now(); // Start timer
             // #region INITIALIZE TABLES
             //tables types
             type costXelementTableData = {
@@ -1345,7 +1476,12 @@ export function MainViewer () {
             if (!gridLayout.includes('down')){
                 onSetLayout({target:'down'})
             }
+
+            const endTime_6 = performance.now(); // End timer
+            const loadTime_6 = ((endTime_6 - startTime_6) / 1000).toFixed(2); // seconds
+            console.log(`Total time for creating cost table: ${loadTime_6} seconds`);
         }
+
         const onOpenPriceAnalysis = (resourcesCostValues: any, unitCostName:any, unitCostDescription: any, unitCost: any) => {
             //reset panel to update with new values
             panelRight.innerHTML = ''
@@ -1658,7 +1794,7 @@ export function MainViewer () {
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer() //set the viewer
+        setViewer(true) //set the viewer
         return () => {
             if (components) {
                 components.dispose()
