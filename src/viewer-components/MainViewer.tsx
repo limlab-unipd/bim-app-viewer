@@ -1597,7 +1597,7 @@ export function MainViewer () {
                         icon="material-symbols:sound-sampler-rounded"
                         tooltip-title="Load sample IFC model"
                         @click=${() => {
-                            loadIfcFile("/public/IFC/Sample_with costs.ifc")
+                            loadIfcFile("/IFC/Sample_with costs.ifc")
                             }}>
                     </bim-button>
                     <bim-button
