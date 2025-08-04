@@ -25,6 +25,7 @@ export function MainViewer () {
         const highlighter = components.get(OBCF.Highlighter)
         const ifcLoader = components.get(OBC.IfcLoader)
         const fragments = components.get(OBC.FragmentsManager)
+        const hider = components.get(OBC.Hider)
 
         // #region SET THREE VIEWER
         //SINGLE VIEWER
@@ -224,6 +225,18 @@ export function MainViewer () {
         }
 
         //generic functions
+        //Visibility
+        const onHide = async () => {
+            hider.set(false, highlighter.selection.select)
+        }
+        const onIsolate = () => {
+            hider.isolate(highlighter.selection.select)
+        }
+        const onResetVisibility = () => {
+            hider.set(true) //show all items
+            fragments.resetHighlight() //reset colors or other overrides
+        }
+        
         const getAllItems = async () => {
             const frMap: OBC.ModelIdMap = {}
             for (const [entry,entryfr] of fragments.list.entries()){
@@ -862,14 +875,14 @@ export function MainViewer () {
                     }
 
                     const elementXCostTable = document.getElementById('elementXCostTable') as BUI.Table
-                    elementXCostTable.dataTransform.Cost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-                        const { ItemId } = rowData
-                        if (!ItemId) return value //if ItemId is not defined, return the original value
-                        return BUI.html`
-                            <bim-label style="color:${colorMap[Number(ItemId)]};">${value}</bim-label>
-                        `
-                    }
                     if (normalization == 'Volume') {
+                        elementXCostTable.dataTransform.Name = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+                            const { ItemId } = rowData
+                            if (!ItemId) return value //if ItemId is not defined, return the original value
+                            return BUI.html`
+                                <bim-label style="color:${colorMap[Number(ItemId)]};">${value}</bim-label>
+                            `
+                        }
                         elementXCostTable.dataTransform.ItemVolume = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
                             const { ItemId } = rowData
                             if (!ItemId) return value //if ItemId is not defined, return the original value
@@ -886,10 +899,18 @@ export function MainViewer () {
                             const normValue = normalizedValue[Number(ItemId)] as number
                             if(normCost==null || normValue==null) return value
                             return BUI.html`
-                                <bim-label>${Math.round(normCost*100)/100} ${Currency} (${Math.round(normValue*100)/100})</bim-label>
+                                <bim-label>${Math.round(normCost*100)/100} ${Currency}/m³ (${Math.round(normValue*100)/100})</bim-label>
                             `
                         }
                         elementXCostTable.hiddenColumns = ['ComponentsCostValues','ItemId', 'Currency', 'IfcClass']
+                    } else {
+                        elementXCostTable.dataTransform.Cost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+                            const { ItemId } = rowData
+                            if (!ItemId) return value //if ItemId is not defined, return the original value
+                            return BUI.html`
+                                <bim-label style="color:${colorMap[Number(ItemId)]};">${value}</bim-label>
+                            `
+                        }
                     }
                     
                     if (countItems < 100) { //this is important to not crash the viewer: colors will be remapped in few ranges
@@ -1571,26 +1592,6 @@ export function MainViewer () {
         const toolbar = BUI.Component.create<BUI.Toolbar>(() => {
             return BUI.html`
             <bim-toolbar style="justify-self: center">
-                <bim-toolbar-section label="Panels">
-                    <bim-button
-                        id="left"
-                        icon="mynaui:panel-left-open"
-                        tooltip-title="Open/Close left panel"
-                        @click=${onSetLayout}>
-                    </bim-button>
-                    <bim-button
-                        id="down"
-                        icon="mynaui:panel-bottom-open"
-                        tooltip-title="Open/Close bottom panel"
-                        @click=${onSetLayout}>
-                    </bim-button>
-                    <bim-button
-                        id="right"
-                        icon="mynaui:panel-right-open"
-                        tooltip-title="Open/Close right panel"
-                        @click=${onSetLayout}>
-                    </bim-button>
-                </bim-toolbar-section>
                 <bim-toolbar-section label="IFC">
                     <bim-button
                         icon="tabler:cube-plus"
@@ -1622,6 +1623,43 @@ export function MainViewer () {
                                 fragments.core.disposeModel(modelId);
                             }
                         }}
+                    ></bim-button>
+                </bim-toolbar-section>
+                <bim-toolbar-section label="Panels">
+                    <bim-button
+                        id="left"
+                        icon="mynaui:panel-left-open"
+                        tooltip-title="Open/Close left panel"
+                        @click=${onSetLayout}>
+                    </bim-button>
+                    <bim-button
+                        id="down"
+                        icon="mynaui:panel-bottom-open"
+                        tooltip-title="Open/Close bottom panel"
+                        @click=${onSetLayout}>
+                    </bim-button>
+                    <bim-button
+                        id="right"
+                        icon="mynaui:panel-right-open"
+                        tooltip-title="Open/Close right panel"
+                        @click=${onSetLayout}>
+                    </bim-button>
+                </bim-toolbar-section>
+                <bim-toolbar-section label="Visibility">
+                    <bim-button
+                        tooltip-title="Hide Selection"
+                        icon="mdi:hide-outline"
+                        @click=${onHide}
+                    ></bim-button>
+                    <bim-button
+                        tooltip-title="Isolate Selection"
+                        icon="mdi:show-outline"
+                        @click=${onIsolate}
+                    ></bim-button>
+                    <bim-button
+                        tooltip-title="Reset Visibility"
+                        icon="tabler:sun-filled"
+                        @click=${onResetVisibility}
                     ></bim-button>
                 </bim-toolbar-section>
                 <bim-toolbar-section label="5D">
