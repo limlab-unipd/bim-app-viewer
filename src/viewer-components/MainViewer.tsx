@@ -20,7 +20,6 @@ export function MainViewer () {
         //SETTING DEV MODE
         const devElementsVisibility = devMode ? '' : 'none' 
         //VIEWER COMPONENTS
-        const worlds = components.get(OBC.Worlds)
         const finder = components.get(OBC.ItemsFinder)
         const highlighter = components.get(OBCF.Highlighter)
         const ifcLoader = components.get(OBC.IfcLoader)
@@ -29,10 +28,12 @@ export function MainViewer () {
 
         // #region SET THREE VIEWER
         //SINGLE VIEWER
+        const worlds = components.get(OBC.Worlds)
         const world = worlds.create<
-        OBC.SimpleScene,
-        OBC.OrthoPerspectiveCamera,
-        OBC.SimpleRenderer
+            OBC.SimpleScene,
+            OBC.OrthoPerspectiveCamera,
+            //OBC.SimpleRenderer
+            OBCF.PostproductionRenderer
         >()
         //SCENE
         world.scene = new OBC.SimpleScene(components)
@@ -40,7 +41,8 @@ export function MainViewer () {
         world.scene.three.background = null
         //RENDERER
         const container = document.getElementById("main-viewer")! as HTMLElement
-        world.renderer = new OBC.SimpleRenderer(components, container)
+        world.renderer = new OBCF.PostproductionRenderer(components, container)
+        //world.renderer = new OBC.SimpleRenderer(components, container)
         //CAMERA
         world.camera = new OBC.OrthoPerspectiveCamera(components)
         await world.camera.controls.setLookAt(30,30,30,0,0,0) // convenient position for the model we will load
@@ -52,7 +54,10 @@ export function MainViewer () {
 
         const grids = components.get(OBC.Grids)
         const grid = grids.create(world)
-        grid.config.color.set('#1C1C1C')
+        grid.config.color.set('rgba(28, 28, 28, 1)')
+        
+        world.renderer.postproduction.enabled = true
+        world.dynamicAnchor = false
 
         components.get(OBC.Raycasters).get(world);
 
@@ -92,15 +97,47 @@ export function MainViewer () {
         fragments.init(workerURL);
     
         world.camera.controls?.addEventListener("rest", () =>
-        fragments.core.update(true),
+            fragments.core.update(true),
         );
     
         fragments.list.onItemSet.add(({ value: model }) => {
-            model.useCamera(world.camera.three);
-            world.scene.three.add(model.object);
-            fragments.core.update(true);
-        });
+            model.useCamera(world.camera.three)
+            world.scene.three.add(model.object)
+            fragments.core.update(true)
+        })
+        fragments.core.models.materials.list.onItemSet.add(({ value: material }) => {
+            const isLodMaterial = "isLodMaterial" in material && material.isLodMaterial
+            if (isLodMaterial) {
+                world.renderer!.postproduction.basePass.isolatedMaterials.push(material)
+            }
+        })
         // #endregion
+
+        //postproduction parameters
+        const { aoPass, outlinePass, edgesPass } = world.renderer.postproduction
+        const aoParameters = {
+            radius: 0.25,
+            distanceExponent: 1,
+            thickness: 1,
+            scale: 1,
+            samples: 16,
+            distanceFallOff: 1,
+            screenSpaceRadius: true,
+        }
+        const pdParameters = {
+            lumaPhi: 10,
+            depthPhi: 2,
+            normalPhi: 3,
+            radius: 4,
+            radiusExponent: 1,
+            rings: 2,
+            samples: 16,
+        }
+        aoPass.updateGtaoMaterial(aoParameters)
+        aoPass.updatePdMaterial(pdParameters)
+
+        //start the viewer with the postproduction set but not enabled
+        world.renderer.postproduction.enabled = false
     
         // #region LOGIC FUNCTIONS
         //function to load the IFC file
@@ -274,16 +311,29 @@ export function MainViewer () {
             }
             return [...new Set(list.flat())]
         }        
+        let previousLayout: string = 'main'
         const onSetLayout = ({target}: {target: BUI.Button | string}) => {
             const btn = typeof target==='string' ? target : target.id
-            const currentLayout = floatingGrid.layout as any
+            let currentLayout = floatingGrid.layout as any
             if (!currentLayout) return
             if (currentLayout == btn) {
-                floatingGrid.layout = "main" as any
+                if (btn == 'world') {
+                    floatingGrid.layout = previousLayout as any
+                } else {
+                    floatingGrid.layout = "main" as any
+                }
             } else if (currentLayout == 'main') {
                 floatingGrid.layout = btn as any
             } else {
-                currentLayout.includes(btn) ? floatingGrid.layout = currentLayout.replace(btn, "") : floatingGrid.layout = currentLayout + btn as any
+                if (btn == 'world') {
+                    floatingGrid.layout = 'world' as any
+                    previousLayout = currentLayout
+                } else {
+                    if (currentLayout == 'world') {
+                        currentLayout = ''
+                    }
+                    currentLayout.includes(btn) ? floatingGrid.layout = currentLayout.replace(btn, "") : floatingGrid.layout = currentLayout + btn as any
+                }
             }
         }
         const onExpandTable = (e: Event, table:BUI.Table<any>) => {
@@ -1016,6 +1066,110 @@ export function MainViewer () {
             </bim-panel>
             `;
         })
+        let previousIsolatedMaterialsForPostproduction = world.renderer!.postproduction.basePass.isolatedMaterials
+        const panelWorldSettings = BUI.Component.create<BUI.Panel>(() => {
+            return BUI.html`
+                <bim-panel
+                    label="World Visibility Settings"
+                    style="background-color:rgba(0, 0, 0, 0.45);">
+                    <bim-panel-section label='Transparency'>
+                        <bim-number-input 
+                            slider step="0.01" label="Opacity" value="0.5" min="0" max="1"
+                            @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                                (highlighter.styles.get('transparent') as any).opacity = target.value
+                                await highlighter.updateColors()
+                            }}">
+                        </bim-number-input>
+                        <bim-color-input
+                            label="Color" color="#7b7b7bff" 
+                            @input="${async ({ target }: { target: BUI.ColorInput }) => {
+                                (highlighter.styles.get('transparent') as any).color = new THREE.Color(target.color)
+                                await highlighter.updateColors()
+                            }}">
+                        </bim-color-input>
+                    </bim-panel-section>
+                    <bim-panel-section label='Grid'>
+                        <bim-checkbox 
+                            checked label="Visibile"
+                            @change="${({ target }: { target: BUI.Checkbox }) => {
+                                grid.visible = target.value
+                            }}">
+                        </bim-checkbox>
+                        <bim-color-input
+                            label="Color" color="#1c1c1cff"
+                            @input="${({ target }: { target: BUI.ColorInput }) => {
+                                grid.config.color = new THREE.Color(target.color);
+                            }}">
+                        </bim-color-input>
+                        <bim-number-input 
+                            slider step="0.5" label="Primary size" value="1" min="0.5" max="10" style='min-width:100px'
+                            @change="${({ target }: { target: BUI.NumberInput }) => {
+                                grid.config.primarySize = target.value
+                            }}">
+                        </bim-number-input>
+                        <bim-number-input 
+                            slider step="1" label="Secondary size" value="10" min="1" max="50"
+                            @change="${({ target }: { target: BUI.NumberInput }) => {
+                                grid.config.primarySize = target.value
+                            }}">
+                        </bim-number-input>
+                    </bim-panel-section>
+                    <bim-panel-section label='Ambient'>
+                        <bim-color-input
+                            label="Background Color" color="#5e5f83f2" 
+                            @input="${({ target }: { target: BUI.ColorInput }) => {
+                                world.scene.config.backgroundColor = new THREE.Color(target.color)
+                            }}">
+                        </bim-color-input>
+                        <bim-number-input 
+                            slider step="0.1" label="Directional lights intensity" value="1.5" min="0.1" max="10"
+                            @change="${({ target }: { target: BUI.NumberInput }) => {
+                                world.scene.config.directionalLight.intensity = target.value;
+                            }}">
+                        </bim-number-input>
+                        <bim-number-input 
+                            slider step="0.1" label="Ambient light intensity" value="1" min="0.1" max="5"
+                            @change="${({ target }: { target: BUI.NumberInput }) => {
+                                world.scene.config.ambientLight.intensity = target.value;
+                            }}">
+                        </bim-number-input>
+                    </bim-panel-section>
+                    <bim-panel-section label='Postproduction'>
+                        <bim-checkbox label="Enable"
+                            @change="${({ target }: { target: BUI.Checkbox }) => {
+                                world.renderer!.postproduction.enabled = target.value
+                            }}">
+                        </bim-checkbox>
+                        <bim-dropdown required label="Style"
+                                @change="${({ target }: { target: BUI.Dropdown }) => {
+                                const result = target.value[0] as OBCF.PostproductionAspect;
+                                world.renderer!.postproduction.style = result;
+                            }}">
+                            <bim-option style="padding:0 0.5rem 0 0.5rem" checked label="Basic" value="${OBCF.PostproductionAspect.COLOR}"></bim-option>
+                            <bim-option style="padding:0 0.5rem 0 0.5rem" label="Pen" value="${OBCF.PostproductionAspect.PEN}"></bim-option>
+                            <bim-option style="padding:0 0.5rem 0 0.5rem" label="Shadowed Pen" value="${OBCF.PostproductionAspect.PEN_SHADOWS}"></bim-option>
+                            <bim-option style="padding:0 0.5rem 0 0.5rem" label="Color Pen" value="${OBCF.PostproductionAspect.COLOR_PEN}"></bim-option>
+                            <bim-option style="padding:0 0.5rem 0 0.5rem" label="Color Shadows" value="${OBCF.PostproductionAspect.COLOR_SHADOWS}"></bim-option>
+                            <bim-option style="padding:0 0.5rem 0 0.5rem" label="Color Pen Shadows" value="${OBCF.PostproductionAspect.COLOR_PEN_SHADOWS}"></bim-option>
+                        </bim-dropdown>
+                        <bim-number-input
+                            slider step="0.01" label="Ambient occlusion intensity"
+                            value="0.5" min="0.1" max="1"
+                            @change="${({ target }: { target: BUI.NumberInput }) => {
+                                aoPass.blendIntensity = target.value
+                                aoParameters.radius = target.value
+                                aoParameters.distanceExponent = target.value*4
+                                aoParameters.thickness = target.value*10
+                                aoParameters.distanceFallOff = target.value
+                                aoParameters.scale = target.value*2
+                                aoParameters.samples = Math.floor(target.value*32)
+                                aoPass.updateGtaoMaterial(aoParameters)
+                        }}">
+                        </bim-number-input>
+                    </bim-panel-section>
+                </bim-panel>
+            `;
+        })
         // #endregion
 
         // #region GLOBAL VARIABLES
@@ -1619,6 +1773,14 @@ export function MainViewer () {
         const toolbar = BUI.Component.create<BUI.Toolbar>(() => {
             return BUI.html`
             <bim-toolbar style="justify-self: center">
+                <bim-toolbar-section label="Settings">
+                    <bim-button
+                        id='world'
+                        icon="tabler:world-cog"
+                        tooltip-title="World visibility settings"
+                        @click=${onSetLayout}>
+                    </bim-button>
+                </bim-toolbar-section>
                 <bim-toolbar-section label="IFC">
                     <bim-button
                         icon="material-symbols:sound-sampler-rounded"
@@ -1708,15 +1870,16 @@ export function MainViewer () {
                 </bim-toolbar-section>
                 <bim-toolbar-section label="5D">
                     <bim-button
+                        id='elementXCostButton'
                         tooltip-title="Open cost assignment panel of selected elements - organized by element"
                         icon="tabler:home-dollar"
-                        @click=${() => {console.log('TO DO ...')}}
+                        @click=${()=>{onOpenElementXCostPanel()}}
                     ></bim-button>
                     <bim-button
-                        id='elementXCostButton'
+                        style = "display:none"
                         tooltip-title="Open cost assignment panel of selected elements - organized by cost item"
                         icon="tabler:filter-2-dollar"
-                        @click=${()=>{onOpenElementXCostPanel()}}
+                        @click=${() => {console.log('TO DO ...')}}
                     ></bim-button>
                 </bim-toolbar-section>
                 <bim-toolbar-section id="test-section" label="TEST" style="display:${devElementsVisibility}">
@@ -1802,6 +1965,17 @@ export function MainViewer () {
                     /1fr
                 `,
                 elements: {
+                    toolbar
+                }
+            },
+            world: {
+                template: `
+                    "toolbar panelWorldSettings" auto
+                    "empty panelWorldSettings" 1fr
+                    /1fr ${panelRightWidth}
+                `,
+                elements: {
+                    panelWorldSettings,
                     toolbar
                 }
             },
