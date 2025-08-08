@@ -1040,7 +1040,7 @@ export function MainViewer () {
                         }
                         const endTime_8 = performance.now(); // End timer
                         const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
-                        console.log(`YIME ${loadTime_8} s: color elements using homogeneous color map (< 100 items)`);
+                        console.log(`TIME ${loadTime_8} s: color elements using homogeneous color map (< 100 items)`);
                     } else {
                         const startTime_8 = performance.now(); // Start timer
                         //this is to color items within a range of 5 colors (faster)
@@ -1311,7 +1311,7 @@ export function MainViewer () {
             `
         })
         const spatialTreePanelSection = BUI.Component.create<BUI.PanelSection>(() => {
-            /*const [spatialTree] = BUIC.tables.spatialTree({
+            const [spatialTree] = BUIC.tables.spatialTree({
                 components,
                 models: []
             });
@@ -1321,12 +1321,12 @@ export function MainViewer () {
                     <bim-text-input @input=${(e:Event)=>{onSearch(e,spatialTree)}} placeholder="Search..." debounce="200"></bim-text-input>
                     ${spatialTree}
                 </bim-panel-section>
-            `*/
-            return BUI.html`
+            `
+            /*return BUI.html`
                 <bim-panel-section label='Spatial Structure' icon="ri:node-tree" collapsed>
                     <bim-label>Disabled ...</bim-label>
                 </bim-panel-section>
-            `
+            `*/
         })
         const propertiesPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
             const [propertiesTable, updatePropertiesTable] = BUIC.tables.itemsData({
@@ -1669,12 +1669,14 @@ export function MainViewer () {
                                 const costValue = costValue_Record[model][0] as any
 
                                 //total cost of item
-                                const costValueAppliedValue = costValue['AppliedValue'][0]['ValueComponent'].value ? costValue['AppliedValue'][0]['ValueComponent'].value : 'nd'
+                                const valueComponent = costValue['AppliedValue'][0]['ValueComponent'].value
+                                const costValueAppliedValue = (valueComponent !== undefined && valueComponent !== null) ? valueComponent : 'nd'
                                 const costValueUnitComponent = costValue['AppliedValue'][0]['UnitComponent'][0]['Currency'].value ? costValue['AppliedValue'][0]['UnitComponent'][0]['Currency'].value : 'nd'
                                 const currency = convertCurrency(costValueUnitComponent)
                                 costItemTotalCost = row.data.Cost = `${Math.round(costValueAppliedValue*100)/100} ${currency}`
                                 //quantity of item
-                                const costValueUnitBasis = costValue['UnitBasis'][0]['ValueComponent'].value ? costValue['UnitBasis'][0]['ValueComponent'].value : 'nd'
+                                const unitComponent = costValue['AppliedValue'][0]['ValueComponent'].value
+                                const costValueUnitBasis = (unitComponent !== undefined && unitComponent !== null) ? unitComponent : 'nd'
                                 const costValueUnitMeasure = costValue['UnitBasis'][0]['UnitComponent'][0]['Name'].value ? costValue['UnitBasis'][0]['UnitComponent'][0]['Name'].value : 'nd'
                                 const unitMeasure = convertUnits(costValueUnitMeasure)
                                 costItemUnitBasis = row.data.Quantity = `${Math.round(costValueUnitBasis*1000)/1000} ${unitMeasure}`
