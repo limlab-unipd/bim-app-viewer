@@ -310,6 +310,7 @@ export function MainViewer () {
         const onResetVisibility = () => {
             hider.set(true) //show all items
             fragments.resetHighlight() //reset colors or other overrides
+            highlighter.clear()
         }
         const onInvertVisibility = async () => {
             for (const [,model] of fragments.list){
