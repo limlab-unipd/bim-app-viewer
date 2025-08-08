@@ -110,6 +110,10 @@ export function MainViewer () {
             if (isLodMaterial) {
                 world.renderer!.postproduction.basePass.isolatedMaterials.push(material)
             }
+            const isShadowMaterial = "isShadowMaterial" in material && material.isShadowMaterial
+            if (isShadowMaterial) {
+                world.renderer!.postproduction.basePass.isolatedMaterials.push(material)
+            }
         })
         // #endregion
 
@@ -135,6 +139,16 @@ export function MainViewer () {
         }
         aoPass.updateGtaoMaterial(aoParameters)
         aoPass.updatePdMaterial(pdParameters)
+        const setAmbientOcclusionParameters = (value:number) => {
+            aoPass.blendIntensity = value
+            aoParameters.radius = value
+            aoParameters.distanceExponent = value*4
+            aoParameters.thickness = value*10
+            aoParameters.distanceFallOff = value
+            aoParameters.scale = value*2
+            aoParameters.samples = Math.floor(value*32)
+            aoPass.updateGtaoMaterial(aoParameters)
+        }
 
         //start the viewer with the postproduction set but not enabled
         world.renderer.postproduction.enabled = false
@@ -609,7 +623,7 @@ export function MainViewer () {
             const costitem_rel_category_ids = await finder.list.get('COSTITEM_REL_CATEGORY')?.test()
             const endTime_1 = performance.now(); // End timer
             const loadTime_1 = ((endTime_1 - startTime_1) / 1000).toFixed(2); // seconds
-            console.log(`finder.list.get('COSTITEM_REL_CATEGORY')?.test() in ${loadTime_1} seconds`);
+            console.log(`TIME ${loadTime_1} s: find localIds of all cost items related to selected categories`);
             
             for (const key in costitem_rel_category_ids) { //remove models if there is any founded cost item
                 if (costitem_rel_category_ids[key] instanceof Set && costitem_rel_category_ids[key].size === 0) {
@@ -633,7 +647,7 @@ export function MainViewer () {
                 })
             const endTime_2 = performance.now(); // End timer
             const loadTime_2 = ((endTime_2 - startTime_2) / 1000).toFixed(2); // seconds
-            console.log(`filteredCostItems loaded in ${loadTime_2} seconds`)
+            console.log(`TIME ${loadTime_2} s: get data of previous cost items localIds`)
 
             if (resource != 'TotalCost'){
                 //initialize some maps needed for the process
@@ -923,7 +937,7 @@ export function MainViewer () {
 
                 const endTime_4 = performance.now(); // End timer
                 const loadTime_4 = ((endTime_4 - startTime_4) / 1000).toFixed(2); // seconds
-                console.log(`Total cost getting alla data loaded in ${loadTime_4} seconds`);
+                console.log(`TIME ${loadTime_4} s: whole process of getting total costs data`);
 
                 if (btn=='Color') {
                     highlighter.highlightByID("select", {}, true, false)
@@ -932,7 +946,7 @@ export function MainViewer () {
                     await onOpenElementXCostPanel(allSelectedItemsModelIdMap)
                     const endTime_5 = performance.now(); // End timer
                     const loadTime_5 = ((endTime_5 - startTime_5) / 1000).toFixed(2); // seconds
-                    console.log(`onOpenElementXCostPanel loaded in ${loadTime_5} seconds`);
+                    console.log(`TIME ${loadTime_5} s: total time to create and render cost table`);
                     
                     const normalized_cost: {[key:string]:number} = {}
 
@@ -1006,7 +1020,7 @@ export function MainViewer () {
                         }
                         const endTime_8 = performance.now(); // End timer
                         const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
-                        console.log(`highlighter color items with spcific color in ${loadTime_8} seconds`);
+                        console.log(`YIME ${loadTime_8} s: color elements using homogeneous color map (< 100 items)`);
                     } else {
                         const startTime_8 = performance.now(); // Start timer
                         //this is to color items within a range of 5 colors (faster)
@@ -1026,7 +1040,7 @@ export function MainViewer () {
                         }
                         const endTime_8 = performance.now(); // End timer
                         const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
-                        console.log(`highlighter color items with color ranges in ${loadTime_8} seconds`);
+                        console.log(`TIME ${loadTime_8} s: color elements using ranges color map (> 100 items)`);
                     }
 
                 } else if (btn == 'Select') { //if select button is clicked
@@ -1037,7 +1051,7 @@ export function MainViewer () {
             
             const endTime_tot = performance.now(); // End timer
             const loadTime_tot = ((endTime_tot - startTime_tot) / 1000).toFixed(2); // seconds
-            console.log(`TOTAL TIME FOR onColorByResource method: ${loadTime_tot} seconds`);
+            console.log(`TIME ${loadTime_tot} s: total time to complete the whole process of coloring`);
         }
         // #endregion
 
@@ -1072,16 +1086,86 @@ export function MainViewer () {
                 <bim-panel
                     label="World Visibility Settings"
                     style="background-color:rgba(0, 0, 0, 0.45);">
+                    <bim-panel-section label='Preset Styles'>
+                        <bim-button label='Basic'
+                            @click="${async () => {
+                                const transparencyOpacity = document.getElementById('transparency-opacity') as BUI.NumberInput
+                                const transparencyColor = document.getElementById('transparency-color') as BUI.ColorInput
+                                const gridVisible = document.getElementById('grid-visible') as BUI.Checkbox
+                                const gridColor = document.getElementById('grid-color') as BUI.ColorInput
+                                const gridPrimarySize = document.getElementById('grid-primary-size') as BUI.NumberInput
+                                const gridSecondarySize = document.getElementById('grid-secondary-size') as BUI.NumberInput
+                                const ambientBackgroundColor = document.getElementById('ambient-background-color') as BUI.ColorInput
+                                const ambientDirectionalLightsIntensity = document.getElementById('ambient-directional-lights-intensity') as BUI.NumberInput
+                                const ambientAmbientLightsIntensity = document.getElementById('ambient-ambient-lights-intensity') as BUI.NumberInput
+                                const postproductionEnable = document.getElementById('postproduction-enable') as BUI.Checkbox
+                                const postproductionStyle = document.getElementById('postproduction-style') as BUI.Dropdown
+                                const postproductionAmbientOcclusionIntensity = document.getElementById('postproduction-ambient-occlusion-intensity') as BUI.NumberInput
+
+                                highlighter.styles.get('transparent')!.opacity = transparencyOpacity.value = 0.5
+                                transparencyColor.color = "#7b7b7b"
+                                highlighter.styles.get('transparent')!.color = new THREE.Color("#7b7b7b")
+                                await highlighter.updateColors()
+
+                                grid.visible = gridVisible.checked = true
+                                gridColor.color = "#c1c1c1"
+                                grid.config.color = new THREE.Color("#c1c1c1")
+                                grid.config.primarySize = gridPrimarySize.value = 1
+                                grid.config.secondarySize = gridSecondarySize.value = 10
+
+                                ambientBackgroundColor.color = "#3b3c4f"
+                                world.scene.config.backgroundColor = new THREE.Color("#3b3c4f")
+                                world.scene.config.directionalLight.intensity = ambientDirectionalLightsIntensity.value = 1.5
+                                world.scene.config.ambientLight.intensity = ambientAmbientLightsIntensity.value = 1
+
+                                world.renderer!.postproduction.enabled = postproductionEnable.checked = false
+                                postproductionStyle.value = ['Basic']
+                                world.renderer!.postproduction.style = OBCF.PostproductionAspect.COLOR
+                                
+                                postproductionAmbientOcclusionIntensity.value = 0.5
+                                setAmbientOcclusionParameters(0.5)
+                            }}"
+                        ></bim-button>
+                        <bim-button label='Ambient Occlusion with Transparency'
+                            @click="${async () => {
+                                const transparencyOpacity = document.getElementById('transparency-opacity') as BUI.NumberInput
+                                const transparencyColor = document.getElementById('transparency-color') as BUI.ColorInput
+                                const gridVisible = document.getElementById('grid-visible') as BUI.Checkbox
+                                const ambientDirectionalLightsIntensity = document.getElementById('ambient-directional-lights-intensity') as BUI.NumberInput
+                                const ambientAmbientLightsIntensity = document.getElementById('ambient-ambient-lights-intensity') as BUI.NumberInput
+                                const postproductionEnable = document.getElementById('postproduction-enable') as BUI.Checkbox
+                                const postproductionStyle = document.getElementById('postproduction-style') as BUI.Dropdown
+                                const postproductionAmbientOcclusionIntensity = document.getElementById('postproduction-ambient-occlusion-intensity') as BUI.NumberInput
+
+                                highlighter.styles.get('transparent')!.opacity = transparencyOpacity.value = 0.06
+                                transparencyColor.color = "#d6d6d6"
+                                highlighter.styles.get('transparent')!.color = new THREE.Color("#d6d6d6")
+                                await highlighter.updateColors()
+
+                                grid.visible = gridVisible.checked = false
+
+                                world.scene.config.directionalLight.intensity = ambientDirectionalLightsIntensity.value = 3.3
+                                world.scene.config.ambientLight.intensity = ambientAmbientLightsIntensity.value = 1.1
+
+                                world.renderer!.postproduction.enabled = postproductionEnable.checked = true
+                                postproductionStyle.value = ['Color Shadows']
+                                world.renderer!.postproduction.style = OBCF.PostproductionAspect.COLOR_SHADOWS
+                                
+                                postproductionAmbientOcclusionIntensity.value = 0.67
+                                setAmbientOcclusionParameters(0.67)
+                            }}"
+                        ></bim-button>
+                    </bim-panel-section>
                     <bim-panel-section label='Transparency'>
                         <bim-number-input 
-                            slider step="0.01" label="Opacity" value="0.5" min="0" max="1"
+                            id='transparency-opacity' slider step="0.01" label="Opacity" value="0.5" min="0" max="1"
                             @change="${async ({ target }: { target: BUI.NumberInput }) => {
                                 (highlighter.styles.get('transparent') as any).opacity = target.value
                                 await highlighter.updateColors()
                             }}">
                         </bim-number-input>
                         <bim-color-input
-                            label="Color" color="#7b7b7bff" 
+                            id="transparency-color" label="Color" color="#7b7b7b" 
                             @input="${async ({ target }: { target: BUI.ColorInput }) => {
                                 (highlighter.styles.get('transparent') as any).color = new THREE.Color(target.color)
                                 await highlighter.updateColors()
@@ -1089,26 +1173,26 @@ export function MainViewer () {
                         </bim-color-input>
                     </bim-panel-section>
                     <bim-panel-section label='Grid'>
-                        <bim-checkbox 
-                            checked label="Visibile"
+                        <bim-checkbox
+                            id="grid-visible" checked label="Visible"
                             @change="${({ target }: { target: BUI.Checkbox }) => {
                                 grid.visible = target.value
                             }}">
                         </bim-checkbox>
                         <bim-color-input
-                            label="Color" color="#1c1c1cff"
+                            id="grid-color" label="Color" color="#c1c1c1"
                             @input="${({ target }: { target: BUI.ColorInput }) => {
                                 grid.config.color = new THREE.Color(target.color);
                             }}">
                         </bim-color-input>
                         <bim-number-input 
-                            slider step="0.5" label="Primary size" value="1" min="0.5" max="10" style='min-width:100px'
+                            id="grid-primary-size" slider step="0.5" label="Primary size" value="1" min="0.5" max="10" style='min-width:100px'
                             @change="${({ target }: { target: BUI.NumberInput }) => {
                                 grid.config.primarySize = target.value
                             }}">
                         </bim-number-input>
                         <bim-number-input 
-                            slider step="1" label="Secondary size" value="10" min="1" max="50"
+                            id="grid-secondary-size" slider step="1" label="Secondary size" value="10" min="1" max="50"
                             @change="${({ target }: { target: BUI.NumberInput }) => {
                                 grid.config.primarySize = target.value
                             }}">
@@ -1116,19 +1200,19 @@ export function MainViewer () {
                     </bim-panel-section>
                     <bim-panel-section label='Ambient'>
                         <bim-color-input
-                            label="Background Color" color="#5e5f83f2" 
+                            id="ambient-background-color" label="Background Color" color="#3b3c4f" 
                             @input="${({ target }: { target: BUI.ColorInput }) => {
                                 world.scene.config.backgroundColor = new THREE.Color(target.color)
                             }}">
                         </bim-color-input>
                         <bim-number-input 
-                            slider step="0.1" label="Directional lights intensity" value="1.5" min="0.1" max="10"
+                            id="ambient-directional-lights-intensity" slider step="0.1" label="Directional lights intensity" value="1.5" min="0.1" max="10"
                             @change="${({ target }: { target: BUI.NumberInput }) => {
                                 world.scene.config.directionalLight.intensity = target.value;
                             }}">
                         </bim-number-input>
                         <bim-number-input 
-                            slider step="0.1" label="Ambient light intensity" value="1" min="0.1" max="5"
+                            id="ambient-ambient-lights-intensity" slider step="0.1" label="Ambient light intensity" value="1" min="0.1" max="5"
                             @change="${({ target }: { target: BUI.NumberInput }) => {
                                 world.scene.config.ambientLight.intensity = target.value;
                             }}">
@@ -1136,39 +1220,32 @@ export function MainViewer () {
                     </bim-panel-section>
                     <bim-panel-section label='Postproduction'>
                         <bim-checkbox label="Enable"
-                            @change="${({ target }: { target: BUI.Checkbox }) => {
+                            id="postproduction-enable" @change="${({ target }: { target: BUI.Checkbox }) => {
                                 world.renderer!.postproduction.enabled = target.value
                             }}">
                         </bim-checkbox>
-                        <bim-dropdown required label="Style"
+                        <bim-dropdown id="postproduction-style" required label="Style"
                                 @change="${({ target }: { target: BUI.Dropdown }) => {
                                 const result = target.value[0] as OBCF.PostproductionAspect;
                                 world.renderer!.postproduction.style = result;
                             }}">
-                            <bim-option style="padding:0 0.5rem 0 0.5rem" checked label="Basic" value="${OBCF.PostproductionAspect.COLOR}"></bim-option>
-                            <bim-option style="padding:0 0.5rem 0 0.5rem" label="Pen" value="${OBCF.PostproductionAspect.PEN}"></bim-option>
-                            <bim-option style="padding:0 0.5rem 0 0.5rem" label="Shadowed Pen" value="${OBCF.PostproductionAspect.PEN_SHADOWS}"></bim-option>
-                            <bim-option style="padding:0 0.5rem 0 0.5rem" label="Color Pen" value="${OBCF.PostproductionAspect.COLOR_PEN}"></bim-option>
-                            <bim-option style="padding:0 0.5rem 0 0.5rem" label="Color Shadows" value="${OBCF.PostproductionAspect.COLOR_SHADOWS}"></bim-option>
-                            <bim-option style="padding:0 0.5rem 0 0.5rem" label="Color Pen Shadows" value="${OBCF.PostproductionAspect.COLOR_PEN_SHADOWS}"></bim-option>
+                            <bim-option id="postproduction-style-basic" style="padding:0 0.5rem 0 0.5rem" checked label="Basic" value="${OBCF.PostproductionAspect.COLOR}"></bim-option>
+                            <bim-option id="postproduction-style-pen" style="padding:0 0.5rem 0 0.5rem" label="Pen" value="${OBCF.PostproductionAspect.PEN}"></bim-option>
+                            <bim-option id="postproduction-style-shadowed-pen" style="padding:0 0.5rem 0 0.5rem" label="Shadowed Pen" value="${OBCF.PostproductionAspect.PEN_SHADOWS}"></bim-option>
+                            <bim-option id="postproduction-style-color-pen" style="padding:0 0.5rem 0 0.5rem" label="Color Pen" value="${OBCF.PostproductionAspect.COLOR_PEN}"></bim-option>
+                            <bim-option id="postproduction-style-color-shadows" style="padding:0 0.5rem 0 0.5rem" label="Color Shadows" value="${OBCF.PostproductionAspect.COLOR_SHADOWS}"></bim-option>
+                            <bim-option id="postproduction-style-color-pen-shadows" style="padding:0 0.5rem 0 0.5rem" label="Color Pen Shadows" value="${OBCF.PostproductionAspect.COLOR_PEN_SHADOWS}"></bim-option>
                         </bim-dropdown>
                         <bim-number-input
-                            slider step="0.01" label="Ambient occlusion intensity"
+                            id="postproduction-ambient-occlusion-intensity" slider step="0.01" label="Ambient occlusion intensity"
                             value="0.5" min="0.1" max="1"
                             @change="${({ target }: { target: BUI.NumberInput }) => {
-                                aoPass.blendIntensity = target.value
-                                aoParameters.radius = target.value
-                                aoParameters.distanceExponent = target.value*4
-                                aoParameters.thickness = target.value*10
-                                aoParameters.distanceFallOff = target.value
-                                aoParameters.scale = target.value*2
-                                aoParameters.samples = Math.floor(target.value*32)
-                                aoPass.updateGtaoMaterial(aoParameters)
+                                setAmbientOcclusionParameters(target.value)
                         }}">
                         </bim-number-input>
                     </bim-panel-section>
                 </bim-panel>
-            `;
+            `
         })
         // #endregion
 
@@ -1363,7 +1440,8 @@ export function MainViewer () {
         //categories dropdown menu
         //capire come aggiungere tutte le categorie
         //const categories = await model.getCategories();
-        const categories = ['IFCWALL','IFCCOLUMN','IFCWINDOW','IFCBUILDINGELEMENTPART', 'IFCBEAM', 'IFCWALLSTANDARDCASE', 'IFCROOF', 'IFCFLOOR', 'IFCRAILING', 'IFCDOOR', 'IFCSITE', 'IFCPROJECT', 'IFCSLAB', 'IFCCEILING', 'IFCFURNITURE', 'IFCBUILDINGELEMENTPROXY']
+        const categories = ['IFCWALL','IFCCOLUMN','IFCWINDOW','IFCBUILDINGELEMENTPART', 'IFCBEAM', 'IFCWALLSTANDARDCASE', 'IFCROOF', 'IFCFLOOR', 'IFCRAILING', 'IFCDOOR', 'IFCSITE', 'IFCPROJECT', 'IFCSLAB', 'IFCCEILING', 'IFCFURNITURE', 'IFCBUILDINGELEMENTPROXY', 'IFCFLOWSEGMENT', 'IFCBUILDINGELEMENTPROXY',
+            'IFCFLOWFITTING', 'IFCFLOWTERMINAL']
         interface categoriesUI {
             listCategories: string[]
         }
@@ -1454,8 +1532,8 @@ export function MainViewer () {
                     })
             const endTime_3 = performance.now(); // End timer
             const loadTime_3 = ((endTime_3 - startTime_3) / 1000).toFixed(2); // seconds
-            console.log(`selectionData loaded in ${loadTime_3} seconds`);
-            console.log('selection data: \n', selectionData)
+            console.log(`TIME ${loadTime_3} s: get data of selected items (within onOpenElementXCostPanel method)`)
+            //console.log('selection data: \n', selectionData)
 
             const startTime_6 = performance.now(); // Start timer
             // #region INITIALIZE TABLES
@@ -1538,6 +1616,7 @@ export function MainViewer () {
                             costItemName = row.data.Name = costItem['Name'].value ? costItem['Name'].value : 'nd'
                             costItemDescription = row.data.Description = costItem['Description'].value ? costItem['Description'].value : 'nd'
                             costItemObjectType = costItem['ObjectType'].value ? costItem['ObjectType'].value : 'nd'
+                            console.log('cost item ok')
 
                             //here I have to do what I said before: get the single cost item without relations, otherwise it will get relations also of related elements such as walls ecc
                             costItemId = costItem['_localId'].value ? costItem['_localId'].value : 'nd'
@@ -1575,13 +1654,20 @@ export function MainViewer () {
                                 const unitMeasure = convertUnits(costValueUnitMeasure)
                                 costItemUnitBasis = row.data.Quantity = `${Math.round(costValueUnitBasis*1000)/1000} ${unitMeasure}`
                                 //unit cost of cost item
-                                if (costValue['Components'] && costValue['Components'][0]['Category'].value == 'Unit cost'){
-                                    const costValueUnitCostAppliedValue = costValue['Components'][0]['AppliedValue'][0]['ValueComponent'].value ? costValue['Components'][0]['AppliedValue'][0]['ValueComponent'].value : 'nd'
-                                    const costValueUnitCostUnitComponent = costValue['Components'][0]['AppliedValue'][0]['UnitComponent'][0]['Currency'].value ? costValue['Components'][0]['AppliedValue'][0]['UnitComponent'][0]['Currency'].value : 'nd'
-                                    const currency = convertCurrency(costValueUnitCostUnitComponent)
-                                    costItemUnitCost = row.data.UnitCost = `${Math.round(costValueUnitCostAppliedValue*100)/100} ${currency}/${unitMeasure}`
-                                    row.data.ComponentsCostValues = costValue['Components'][0]['Components']
-                                } else {
+                                try {
+                                    if (costValue['Components'] && costValue['Components'][0]['Category'].value == 'Unit cost'){
+                                        console.log('within if components')
+                                        const costValueUnitCostAppliedValue = costValue['Components'][0]['AppliedValue'][0]['ValueComponent'].value ? costValue['Components'][0]['AppliedValue'][0]['ValueComponent'].value : 'nd'
+                                        const costValueUnitCostUnitComponent = costValue['Components'][0]['AppliedValue'][0]['UnitComponent'][0]['Currency'].value ? costValue['Components'][0]['AppliedValue'][0]['UnitComponent'][0]['Currency'].value : 'nd'
+                                        const currency = convertCurrency(costValueUnitCostUnitComponent)
+                                        costItemUnitCost = row.data.UnitCost = `${Math.round(costValueUnitCostAppliedValue*100)/100} ${currency}/${unitMeasure}`
+                                        row.data.ComponentsCostValues = costValue['Components'][0]['Components']
+                                    } else {
+                                        row.data.UnitCost = 'nd'
+                                        row.data.ComponentsCostValues = 'nd'
+                                    }
+                                } catch (error) {
+                                    console.warn('Error in finding unit cost. Error:\n',error)
                                     row.data.UnitCost = 'nd'
                                     row.data.ComponentsCostValues = 'nd'
                                 }
@@ -1681,7 +1767,7 @@ export function MainViewer () {
 
             const endTime_6 = performance.now(); // End timer
             const loadTime_6 = ((endTime_6 - startTime_6) / 1000).toFixed(2); // seconds
-            console.log(`Total time for creating cost table: ${loadTime_6} seconds`);
+            console.log(`TIME ${loadTime_6} s: only create and append the cost table (within onOpenElementXCostPanel method)`);
         }
 
         const onOpenPriceAnalysis = (resourcesCostValues: any, unitCostName:any, unitCostDescription: any, unitCost: any) => {
@@ -2050,7 +2136,7 @@ export function MainViewer () {
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer() //set the viewer
+        setViewer() //set the viewer, devMode default = false
         return () => {
             if (components) {
                 components.dispose()

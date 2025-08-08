@@ -3,7 +3,7 @@
 /* General settings */
 :root{
     --primary: #760000;
-    --background: #3b3c4fe3;
+    --background: rgba(59, 60, 79, 0.89);
     --background-100: rgba(94, 95, 131, 0.95);
     --hover: rgba(255,255,255,0.1);
     --text: white;
