@@ -250,11 +250,14 @@ export function MainViewer () {
             input.multiple = true
             input.accept = '.frag'
             const fragPaths: string[] = []
+            const fragNames: {[key:string]:string} = {}
             input.onchange = async (event) => {
                 const files = (event.target as HTMLInputElement).files
                 if (!files) return
                 for (const file of files){
-                    fragPaths.push(URL.createObjectURL(file))
+                    const path = URL.createObjectURL(file)
+                    fragPaths.push(path)
+                    fragNames[path] = file.name.split('.')[0]
                 }
                 // Promise.all loads models concurrently for faster execution.
                 const startTime = performance.now() // Start timer
@@ -265,12 +268,26 @@ export function MainViewer () {
                     const file = await fetch(path)
                     const buffer = await file.arrayBuffer()
                     // this is the main function to load the fragments
-                    return fragments.core.load(buffer, { modelId })
+                    return fragments.core.load(buffer, { modelId: fragNames[path] })
                     }),
                 )
                 const endTime = performance.now() // End timer
                 const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
                 console.log(`Fragments loaded in ${loadTime} seconds`)
+                const overlay = document.getElementById("overlay");
+                if (overlay) {
+                    const label = BUI.Component.create<HTMLDivElement>(() => {
+                        return BUI.html`
+                        <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.2); border-radius: 10px; margin: 5px">
+                            Fragments loaded in ${loadTime} seconds.
+                        </div>
+                        `
+                    })
+                    overlay.appendChild(label)
+                    setTimeout(() => {
+                        label.style.display = "none";
+                    }, 5000); // Nasconde dopo 4 secondi
+                }
             }
             input.click()
         }
@@ -421,9 +438,9 @@ export function MainViewer () {
             const input = e.target as BUI.TextInput;
             table.queryString = input.value !== "" ? input.value : null
         }
-        const onClearPanel = (panel: BUI.Panel) => {
+        const onClearPanel = (panel: BUI.Panel, title:string='Void Panel') => {
             panel.innerHTML = ''
-            panel.label = 'Void Panel'
+            panel.label = title
         }
         const flattenModelMap = (map:{[key:string]:{[key:string|number]:any}}) => {
             const flatten_map = Object.values(map).reduce((acc, curr) => {
@@ -574,6 +591,7 @@ export function MainViewer () {
             }
             
             onClearPanel(panelDown) //clear down panel
+            panelDown.appendChild(loadingLabel)
             resource!='TotalCost' ? panelDown.label = `${resource} Resource Cost X Elements` : panelDown.label = 'Elements Total Cost' //change the title of the panel
             const gridLayout = floatingGrid.layout as any //change the grid layout
             if (!gridLayout.includes('down')){
@@ -876,6 +894,7 @@ export function MainViewer () {
                     `
                 })
                 //step 8: append the component to the down panel
+                panelDown.innerHTML=''
                 panelDown.appendChild(categoryXResourcePanel)
 
             } else if (resource == 'TotalCost'){
@@ -1253,6 +1272,11 @@ export function MainViewer () {
         // #endregion
 
         // #region ADVANCED COMPONENTS
+        const loadingLabel = BUI.Component.create<BUI.Label>(()=>{
+            return BUI.html`
+                <bim-label style='padding:20px'>Loading...</bim-label>
+            `
+        })
         interface countLabelUI {
             countItems: number | 'loading...',
             countCostItems: number | 'loading...',
@@ -1502,7 +1526,8 @@ export function MainViewer () {
         //advanced costs functions and components
         const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined) => {
             //clean panel
-            panelDown.innerHTML = ''
+            panelDown.innerHTML=''
+            panelDown.appendChild(loadingLabel)
             panelDown.label = 'Element X Costs Panel'
 
             //get selected elements
@@ -1616,7 +1641,6 @@ export function MainViewer () {
                             costItemName = row.data.Name = costItem['Name'].value ? costItem['Name'].value : 'nd'
                             costItemDescription = row.data.Description = costItem['Description'].value ? costItem['Description'].value : 'nd'
                             costItemObjectType = costItem['ObjectType'].value ? costItem['ObjectType'].value : 'nd'
-                            console.log('cost item ok')
 
                             //here I have to do what I said before: get the single cost item without relations, otherwise it will get relations also of related elements such as walls ecc
                             costItemId = costItem['_localId'].value ? costItem['_localId'].value : 'nd'
@@ -1656,7 +1680,6 @@ export function MainViewer () {
                                 //unit cost of cost item
                                 try {
                                     if (costValue['Components'] && costValue['Components'][0]['Category'].value == 'Unit cost'){
-                                        console.log('within if components')
                                         const costValueUnitCostAppliedValue = costValue['Components'][0]['AppliedValue'][0]['ValueComponent'].value ? costValue['Components'][0]['AppliedValue'][0]['ValueComponent'].value : 'nd'
                                         const costValueUnitCostUnitComponent = costValue['Components'][0]['AppliedValue'][0]['UnitComponent'][0]['Currency'].value ? costValue['Components'][0]['AppliedValue'][0]['UnitComponent'][0]['Currency'].value : 'nd'
                                         const currency = convertCurrency(costValueUnitCostUnitComponent)
@@ -1759,6 +1782,7 @@ export function MainViewer () {
                 </bim-panel>`
             })
 
+            panelDown.innerHTML=''
             panelDown.appendChild(elementXCostPanel)
             const gridLayout = floatingGrid.layout as any
             if (!gridLayout.includes('down')){
