@@ -486,13 +486,9 @@ export function MainViewer () {
             }
             return unitMeasure
         }
-        const normalizeAndMapToColor = (map: Record<string, number>): [Record<string, string>,Record<string, number>] => {
-            const colorScale: [number, string][] = [
-                [0,     'rgba(26, 150, 65, 1)'],      // verde
-                [1 / 3, 'rgba(166, 217, 106, 1)'],    // verde chiaro
-                [2 / 3, 'rgba(253, 174, 97, 1)'],     // arancio
-                [1,     'rgba(215, 25, 28, 1)']       // rosso
-            ];
+        const normalizeAndMapToColor = (map: Record<string, number>, colorscale:string='gnylrd'): [Record<string, string>,Record<string, number>] => {
+
+            const colorScale = colorScaleList[colorscale]
 
             const parseRGBA = (rgba: string): [number, number, number, number] => {
                 const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
@@ -543,27 +539,72 @@ export function MainViewer () {
             return [result, resultNormalized];
         }
         
-        type ColorRangeKey = "darkGreen" | "green" | "yellow" | "orange" | "red";
+        type ColorRangeKey = "color_0_02" | "color_02_04" | "color_04_06" | "color_06_08" | "color_08_1";
         type GroupedData = Record<ColorRangeKey, string[]>;
         type PerModelInput = Record<string, Record<string, any>>;
         type PerModelGrouped = Record<string, GroupedData>;
-        function groupIdsByNormalizedValuePerModel(normalizedData: Record<string, number>, perModelData: PerModelInput): PerModelGrouped {
+        const colorScaleList: {[key:string]:[number, string][]} = {
+            gnylrd: [
+                [0,'rgba(26, 150, 65, 1)'],
+                [1/4,'rgba(166, 217, 106, 1)'],
+                [2/4,'rgba(255, 255, 0, 1)'],
+                [3/4,'rgba(253, 174, 97, 1)'],
+                [1,'rgba(215, 25, 28, 1)']
+            ],
+            viridis: [
+                [0,'rgba(68, 1, 84, 1)'],
+                [1/4,'rgba(59, 82, 139, 1)'],
+                [2/4,'rgba(33, 144, 141, 1)'],
+                [3/4,'rgba(94, 201, 98, 1)'],
+                [1,'rgba(253, 231, 37, 1)']
+            ],
+            ylgnbu: [
+                [0, 'rgba(255, 255, 204, 1)'],
+                [1/4, 'rgba(194, 230, 153, 1)'],
+                [2/4, 'rgba(120, 198, 121, 1)'],
+                [3/4, 'rgba(49, 163, 84, 1)'],
+                [1, 'rgba(0, 104, 55, 1)']
+            ],
+            blues: [
+                [0, 'rgba(239, 243, 255, 1)'],
+                [1/4, 'rgba(189, 215, 231, 1)'],
+                [2/4, 'rgba(107, 174, 214, 1)'],
+                [3/4, 'rgba(33, 113, 181, 1)'],
+                [1, 'rgba(8, 69, 148, 1)']
+            ],
+            orrd: [
+                [0, 'rgba(254, 240, 217, 1)'],
+                [1/4, 'rgba(253, 212, 158, 1)'],
+                [2/4, 'rgba(253, 187, 132, 1)'],
+                [3/4, 'rgba(253, 141, 60, 1)'],
+                [1, 'rgba(217, 72, 1, 1)']
+            ],
+            cividis: [
+                [0, 'rgba(0, 32, 76, 1)'],
+                [1/4, 'rgba(55, 64, 129, 1)'],
+                [2/4, 'rgba(94, 109, 171, 1)'],
+                [3/4, 'rgba(145, 158, 203, 1)'],
+                [1, 'rgba(253, 231, 37, 1)']
+            ],
+        }
+
+        function groupIdsByNormalizedValuePerModel(normalizedData: Record<string, number>, perModelData: PerModelInput, colorscale:string='gnylrd'): PerModelGrouped {
             const colorForValue = (value: number): ColorRangeKey | null => {
-                if (value >= 0 && value < 0.20) return "darkGreen";
-                if (value >= 0.20 && value < 0.40) return "green";
-                if (value >= 0.40 && value < 0.60) return "yellow";
-                if (value >= 0.60 && value < 0.80) return "orange";
-                if (value >= 0.80 && value <= 1.00) return "red";
+                if (value >= 0 && value < 0.20) return "color_0_02";
+                if (value >= 0.20 && value < 0.40) return "color_02_04";
+                if (value >= 0.40 && value < 0.60) return "color_04_06";
+                if (value >= 0.60 && value < 0.80) return "color_06_08";
+                if (value >= 0.80 && value <= 1.00) return "color_08_1";
                 return null;
             }
             const result: PerModelGrouped = {}
             for (const [modelName, elements] of Object.entries(perModelData)) {
                 const grouped: GroupedData = {
-                    darkGreen: [],
-                    green: [],
-                    yellow: [],
-                    orange: [],
-                    red: []
+                    color_0_02: [],
+                    color_02_04: [],
+                    color_04_06: [],
+                    color_06_08: [],
+                    color_08_1: []
                 }
                 for (const id of Object.keys(elements)) {
                 const value = normalizedData[id];
@@ -576,6 +617,13 @@ export function MainViewer () {
                 }
                 result[modelName] = grouped;
             }
+            
+            highlighter.styles.set('color_0_02', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('color_02_04', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.25)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('color_04_06', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.5)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('color_06_08', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.75)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('color_08_1', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 1)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+
             return result;
         }
 
@@ -586,6 +634,8 @@ export function MainViewer () {
             const [resource] = resourcesDropdown.value //read the value of the resource dropdown menu (single choice)
             const category = categoriesDropdown.value //read the value of category dropdown menu, list is kept because multiple choices are accepted
             const [normalization] = unitMeasureDropdown.value //read the value of normalization by button (single choice)
+            const [colorscale] = colorScaleDropdown.value
+            
             if (!resource || !category) {
                 updateCountLabel({countItems:0, countCostItems:0, countResources:0})
                 return //if one of the two is not selected return the function (nothing will be done)
@@ -812,7 +862,7 @@ export function MainViewer () {
                     const model_resources_Map_flat = flattenModelMap(model_resources_Map)
     
                     //step 6.1: normalize total resource cost to color across models
-                    const [colorMap, normalizedValue] = normalizeAndMapToColor(model_resources_Map_flat) //use this function to normalize values between 0 and 1 and return color and normalized value
+                    const [colorMap, normalizedValue] = normalizeAndMapToColor(model_resources_Map_flat,colorscale) //use this function to normalize values between 0 and 1 and return color and normalized value
                     
                     //step 6.2: add the normalized value to the table, pay attention: it is only a render value, it will not be saved in the table
                     //changing this value here is independent from model
@@ -824,7 +874,12 @@ export function MainViewer () {
                     resourceTable.dataTransform.ResourceCost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
                         const { itemId } = rowData
                         if (!itemId) return value //if itemId is not defined, return the original value
-                        return BUI.html`<bim-label style="color:${colorMap[itemId]};">${value}</bim-label>`
+                        return BUI.html`
+                            <div style="display: flex; flex-direction:row; justify-content:space-between; min-width:75%">
+                                <bim-label>${value}</bim-label>
+                                <div style="height:1rem; width: 1rem; border-radius:5px; background-color:${colorMap[Number(itemId)]}; color:${colorMap[Number(itemId)]};">.</div>
+                            </div>
+                        `
                     }
                     
                     //here things comes different because to highlight and color elements the model is needed
@@ -848,12 +903,7 @@ export function MainViewer () {
                         }
                         console.log(highlighter.selection)
                     } else {
-                        const groupedColors = groupIdsByNormalizedValuePerModel(normalizedValue as Record<string,number>, model_resources_Map)
-                        highlighter.styles.set('darkGreen', {color: new THREE.Color('#006400'),opacity: 1,transparent: false,renderedFaces: 0,})
-                        highlighter.styles.set('green', {color: new THREE.Color('#90EE90'),opacity: 1,transparent: false,renderedFaces: 0,})
-                        highlighter.styles.set('yellow', {color: new THREE.Color('#FFFF00'),opacity: 1,transparent: false,renderedFaces: 0,})
-                        highlighter.styles.set('orange', {color: new THREE.Color('#FFA500'),opacity: 1,transparent: false,renderedFaces: 0,})
-                        highlighter.styles.set('red', {color: new THREE.Color('#FF0000'),opacity: 1,transparent: false,renderedFaces: 0,})
+                        const groupedColors = groupIdsByNormalizedValuePerModel(normalizedValue as Record<string,number>, model_resources_Map, colorscale)
                         for (const [model,colorMap] of Object.entries(groupedColors)) {
                             const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
                             onSetTransparency({[model]:new Set(geomItems)})
@@ -976,18 +1026,21 @@ export function MainViewer () {
                         for (const [itemId,cost] of Object.entries(model_cost_map_flat)){
                             normalized_cost[itemId] = cost / model_volume_map_flat[itemId]
                         }
-                        [colorMap,normalizedValue] = normalizeAndMapToColor(normalized_cost)
+                        [colorMap,normalizedValue] = normalizeAndMapToColor(normalized_cost,colorscale)
                     } else {
-                        [colorMap,normalizedValue] = normalizeAndMapToColor(model_cost_map_flat)
+                        [colorMap,normalizedValue] = normalizeAndMapToColor(model_cost_map_flat,colorscale)
                     }
 
                     const elementXCostTable = document.getElementById('elementXCostTable') as BUI.Table
                     if (normalization == 'Volume') {
-                        elementXCostTable.dataTransform.Name = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+                        elementXCostTable.dataTransform.Cost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
                             const { ItemId } = rowData
                             if (!ItemId) return value //if ItemId is not defined, return the original value
                             return BUI.html`
-                                <bim-label style="color:${colorMap[Number(ItemId)]};">${value}</bim-label>
+                                <div style="display: flex; flex-direction:row; justify-content:space-between; min-width:50%">
+                                    <bim-label>${value}</bim-label>
+                                    <div style="height:1rem; width: 1rem; border-radius:5px; background-color:${colorMap[Number(ItemId)]}; color:${colorMap[Number(ItemId)]};">.</div>
+                                </div>
                             `
                         }
                         elementXCostTable.dataTransform.ItemVolume = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
@@ -1015,7 +1068,10 @@ export function MainViewer () {
                             const { ItemId } = rowData
                             if (!ItemId) return value //if ItemId is not defined, return the original value
                             return BUI.html`
-                                <bim-label style="color:${colorMap[Number(ItemId)]};">${value}</bim-label>
+                                <div style="display: flex; flex-direction:row; justify-content:space-between; min-width:75%">
+                                    <bim-label>${value}</bim-label>
+                                    <div style="height:1rem; width: 1rem; border-radius:5px; background-color:${colorMap[Number(ItemId)]}; color:${colorMap[Number(ItemId)]};">.</div>
+                                </div>
                             `
                         }
                     }
@@ -1044,12 +1100,7 @@ export function MainViewer () {
                     } else {
                         const startTime_8 = performance.now(); // Start timer
                         //this is to color items within a range of 5 colors (faster)
-                        const groupedColors = groupIdsByNormalizedValuePerModel(normalizedValue as Record<string,number>, model_cost_map)
-                        highlighter.styles.set('darkGreen', {color: new THREE.Color('#006400'),opacity: 1,transparent: false,renderedFaces: 0,})
-                        highlighter.styles.set('green', {color: new THREE.Color('#90EE90'),opacity: 1,transparent: false,renderedFaces: 0,})
-                        highlighter.styles.set('yellow', {color: new THREE.Color('#FFFF00'),opacity: 1,transparent: false,renderedFaces: 0,})
-                        highlighter.styles.set('orange', {color: new THREE.Color('#FFA500'),opacity: 1,transparent: false,renderedFaces: 0,})
-                        highlighter.styles.set('red', {color: new THREE.Color('#FF0000'),opacity: 1,transparent: false,renderedFaces: 0,})
+                        const groupedColors = groupIdsByNormalizedValuePerModel(normalizedValue as Record<string,number>, model_cost_map, colorscale)
                         for (const [model,colorMap] of Object.entries(groupedColors)) {
                             const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
                             onSetTransparency({[model]:new Set(geomItems)})
@@ -1414,6 +1465,18 @@ export function MainViewer () {
         })
 
         // #region dropdown menus
+        //color scale dropdown
+        const colorScaleDropdown = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="colorScale" label='Color Scale' icon='ic:outline-color-lens' style="min-width:100px">
+                <bim-option label='Green-Yellow-Red' value='gnylrd' style="color:black; padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(26, 150, 65, 1),rgba(166, 217, 106, 1),rgba(255, 255, 0, 1),rgba(253, 174, 97, 1),rgba(215, 25, 28, 1))"></bim-option>
+                <bim-option label='Yellow-Green-Blue' value='ylgnbu' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(255, 255, 204, 1), rgba(194, 230, 153, 1), rgba(120, 198, 121, 1), rgba(49, 163, 84, 1), rgba(0, 104, 55, 1))"></bim-option>
+                <bim-option label='Orange-Red' value='orrd' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(254, 240, 217, 1), rgba(253, 212, 158, 1), rgba(253, 187, 132, 1), rgba(253, 141, 60, 1), rgba(217, 72, 1, 1))"></bim-option>
+                <bim-option label='Blues' value='blues' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(239, 243, 255, 1), rgba(189, 215, 231, 1), rgba(107, 174, 214, 1), rgba(33, 113, 181, 1), rgba(8, 69, 148, 1))"></bim-option>
+                <bim-option label='Viridis' value='viridis' style="padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(68, 1, 84, 1),rgba(59, 82, 139, 1),rgba(33, 144, 141, 1),rgba(94, 201, 98, 1),rgba(253, 231, 37, 1))"></bim-option>
+                <bim-option label='Cividis' value='cividis' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(0, 32, 76, 1), rgba(55, 64, 129, 1), rgba(94, 109, 171, 1), rgba(145, 158, 203, 1), rgba(253, 231, 37, 1))"></bim-option>
+            </bim-dropdown>`,
+        )
         //sort by resources dropdown menu
         const sortbyResources: string[] = ['ResourceCost (up)','ResourceCost (down)', 'Name (up)', 'Name (down)']
         sortbyResources.sort() //sort resources
@@ -1504,6 +1567,7 @@ export function MainViewer () {
                 <bim-panel-section
                     label = "Cost Resources"
                     icon = "ic:round-format-color-fill">
+                    ${colorScaleDropdown}
                     ${resourcesDropdown}
                     ${categoriesDropdown}
                     ${unitMeasureDropdown}
