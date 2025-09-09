@@ -233,7 +233,7 @@ export function MainViewer () {
         }
 
         // handle fragment files
-        const onFragmentsExport = async () => {
+        /*const onFragmentsExport = async () => {
             for (const [, model] of fragments.list) {
                 const fragsBuffer = await model.getBuffer(false);
                 const file = new File([fragsBuffer], `${model.modelId}.frag`)
@@ -243,7 +243,7 @@ export function MainViewer () {
                 link.click()
                 URL.revokeObjectURL(link.href)
             }
-        }
+        }*/
         const onFragmentsImport = async () => {
             const input = document.createElement('input')
             input.type = 'file'
