@@ -1319,16 +1319,8 @@ export function MainViewer () {
                 </bim-toolbar-section>
                 <bim-toolbar-section id="test-section" label="TEST" style="display:${devElementsVisibility}">
                     <bim-button
-                        label="Sample"
-                        tooltip-title="Load sample IFC models. Only for developers."
-                        @click=${() => {
-                            loadIfcFile("/assets/Sample_with costs.ifc")
-                            loadIfcFile("/assets/SFH_with costs.ifc")
-                            }}>
-                    </bim-button>
-                    <bim-button
-                        label='Test'
-                        tooltip-title="Print volume of selected item"
+                        label='Volume'
+                        tooltip-title="Print computed volume of selected item"
                         @click=${getVolume}
                     ></bim-button>
                 </bim-toolbar-section>
