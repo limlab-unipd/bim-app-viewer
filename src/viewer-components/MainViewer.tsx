@@ -642,6 +642,7 @@ export function MainViewer () {
             }
             
             onClearPanel(panelDown) //clear down panel
+            onClearPanel(panelRight)
             panelDown.appendChild(loadingLabel)
             resource!='TotalCost' ? panelDown.label = `${resource} Resource Cost X Elements` : panelDown.label = 'Elements Total Cost' //change the title of the panel
             const gridLayout = floatingGrid.layout as any //change the grid layout
@@ -937,7 +938,7 @@ export function MainViewer () {
                                     ${sortbyResourcesDropdown}
                                     <bim-button @click=${(e:Event) => onExpandTable(e,resourceTable)} label=${resourceTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
                                     <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,resourceTable)}}></bim-text-input>
-                                    <bim-button @click=${() => {onClearPanel(panelDown)}} label='Clear Panel' style="max-width:fit-content"></bim-button>
+                                    <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} label='Clear Panel' style="max-width:fit-content"></bim-button>
                                 </div>
                                 ${resourceTable ? resourceTable : 'Any resource cost found for this cateogory.'}
                             </div>
@@ -1842,7 +1843,7 @@ export function MainViewer () {
                             ${sortbyTotalCostDropdown}
                             <bim-button @click=${(e:Event) => onExpandTable(e,elementXcostTable)} label=${elementXcostTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
                             <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,elementXcostTable)}}></bim-text-input>
-                            <bim-button @click=${() => {onClearPanel(panelDown)}} label='Clear Panel' style="max-width:fit-content"></bim-button>
+                            <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} label='Clear Panel' style="max-width:fit-content"></bim-button>
                         </div>
                         ${elementXcostTable}
                     </div>
