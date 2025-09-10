@@ -1350,6 +1350,12 @@ export function MainViewer () {
             },
             { countItems: 0, countResources: 0, countCostItems: 0},
         );
+        const noCostItemsLabel = BUI.Component.create<BUI.Label>(() => {
+            return BUI.html`
+                <bim-label style="padding:15px">Any COST ITEM related to selected elements!</bim-label>
+            `;
+            }
+        );
         const modelsListPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
             const [modelsList] = BUIC.tables.modelsList({
                 components,
@@ -1624,7 +1630,7 @@ export function MainViewer () {
             const endTime_3 = performance.now(); // End timer
             const loadTime_3 = ((endTime_3 - startTime_3) / 1000).toFixed(2); // seconds
             console.log(`TIME ${loadTime_3} s: get data of selected items (within onOpenElementXCostPanel method)`)
-            //console.log('selection data: \n', selectionData)
+            console.log('selection data: \n', selectionData)
 
             const startTime_6 = performance.now(); // Start timer
             // #region INITIALIZE TABLES
@@ -1687,10 +1693,12 @@ export function MainViewer () {
 
             //get cost data
             let itemId, itemName, itemIfcClass, costItemName, costItemId, costItemDescription, costItemObjectType, costItemTotalCost, costItemUnitBasis, costItemUnitCost //initialize variables
+            let hasAssignmentsCheck = false
             for (const [model,selectedItems] of Object.entries(selectionData)) { //loop over models of selected items
                 for (const item of selectedItems) { //loop over selected items
                     try { //needed to skip potential errors and do not interrupt the loop over items
                         if (!item['HasAssignments']) continue //checks if item has assignments --> it could have also different assignments
+                        hasAssignmentsCheck = true
                         //item identity data
                         itemId = (item['_localId'] as FRAGS.ItemAttribute).value ? (item['_localId'] as FRAGS.ItemAttribute).value : 'nd'
                         itemName = (item['Name'] as FRAGS.ItemAttribute).value ? (item['Name'] as FRAGS.ItemAttribute).value : 'nd'
@@ -1740,7 +1748,7 @@ export function MainViewer () {
                                 const currency = convertCurrency(costValueUnitComponent)
                                 costItemTotalCost = row.data.Cost = `${Math.round(costValueAppliedValue*100)/100} ${currency}`
                                 //quantity of item
-                                const unitComponent = costValue['AppliedValue'][0]['ValueComponent'].value
+                                const unitComponent = costValue['UnitBasis'][0]['ValueComponent'].value
                                 const costValueUnitBasis = (unitComponent !== undefined && unitComponent !== null) ? unitComponent : 'nd'
                                 const costValueUnitMeasure = costValue['UnitBasis'][0]['UnitComponent'][0]['Name'].value ? costValue['UnitBasis'][0]['UnitComponent'][0]['Name'].value : 'nd'
                                 const unitMeasure = convertUnits(costValueUnitMeasure)
@@ -1851,7 +1859,7 @@ export function MainViewer () {
             })
 
             panelDown.innerHTML=''
-            panelDown.appendChild(elementXCostPanel)
+            hasAssignmentsCheck ? panelDown.appendChild(elementXCostPanel) : panelDown.appendChild(noCostItemsLabel)
             const gridLayout = floatingGrid.layout as any
             if (!gridLayout.includes('down')){
                 onSetLayout({target:'down'})
