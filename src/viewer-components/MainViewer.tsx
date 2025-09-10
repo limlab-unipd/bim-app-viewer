@@ -7,6 +7,7 @@ import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
 import Stats, { Panel } from 'stats.js'
+import { all } from 'three/tsl'
 
 
 export function MainViewer () {
@@ -938,7 +939,7 @@ export function MainViewer () {
                                     ${sortbyResourcesDropdown}
                                     <bim-button @click=${(e:Event) => onExpandTable(e,resourceTable)} label=${resourceTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
                                     <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,resourceTable)}}></bim-text-input>
-                                    <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} label='Clear Panel' style="max-width:fit-content"></bim-button>
+                                    <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                                 </div>
                                 ${resourceTable ? resourceTable : 'Any resource cost found for this cateogory.'}
                             </div>
@@ -1066,7 +1067,7 @@ export function MainViewer () {
                         elementXCostTable.hiddenColumns = ['ComponentsCostValues','ItemId', 'Currency', 'IfcClass']
                     } else {
                         elementXCostTable.dataTransform.Cost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-                            const { ItemId } = rowData
+                            const { Model, ItemId } = rowData
                             if (!ItemId) return value //if ItemId is not defined, return the original value
                             return BUI.html`
                                 <div style="display: flex; flex-direction:row; justify-content:space-between; min-width:75%">
@@ -1654,6 +1655,7 @@ export function MainViewer () {
                 Quantity: string,
                 ComponentsCostValues: any,
                 IfcClass: string,
+                Model?: string,
             }
             //tables
             const costXelementTable = document.createElement("bim-table") as BUI.Table<costXelementTableData>
@@ -1688,7 +1690,7 @@ export function MainViewer () {
             elementXcostTable.data = []
             elementXcostTable.preserveStructureOnFilter = true
             elementXcostTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
-            elementXcostTable.hiddenColumns = ['ComponentsCostValues','ItemId','ItemVolume', 'NormalizedCost', 'Currency', 'IfcClass']
+            elementXcostTable.hiddenColumns = ['ComponentsCostValues','ItemId','ItemVolume', 'NormalizedCost', 'Currency', 'IfcClass', 'Model']
             // #endregion
 
             //get cost data
@@ -1785,6 +1787,7 @@ export function MainViewer () {
                                 NormalizedCost: 0,
                                 Currency: itemTotalCurrency,
                                 IfcClass: itemIfcClass,
+                                Model: model
                             },
                             children: [...childrenTable]
                         })
@@ -1797,6 +1800,15 @@ export function MainViewer () {
                                 @click=${() => {onOpenPriceAnalysis(ComponentsCostValues, Name, Description, UnitCost)}}
                                 >
                             </bim-button>
+                            `
+                        }
+                        elementXcostTable.dataTransform.Name = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+                            const { Model, ItemId } = rowData
+                            if (!ItemId) return value //if ItemId is not defined, return the original value
+                            return BUI.html`
+                                <bim-label
+                                    @click=${() => {highlighter.highlightByID("select", {[Model as string]: new Set<number>([ItemId as number])}, false, true)}}
+                                >${value}</bim-label>
                             `
                         }
 
@@ -1851,7 +1863,8 @@ export function MainViewer () {
                             ${sortbyTotalCostDropdown}
                             <bim-button @click=${(e:Event) => onExpandTable(e,elementXcostTable)} label=${elementXcostTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
                             <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,elementXcostTable)}}></bim-text-input>
-                            <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} label='Clear Panel' style="max-width:fit-content"></bim-button>
+                            <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
+                            <bim-button tooltip-text="Click on item's name to add it to the selection" icon='majesticons:lightbulb-shine' style="max-width:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
                         </div>
                         ${elementXcostTable}
                     </div>
