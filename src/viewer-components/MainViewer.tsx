@@ -7,7 +7,6 @@ import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
 import Stats, { Panel } from 'stats.js'
-import { all } from 'three/tsl'
 
 
 export function MainViewer () {
@@ -202,7 +201,7 @@ export function MainViewer () {
                 const label = BUI.Component.create<HTMLDivElement>(() => {
                     return BUI.html`
                     <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.2); border-radius: 10px; margin: 5px">
-                        ${name} loaded in ${loadTime} seconds.
+                        <i><b>${name}</i></b> loaded in <b>${loadTime}</b> seconds.
                     </div>
                     `
                 })
@@ -234,6 +233,32 @@ export function MainViewer () {
         }
 
         // handle fragment files
+        const loadFragmentFile = async (path:string) => {
+            const startTime = performance.now() // Start timer
+            const modelId = path.split("/").pop()?.split(".").shift()
+            if (modelId) {
+            const file = await fetch(path)
+            const buffer = await file.arrayBuffer()
+            await fragments.core.load(buffer, { modelId: modelId })
+            }
+            const endTime = performance.now() // End timer
+            const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
+            console.log(`Fragments loaded in ${loadTime} seconds`)
+            const overlay = document.getElementById("overlay");
+            if (overlay) {
+                const label = BUI.Component.create<HTMLDivElement>(() => {
+                    return BUI.html`
+                    <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.2); border-radius: 10px; margin: 5px">
+                        <b><i>${modelId}</i></b> model loaded in <b>${loadTime}</b> seconds.
+                    </div>
+                    `
+                })
+                overlay.appendChild(label)
+                setTimeout(() => {
+                    label.style.display = "none";
+                }, 5000); // Nasconde dopo 5 secondi
+            }
+        }
         const onFragmentsExport = async () => {
             for (const [, model] of fragments.list) {
                 const fragsBuffer = await model.getBuffer(false);
@@ -261,34 +286,11 @@ export function MainViewer () {
                     fragNames[path] = file.name.split('.')[0]
                 }
                 // Promise.all loads models concurrently for faster execution.
-                const startTime = performance.now() // Start timer
                 await Promise.all(
                     fragPaths.map(async (path) => {
-                    const modelId = path.split("/").pop()?.split(".").shift()
-                    if (!modelId) return null
-                    const file = await fetch(path)
-                    const buffer = await file.arrayBuffer()
-                    // this is the main function to load the fragments
-                    return fragments.core.load(buffer, { modelId: fragNames[path] })
+                        loadFragmentFile(path)
                     }),
                 )
-                const endTime = performance.now() // End timer
-                const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
-                console.log(`Fragments loaded in ${loadTime} seconds`)
-                const overlay = document.getElementById("overlay");
-                if (overlay) {
-                    const label = BUI.Component.create<HTMLDivElement>(() => {
-                        return BUI.html`
-                        <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.2); border-radius: 10px; margin: 5px">
-                            Fragments loaded in ${loadTime} seconds.
-                        </div>
-                        `
-                    })
-                    overlay.appendChild(label)
-                    setTimeout(() => {
-                        label.style.display = "none";
-                    }, 5000); // Nasconde dopo 4 secondi
-                }
             }
             input.click()
         }
@@ -633,7 +635,7 @@ export function MainViewer () {
             updateCountLabel({countItems:'loading...', countCostItems:'loading...', countResources:'loading...'})
             const btn = typeof target === 'string' ? target : target.label //read if the clicked button is "color" or "select"
             const [resource] = resourcesDropdown.value //read the value of the resource dropdown menu (single choice)
-            const category = categoriesDropdown.value //read the value of category dropdown menu, list is kept because multiple choices are accepted
+            const category = categoriesDropdown.value.includes('ALL CATEGORIES') ? categories : categoriesDropdown.value  //read the value of category dropdown menu, list is kept because multiple choices are accepted
             const [normalization] = unitMeasureDropdown.value //read the value of normalization by button (single choice)
             const [colorscale] = colorScaleDropdown.value
             
@@ -1361,7 +1363,7 @@ export function MainViewer () {
             const [modelsList] = BUIC.tables.modelsList({
                 components,
                 metaDataTags: ["schema"],
-                actions: { download: true },
+                actions: { download: false },
             });
             return BUI.html`
                 <bim-panel-section label="Loaded Models" icon="material-symbols:upload-rounded">
@@ -1472,7 +1474,7 @@ export function MainViewer () {
             </bim-panel-section>`;
         })
 
-        // #region dropdown menus
+        // #region DROPDOWN MENUS
         //color scale dropdown
         const colorScaleDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
@@ -1536,7 +1538,7 @@ export function MainViewer () {
         //categories dropdown menu
         //capire come aggiungere tutte le categorie
         //const categories = await model.getCategories();
-        const categories = ['IFCWALL','IFCCOLUMN','IFCWINDOW','IFCBUILDINGELEMENTPART', 'IFCBEAM', 'IFCWALLSTANDARDCASE', 'IFCROOF', 'IFCFLOOR', 'IFCRAILING', 'IFCDOOR', 'IFCSITE', 'IFCPROJECT', 'IFCSLAB', 'IFCCEILING', 'IFCFURNITURE', 'IFCBUILDINGELEMENTPROXY', 'IFCFLOWSEGMENT', 'IFCBUILDINGELEMENTPROXY',
+        const categories = ['ALL CATEGORIES', 'IFCWALL','IFCCOLUMN','IFCWINDOW','IFCBUILDINGELEMENTPART', 'IFCBEAM', 'IFCWALLSTANDARDCASE', 'IFCROOF', 'IFCFLOOR', 'IFCRAILING', 'IFCDOOR', 'IFCSITE', 'IFCPROJECT', 'IFCSLAB', 'IFCCEILING', 'IFCFURNITURE', 'IFCBUILDINGELEMENTPROXY', 'IFCFLOWSEGMENT', 'IFCBUILDINGELEMENTPROXY',
             'IFCFLOWFITTING', 'IFCFLOWTERMINAL']
         interface categoriesUI {
             listCategories: string[]
@@ -1545,8 +1547,13 @@ export function MainViewer () {
             const { listCategories } = state
             listCategories.sort()
             return BUI.html`<bim-dropdown name="categories" label='Category' icon='material-symbols:category-rounded' multiple>
-                ${listCategories.map(
-                    (x) => BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px"></bim-option>`,
+                ${listCategories.map((x) => {
+                    if (x == 'ALL CATEGORIES') {
+                        return BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px; border-bottom: 2px solid black"></bim-option>`
+                    } else {
+                        return BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px"></bim-option>`
+                    }
+                }
                 )}
             </bim-dropdown>`},
             { listCategories: categories}
@@ -1980,14 +1987,29 @@ export function MainViewer () {
                         @click=${onSetLayout}>
                     </bim-button>
                 </bim-toolbar-section>
+                <bim-toolbar-section label="Samples">
+                    <bim-dropdown verical placeholder="Load...">
+                        <bim-option>
+                            <bim-button
+                                icon="fluent:building-48-regular"
+                                label="Only total costs"
+                                @click=${() => {
+                                        loadFragmentFile("/FRAG/Sample_totalCost.frag")
+                                    }}>
+                            </bim-button>
+                        </bim-option>
+                        <bim-option>
+                            <bim-button
+                                icon="ph:house"
+                                label="With price analysis"
+                                @click=${() => {
+                                        loadFragmentFile("/FRAG/Sample_priceAnalysis.frag")
+                                    }}>
+                            </bim-button>
+                        </bim-option>
+                    </bim-dropdown>
+                </bim-toolbar-section>
                 <bim-toolbar-section label="IFC">
-                    <bim-button
-                        icon="material-symbols:sound-sampler-rounded"
-                        tooltip-title="Load sample IFC model"
-                        @click=${() => {
-                            loadIfcFile("/IFC/Sample_with costs.ifc")
-                            }}>
-                    </bim-button>
                     <bim-button
                         icon="tabler:cube-plus"
                         tooltip-title="Load IFC model"
@@ -2001,11 +2023,13 @@ export function MainViewer () {
                         @click=${onFragmentsImport}
                     ></bim-button>
                     <bim-button
+                        style="display:${devElementsVisibility}"
                         tooltip-title="Export"
                         icon="lucide:download"
                         @click=${onFragmentsExport}
                     ></bim-button>
                     <bim-button
+                        style="display:${devElementsVisibility}"
                         tooltip-title="Print on console selected element fragment"
                         icon="carbon:fragments"
                         @click=${onFragmentsPrint}
