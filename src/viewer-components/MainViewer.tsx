@@ -489,43 +489,21 @@ export function MainViewer () {
             }
             return unitMeasure
         }
+
+        
+        // Funzione per assegnare il colore discreto
+        const colorForValue = (value: number): ColorRangeKey => {
+            if (value >= 0 && value < 0.20) return "color_0_02";
+            if (value >= 0.20 && value < 0.40) return "color_02_04";
+            if (value >= 0.40 && value < 0.60) return "color_04_06";
+            if (value >= 0.60 && value < 0.80) return "color_06_08";
+            if (value >= 0.80 && value <= 1.00) return "color_08_1";
+            return "color_08_1"
+        }
         const normalizeAndMapToColor = (map: Record<string, number>, colorscale:string='gnylrd'): [Record<string, string>,Record<string, number>] => {
+            const colorScale = colorScaleList[colorscale];
 
-            const colorScale = colorScaleList[colorscale]
-
-            const parseRGBA = (rgba: string): [number, number, number, number] => {
-                const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-                if (!match) throw new Error(`Formato colore non valido: ${rgba}`);
-                return [
-                parseInt(match[1], 10),
-                parseInt(match[2], 10),
-                parseInt(match[3], 10),
-                parseFloat(match[4] ?? '1')
-                ];
-            };
-
-            const interpolateColor = (color1: string, color2: string, t: number): string => {
-                const [r1, g1, b1, a1] = parseRGBA(color1);
-                const [r2, g2, b2, a2] = parseRGBA(color2);
-                const r = Math.round(r1 + (r2 - r1) * t);
-                const g = Math.round(g1 + (g2 - g1) * t);
-                const b = Math.round(b1 + (b2 - b1) * t);
-                const a = +(a1 + (a2 - a1) * t).toFixed(3);
-                return `rgba(${r}, ${g}, ${b}, ${a})`;
-            };
-
-            const getColorForValue = (value: number): string => {
-                for (let i = 0; i < colorScale.length - 1; i++) {
-                const [v1, c1] = colorScale[i];
-                const [v2, c2] = colorScale[i + 1];
-                if (value >= v1 && value <= v2) {
-                    const t = (value - v1) / (v2 - v1);
-                    return interpolateColor(c1, c2, t);
-                }
-                }
-                return colorScale[colorScale.length - 1][1]; // fallback
-            };
-
+            // Normalizzazione dei valori
             const values = Object.values(map);
             const min = Math.min(...values);
             const max = Math.max(...values);
@@ -533,14 +511,32 @@ export function MainViewer () {
 
             const result: Record<string, string> = {};
             const resultNormalized: Record<string, number> = {};
+
             for (const [key, value] of Object.entries(map)) {
                 const normalized = (value - min) / range;
-                result[key] = getColorForValue(normalized);
+                const colorRange = colorForValue(normalized);
+                switch (colorRange) {
+                    case "color_0_02":
+                        result[key] = colorScaleList[colorscale].find(([v]) => v === 0)?.[1] as any; //as any perchè mi diceva che poteva essere undefined ma non lo è mai (in teoria)
+                        break;
+                    case "color_02_04":
+                        result[key] = colorScaleList[colorscale].find(([v]) => v === 0.25)?.[1] as any;
+                        break;
+                    case "color_04_06":
+                        result[key] = colorScaleList[colorscale].find(([v]) => v === 0.5)?.[1] as any;
+                        break;
+                    case "color_06_08":
+                        result[key] = colorScaleList[colorscale].find(([v]) => v === 0.75)?.[1] as any;
+                        break;
+                    case "color_08_1":
+                        result[key] = colorScaleList[colorscale].find(([v]) => v === 1)?.[1] as any;
+                        break;
+                }
                 resultNormalized[key] = normalized;
             }
 
             return [result, resultNormalized];
-        }
+        };
         
         type ColorRangeKey = "color_0_02" | "color_02_04" | "color_04_06" | "color_06_08" | "color_08_1";
         type GroupedData = Record<ColorRangeKey, string[]>;
@@ -592,14 +588,7 @@ export function MainViewer () {
         }
 
         function groupIdsByNormalizedValuePerModel(normalizedData: Record<string, number>, perModelData: PerModelInput, colorscale:string='gnylrd'): PerModelGrouped {
-            const colorForValue = (value: number): ColorRangeKey | null => {
-                if (value >= 0 && value < 0.20) return "color_0_02";
-                if (value >= 0.20 && value < 0.40) return "color_02_04";
-                if (value >= 0.40 && value < 0.60) return "color_04_06";
-                if (value >= 0.60 && value < 0.80) return "color_06_08";
-                if (value >= 0.80 && value <= 1.00) return "color_08_1";
-                return null;
-            }
+
             const result: PerModelGrouped = {}
             for (const [modelName, elements] of Object.entries(perModelData)) {
                 const grouped: GroupedData = {
@@ -859,15 +848,13 @@ export function MainViewer () {
 
                 await highlighter.clear() //reset previous selections of highlighter
                 
-                //color rows indipendentely form models
+                //color rows indipendentely from models
                 if (btn == 'Color'){
                     //step 6: highlight or color element
                     //step 6.0 flatten map removing models level
                     const model_resources_Map_flat = flattenModelMap(model_resources_Map)
-    
                     //step 6.1: normalize total resource cost to color across models
                     const [colorMap, normalizedValue] = normalizeAndMapToColor(model_resources_Map_flat,colorscale) //use this function to normalize values between 0 and 1 and return color and normalized value
-                    
                     //step 6.2: add the normalized value to the table, pay attention: it is only a render value, it will not be saved in the table
                     //changing this value here is independent from model
                     resourceTable.dataTransform.NormalizedValue = (value, rowData) => {
@@ -886,38 +873,18 @@ export function MainViewer () {
                         `
                     }
                     
+                    //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
                     //here things comes different because to highlight and color elements the model is needed
                     //so, the highlighting is by model but the color and the normal value is kept from the map calculated outside of this loop
-                    if (countItems < 100) { //this is important to not crash the viewer: colors will be remapped in few ranges
-                        for (const [model,map] of Object.entries(model_resources_Map)){ //loop over each model, map=[element id : total resource cost]
-                            //step 6.3: color or select elements
-                            const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
-                            onSetTransparency({[model]:new Set(geomItems)})
-                            for (const [elemId,] of Object.entries(map)){ //getting elem ids from the map to highlight them
-                                const singleElementModelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([Number(elemId)]) } //create the model id map
-                                const customHighlighterName = `${model}_${elemId}` //create a new selection with only related elements to associate a different color to each one
-                                highlighter.styles.set(customHighlighterName, {
-                                    color: new THREE.Color(colorMap[elemId]),
-                                    opacity: 1,
-                                    transparent: false,
-                                    renderedFaces: 0,
-                                })
-                                highlighter.highlightByID(customHighlighterName,singleElementModelIdMap,true,false) //color elements using highlighter
-                            }
-                        }
-                        console.log(highlighter.selection)
-                    } else {
-                        const groupedColors = groupIdsByNormalizedValuePerModel(normalizedValue as Record<string,number>, model_resources_Map, colorscale)
-                        for (const [model,colorMap] of Object.entries(groupedColors)) {
-                            const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
-                            onSetTransparency({[model]:new Set(geomItems)})
-                            for (const [color,ids] of Object.entries(colorMap)) {
-                                const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
-                                highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
-                            }
+                    const groupedColors = groupIdsByNormalizedValuePerModel(normalizedValue as Record<string,number>, model_resources_Map, colorscale)
+                    for (const [model,colorMap] of Object.entries(groupedColors)) {
+                        const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
+                        onSetTransparency({[model]:new Set(geomItems)})
+                        for (const [color,ids] of Object.entries(colorMap)) {
+                            const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
+                            highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
                         }
                     }
-                    
 
                 } else if (btn == 'Select') { //if select button is clicked
                     highlighter.highlightByID("select", allSelectedItemsModelIdMap, false, false) //only select elements removing colors
@@ -1080,43 +1047,21 @@ export function MainViewer () {
                         }
                     }
                     
-                    if (countItems < 100) { //this is important to not crash the viewer: colors will be remapped in few ranges
-                        //this is to color each item with a very specific and different color
-                        const startTime_8 = performance.now(); // Start timer
-                        for (const [model,totalCostMap] of Object.entries(model_cost_map)) {
-                            const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
-                            onSetTransparency({[model]:new Set(geomItems)})
-                            for (const [itemId,] of Object.entries(totalCostMap)) {
-                                const singleItemModelIdMap: OBC.ModelIdMap = { [model]: new Set<number>([Number(itemId)]) } //create the model id map
-                                const customHighlighterName = `${model}_${itemId}` //create a new selection with only related elements to associate a different color to each one
-                                highlighter.styles.set(customHighlighterName, {
-                                    color: new THREE.Color(colorMap[itemId]),
-                                    opacity: 1,
-                                    transparent: false,
-                                    renderedFaces: 0,
-                                })
-                                highlighter.highlightByID(customHighlighterName,singleItemModelIdMap,true,false) //color elements using highlighter
-                            }
+                    //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
+                    const startTime_8 = performance.now(); // Start timer
+                    //this is to color items within a range of 5 colors (faster)
+                    const groupedColors = groupIdsByNormalizedValuePerModel(normalizedValue as Record<string,number>, model_cost_map, colorscale)
+                    for (const [model,colorMap] of Object.entries(groupedColors)) {
+                        const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
+                        onSetTransparency({[model]:new Set(geomItems)})
+                        for (const [color,ids] of Object.entries(colorMap)) {
+                            const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
+                            highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
                         }
-                        const endTime_8 = performance.now(); // End timer
-                        const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
-                        console.log(`TIME ${loadTime_8} s: color elements using homogeneous color map (< 100 items)`);
-                    } else {
-                        const startTime_8 = performance.now(); // Start timer
-                        //this is to color items within a range of 5 colors (faster)
-                        const groupedColors = groupIdsByNormalizedValuePerModel(normalizedValue as Record<string,number>, model_cost_map, colorscale)
-                        for (const [model,colorMap] of Object.entries(groupedColors)) {
-                            const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
-                            onSetTransparency({[model]:new Set(geomItems)})
-                            for (const [color,ids] of Object.entries(colorMap)) {
-                                const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
-                                highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
-                            }
-                        }
-                        const endTime_8 = performance.now(); // End timer
-                        const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
-                        console.log(`TIME ${loadTime_8} s: color elements using ranges color map (> 100 items)`);
                     }
+                    const endTime_8 = performance.now(); // End timer
+                    const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
+                    console.log(`TIME ${loadTime_8} s: color elements using ranges color map (> 100 items)`);
 
                 } else if (btn == 'Select') { //if select button is clicked
                     highlighter.highlightByID("select", allSelectedItemsModelIdMap, false, false) //only select elements removing colors
