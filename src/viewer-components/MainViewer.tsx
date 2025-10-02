@@ -25,6 +25,8 @@ export function MainViewer () {
         const ifcLoader = components.get(OBC.IfcLoader)
         const fragments = components.get(OBC.FragmentsManager)
         const hider = components.get(OBC.Hider)
+        
+        let previousSelection: OBC.ModelIdMap
 
         // #region SET THREE VIEWER
         //SINGLE VIEWER
@@ -72,6 +74,9 @@ export function MainViewer () {
                 renderedFaces: 0,
             },
         })
+        highlighter.events.select.onHighlight.add((modelIdMap) => {
+            previousSelection = structuredClone(modelIdMap)
+        });
         highlighter.styles.set('transparent', {
             // you can change this to define the color of your highligthing
             color: new THREE.Color("rgba(123, 123, 123, 1)"),
@@ -326,7 +331,36 @@ export function MainViewer () {
             if (!modelIdMap) { modelIdMap = highlighter.selection.select }
             highlighter.highlightByID('transparent', modelIdMap, false, false)
         }
+        const onSetTransparencyToNotSelectedElements = async () => {
+            const allItems = await getAllItems()
+            const selectedItems = highlighter.selection.select
+            highlighter.highlightByID('transparent', allItems, true, false, selectedItems)
+        }
+        const onSetTransparencyToCostColor = async () => {
+            const selectedItems = highlighter.selection.select
+
+            if (highlighter.selection.color_02_04){
+                highlighter.highlightByID('color_0_02', highlighter.selection.color_0_02_transparent, false, false)
+                highlighter.highlightByID('color_02_04', highlighter.selection.color_02_04_transparent, false, false)
+                highlighter.highlightByID('color_04_06', highlighter.selection.color_04_06_transparent, false, false)
+                highlighter.highlightByID('color_06_08', highlighter.selection.color_06_08_transparent, false, false)
+                highlighter.highlightByID('color_08_1', highlighter.selection.color_08_1_transparent, false, false)
+    
+                if (!isModelIdMapEmpty(selectedItems)) {
+                    highlighter.highlightByID('color_0_02_transparent', highlighter.selection.color_0_02, true, false, selectedItems)
+                    highlighter.highlightByID('color_02_04_transparent', highlighter.selection.color_02_04, true, false, selectedItems)
+                    highlighter.highlightByID('color_04_06_transparent', highlighter.selection.color_04_06, true, false, selectedItems)
+                    highlighter.highlightByID('color_06_08_transparent', highlighter.selection.color_06_08, true, false, selectedItems)
+                    highlighter.highlightByID('color_08_1_transparent', highlighter.selection.color_08_1, true, false, selectedItems)
+                }
+            } else {
+                console.log('Analysis still not performed.')
+            }
+        }
         
+        const isModelIdMapEmpty = (modelIdMap: OBC.ModelIdMap): boolean => {
+            return Object.values(modelIdMap).every(set => set.size === 0);
+        }
         const getAllItems = async () => {
             const frMap: OBC.ModelIdMap = {}
             for (const [entry,entryfr] of fragments.list.entries()){
@@ -615,6 +649,12 @@ export function MainViewer () {
             highlighter.styles.set('color_04_06', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.5)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
             highlighter.styles.set('color_06_08', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.75)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
             highlighter.styles.set('color_08_1', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 1)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+
+            highlighter.styles.set('color_0_02_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('color_02_04_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.25)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('color_04_06_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.5)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('color_06_08_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.75)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('color_08_1_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 1)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
 
             return result;
         }
@@ -907,6 +947,7 @@ export function MainViewer () {
                                     <bim-label>Sort by:</bim-label>
                                     ${sortbyResourcesDropdown}
                                     <bim-button @click=${(e:Event) => onExpandTable(e,resourceTable)} label=${resourceTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                                    <bim-button @click=${() => onSetTransparencyToCostColor()} label="Ghost" tooltip-text="Set non-selected elements transparent. No selection = Reset transparency" style="max-width:fit-content; z-index:100"></bim-button>
                                     <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,resourceTable)}}></bim-text-input>
                                     <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                                 </div>
@@ -1814,6 +1855,7 @@ export function MainViewer () {
                             <bim-label>Sort by:</bim-label>
                             ${sortbyTotalCostDropdown}
                             <bim-button @click=${(e:Event) => onExpandTable(e,elementXcostTable)} label=${elementXcostTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                            <bim-button @click=${() => onSetTransparencyToCostColor()} label="Ghost" tooltip-text="Set non-selected elements transparent. No selection = Reset transparency" style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,elementXcostTable)}}></bim-text-input>
                             <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-button tooltip-text="Click on item's name to add it to the selection" icon='majesticons:lightbulb-shine' style="max-width:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
@@ -2009,6 +2051,18 @@ export function MainViewer () {
                         @click=${onSetLayout}>
                     </bim-button>
                 </bim-toolbar-section>
+                <bim-toolbar-section label="Selection">
+                    <bim-button
+                        icon="tabler:deselect"
+                        tooltip-title="Clear Selection"
+                        @click=${() => {highlighter.clear()}}>
+                    </bim-button>
+                    <bim-button
+                        icon="weui:previous-filled"
+                        tooltip-title="Select Previous"
+                        @click=${() => {highlighter.highlightByID('select', previousSelection, false, true)}}>
+                    </bim-button>
+                </bim-toolbar-section>
                 <bim-toolbar-section label="Visibility">
                     <bim-button
                         tooltip-title="Hide Selection"
@@ -2026,9 +2080,14 @@ export function MainViewer () {
                         @click=${onInvertVisibility}
                     ></bim-button>
                     <bim-button
-                        tooltip-title="Set Transparency"
-                        icon="ph:cube-transparent-duotone"
+                        tooltip-title="Transparency Selection"
+                        icon="streamline-plump:transparent-remix"
                         @click=${() => {onSetTransparency()}}
+                    ></bim-button>
+                    <bim-button
+                        tooltip-title="Transparency Non-Selection"
+                        icon="ph:selection-background-duotone"
+                        @click=${() => {onSetTransparencyToNotSelectedElements()}}
                     ></bim-button>
                     <bim-button
                         tooltip-title="Reset Visibility"
