@@ -34,9 +34,9 @@
 }
 
 #app{
+    display: grid;
+    grid-template-columns: 3.5rem 1fr;
     height: 100vh;
-    /* background-image: url('./assets/nightsky.png'); */
-    /* background-size: cover; */
     color: var(--text);
     background-color: black;
 }
@@ -71,4 +71,13 @@
     right: 0;
     bottom: 0;
     z-index: 0;
+}
+
+.info-card{
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    color:white
 }
