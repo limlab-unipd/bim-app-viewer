@@ -12,7 +12,7 @@ import Stats, { Panel } from 'stats.js'
 export function MainViewer () {
 
     // #region GENERAL START
-    BUI.Manager.init()
+    //BUI.Manager.init()
     const components = new OBC.Components()
     // #endregion
     

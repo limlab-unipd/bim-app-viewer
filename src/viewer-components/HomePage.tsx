@@ -12,9 +12,7 @@ export function HomePage() {
             >
 
             <header style={{ textAlign: "center", marginBottom: "2rem" }}>
-                <h1 style={{ fontSize: "2.5rem", fontWeight: "bold", color: "white" }}>
-                HOME PAGE
-                </h1>
+                <h1 className="pages-header">HOME PAGE</h1>
                 <p style={{ fontSize: "1.1rem", color: "white" }}>
                     Coming soon ...
                 </p>

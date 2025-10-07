@@ -6,14 +6,16 @@ import { MenuSidebar } from './viewer-components/MenuSidebar'
 import { MainViewer } from './viewer-components/MainViewer'
 import { HomePage } from './viewer-components/HomePage'
 import { SurveyPage } from './viewer-components/SurveyPage'
+import * as BUI from '@thatopen/ui'
 
 //#region REACT COMPONENTS
 const rootElement = document.getElementById('app') as HTMLDivElement
 const appRoot = ReactDOM.createRoot(rootElement)
+BUI.Manager.init()
 appRoot.render(
     <>
     <Router.BrowserRouter>
-        <MenuSidebar></MenuSidebar>
+        <MenuSidebar startingPage='viewer'></MenuSidebar>
         <Router.Routes>
             <Router.Route path='/home' element={ <HomePage /> } />
             <Router.Route path='/' element={ <MainViewer /> } />

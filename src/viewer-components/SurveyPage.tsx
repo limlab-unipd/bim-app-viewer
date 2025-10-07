@@ -12,9 +12,7 @@ export function SurveyPage() {
             >
         {/* Header */}
         <header style={{ textAlign: "center", marginBottom: "2rem" }}>
-            <h1 style={{ fontSize: "2.5rem", fontWeight: "bold", color: "white" }}>
-                Survey
-            </h1>
+            <h1 className="pages-header">Survey</h1>
         </header>
 
         <iframe
