@@ -91,6 +91,11 @@
     text-transform: uppercase;
 }
 
+.home-title{
+    font-size: 7rem;
+    font-weight: normal;
+}
+
 .info-card-title{
     font-size: 1.2rem;
     margin-bottom: 0.5rem;
