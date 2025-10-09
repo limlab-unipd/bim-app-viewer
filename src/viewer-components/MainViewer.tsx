@@ -1375,26 +1375,41 @@ export function MainViewer () {
                 </bim-panel-section>
             `*/
         })
+        const [selectedItemsCount, updateSelectedItemsCount] = BUI.Component.create<BUI.Label,{count:number}>((state:{count:number}) => {
+            let loadStatement: string = ''
+            if (state.count < 6){
+                loadStatement = ''
+            } else {
+                loadStatement = '→ Click the Load button to show properties'
+            }
+            return BUI.html`
+                <bim-label>Selected items count: ${state.count} ${loadStatement}</bim-label>
+            `},
+            { count: 0 },
+        )
         const propertiesPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
             const [propertiesTable, updatePropertiesTable] = BUIC.tables.itemsData({
                 components,
                 modelIdMap: {},
-            });
+            });            
             propertiesTable.preserveStructureOnFilter = true;
             propertiesTable.indentationInText = false;
             highlighter.events.select.onHighlight.add((modelIdMap) => {
-                if (Object.values(modelIdMap).reduce((sum, currentSet) => sum + currentSet.size, 0) < 6){
+                const count = Object.values(modelIdMap).reduce((sum, currentSet) => sum + currentSet.size, 0)
+                updateSelectedItemsCount({ count })
+                if (count < 6){
                     updatePropertiesTable({ modelIdMap })
                 } else {
                     updatePropertiesTable({ modelIdMap: {} })
                 }
             });
-            highlighter.events.select.onClear.add(() =>
+            highlighter.events.select.onClear.add(() => {
                 updatePropertiesTable({ modelIdMap: {} })
-            );
+                updateSelectedItemsCount({ count:0 })
+            });
             return BUI.html`
                 <bim-panel-section label='Properties' icon="hugeicons:property-new">
-                    <bim-label>Click the Load button to show properties of more than 5 items.</bim-label>
+                    ${selectedItemsCount}
                     <div style="display: flex; gap: 0.5rem;">
                         <bim-button @click=${() => onLoadTable(updatePropertiesTable)} label="Load" style="max-width:fit-content"></bim-button>
                         <bim-button @click=${(e:Event) => onExpandTable(e,propertiesTable)} label=${propertiesTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
@@ -1442,7 +1457,7 @@ export function MainViewer () {
                 icon="material-symbols:highlight-mouse-cursor-rounded"
                 >
                 <bim-label>
-                    To select multiple elements let's separate guids with a comma
+                    Separate GUIDs with a comma (,) to select multiple elements
                 </bim-label>
                 <div style="display:flex; flex-direction:row; gap:0.5rem">
                     <bim-text-input
