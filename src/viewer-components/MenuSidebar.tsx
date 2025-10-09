@@ -12,7 +12,7 @@ export function MenuSidebar(props:{startingPage:string}) {
             // Divide la parola in lettere singole
             const letters = page.split('').map((letter) => {
                 return BUI.html`
-                <h1 style="display:inline-block; margin:0 0.1em; font-family:'Roboto Mono', monospace; font-weight:lighter; text-transform:uppercase;">
+                <h1 style="display:inline-block; margin:0 0.1em; font-family:'Orbitron', monospace; font-weight:lighter; color:rgba(224, 224, 224, 0.75); text-transform:uppercase;">
                     ${letter}
                 </h1>`
                 });
@@ -94,6 +94,7 @@ export function MenuSidebar(props:{startingPage:string}) {
                 margin: '0px',
                 backgroundColor: 'var(--background)',
                 position: 'relative',
+                zIndex: 10,
             }}
         />
     );

@@ -86,7 +86,7 @@
     font-size: 3rem;
     font-weight: bold;
     color: white;
-    font-family: 'Roboto Mono', monospace;
+    font-family: 'Orbitron';
     letter-spacing: 1rem;
     text-transform: uppercase;
 }
@@ -96,12 +96,17 @@
     font-weight: normal;
 }
 
+.home-description{
+    letter-spacing: 0.1rem;
+    font-family: Orbitron, sans-serif;
+}
+
 .info-card-title{
     font-size: 1.2rem;
     margin-bottom: 0.5rem;
     font-weight: bold;
     color: white;
-    font-family: 'Roboto Mono', monospace;
+    font-family: 'Orbitron';
     text-transform: uppercase;
 }
 

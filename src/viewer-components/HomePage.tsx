@@ -11,7 +11,7 @@ export function HomePage() {
                 flexDirection: 'column',
                 overflow: 'hidden',
                 
-                backgroundImage: "linear-gradient(rgba(15, 15, 15, 0.4), rgba(15, 15, 15, 0.4)), url('/PNG/home-image.png')",
+                backgroundImage: "linear-gradient(rgba(15, 15, 15, 0.4), rgba(15, 15, 15, 0.4)), url('/PNG/home-image-L.png')",
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 backgroundRepeat: 'no-repeat',
@@ -23,11 +23,11 @@ export function HomePage() {
                 <h1 className="pages-header home-title" style={{ margin: 0 }}>AEC</h1>
                 <h1 className="pages-header home-title" style={{ margin: 0 }}>DATA</h1>
 
-                <div style={{ display:'flex', flex:1, alignItems:'center', justifyContent:'left', textAlign:'left' }}>
-                    <div style={{ fontSize: "clamp(1.5rem, 3vw, 3rem)",  fontFamily: "Roboto, sans-serif", color: "white", margin: 0, maxWidth:"70%"}}>
-                        <p>Explore <strong>OpenBIM</strong> standards and web technologies</p>
-                        <p>transforming interconnected AEC <strong>data</strong> into</p>
-                        <p>interactive and meaningful 3D <strong>visualizations</strong></p>
+                <div style={{ display:'flex', flex:1, alignItems:'center', justifyContent:'left', textAlign:'left', marginTop:'32px'}}>
+                    <div style={{ fontSize: "clamp(1.5rem, 2.5vw, 2.5rem)", color: "rgba(224, 224, 224, 0.75)", margin: 0, maxWidth:"100%"}}>
+                        <p className="home-description">Explore <strong className="home-description">OpenBIM</strong> standards and web technologies</p>
+                        <p className="home-description">transforming interconnected AEC <strong className="home-description">data</strong> into</p>
+                        <p className="home-description">interactive and meaningful 3D <strong className="home-description">visualizations</strong></p>
                     </div>
                 </div>
             </header>
