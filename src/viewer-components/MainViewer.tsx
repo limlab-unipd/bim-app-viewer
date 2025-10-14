@@ -534,7 +534,12 @@ export function MainViewer () {
             if (value >= 0.80 && value <= 1.00) return "color_08_1";
             return "color_08_1"
         }
-        const normalizeAndMapToColor = (map: Record<string, number>, colorscale:string='gnylrd'): [Record<string, string>,Record<string, number>] => {
+        const normalizeAndMapToColor = (
+            map: Record<string, number>,
+            colorscale: string = 'gnylrd',
+            rangeMin: number,
+            rangeMax: number
+        ): [Record<string, string>, Record<string, number>] => {
             const colorScale = colorScaleList[colorscale];
 
             // Normalizzazione dei valori
@@ -544,33 +549,55 @@ export function MainViewer () {
             const range = max - min || 1;
 
             const result: Record<string, string> = {};
+            const temporaryResultNormalized: Record<string, number> = {};
             const resultNormalized: Record<string, number> = {};
 
             for (const [key, value] of Object.entries(map)) {
-                const normalized = (value - min) / range;
-                const colorRange = colorForValue(normalized);
-                switch (colorRange) {
-                    case "color_0_02":
-                        result[key] = colorScaleList[colorscale].find(([v]) => v === 0)?.[1] as any; //as any perchè mi diceva che poteva essere undefined ma non lo è mai (in teoria)
-                        break;
-                    case "color_02_04":
-                        result[key] = colorScaleList[colorscale].find(([v]) => v === 0.25)?.[1] as any;
-                        break;
-                    case "color_04_06":
-                        result[key] = colorScaleList[colorscale].find(([v]) => v === 0.5)?.[1] as any;
-                        break;
-                    case "color_06_08":
-                        result[key] = colorScaleList[colorscale].find(([v]) => v === 0.75)?.[1] as any;
-                        break;
-                    case "color_08_1":
-                        result[key] = colorScaleList[colorscale].find(([v]) => v === 1)?.[1] as any;
-                        break;
-                }
-                resultNormalized[key] = normalized;
+                // Normalizzazione globale iniziale
+                temporaryResultNormalized[key] = (value - min) / range;
             }
 
+            // Filtra solo i valori normalizzati nel range specificato
+            const filteredEntries = Object.entries(temporaryResultNormalized).filter(
+                ([, normalized]) => normalized >= rangeMin && normalized <= rangeMax
+            );
+
+            if (filteredEntries.length === 0) return [{}, {}];
+
+            // Trova il minimo e massimo dei valori filtrati (per la seconda normalizzazione)
+            const filteredValues = filteredEntries.map(([, normalized]) => normalized);
+            const fMin = Math.min(...filteredValues);
+            const fMax = Math.max(...filteredValues);
+            const fRange = fMax - fMin || 1;
+
+            for (const [key, normalized] of filteredEntries) {
+                // Seconda normalizzazione tra 0 e 1 sui valori filtrati
+                const renormalized = (normalized - fMin) / fRange;
+                resultNormalized[key] = renormalized;
+
+                // Determina il colore in base al valore normalizzato finale
+                const colorRange = colorForValue(renormalized);
+                switch (colorRange) {
+                    case "color_0_02":
+                        result[key] = colorScale.find(([v]) => v === 0)?.[1] as string;
+                        break;
+                    case "color_02_04":
+                        result[key] = colorScale.find(([v]) => v === 0.25)?.[1] as string;
+                        break;
+                    case "color_04_06":
+                        result[key] = colorScale.find(([v]) => v === 0.5)?.[1] as string;
+                        break;
+                    case "color_06_08":
+                        result[key] = colorScale.find(([v]) => v === 0.75)?.[1] as string;
+                        break;
+                    case "color_08_1":
+                        result[key] = colorScale.find(([v]) => v === 1)?.[1] as string;
+                        break;
+                }
+            }
             return [result, resultNormalized];
         };
+
         
         type ColorRangeKey = "color_0_02" | "color_02_04" | "color_04_06" | "color_06_08" | "color_08_1";
         type GroupedData = Record<ColorRangeKey, string[]>;
@@ -659,14 +686,19 @@ export function MainViewer () {
             return result;
         }
 
-        const onColorByResource = async ({target}: {target: BUI.Button | string}) => {
+        const onColorByCost = async ({target}: {target: BUI.Button | string}) => {
             const startTime_tot = performance.now(); // Start timer
             updateCountLabel({countItems:'loading...', countCostItems:'loading...', countResources:'loading...'})
             const btn = typeof target === 'string' ? target : target.label //read if the clicked button is "color" or "select"
-            const [resource] = resourcesDropdown.value //read the value of the resource dropdown menu (single choice)
-            const category = categoriesDropdown.value.includes('ALL CATEGORIES') ? categories : categoriesDropdown.value  //read the value of category dropdown menu, list is kept because multiple choices are accepted
+            let [resource] = resourcesDropdown.value //read the value of the resource dropdown menu (single choice)
+            let category = categoriesDropdown.value.includes('ALL CATEGORIES') ? categories : categoriesDropdown.value //read the value of category dropdown menu, list is kept because multiple choices are accepted
             const [normalization] = unitMeasureDropdown.value //read the value of normalization by button (single choice)
-            const [colorscale] = colorScaleDropdown.value
+            const [colorscale] = colorScaleDropdown.value ? colorScaleDropdown.value : 'gnylrd'
+            const rangeMin = rangeInputMin.value
+            const rangeMax = rangeInputMax.value
+
+            resource = resource == undefined ? 'TotalCost' : resource //if any resource selected use TotalCost as default
+            category = category.length == 0 ? categories : category  //if any category selected use al categories as default
             
             if (!resource || !category) {
                 updateCountLabel({countItems:0, countCostItems:0, countResources:0})
@@ -684,6 +716,7 @@ export function MainViewer () {
 
             //table type for resource table
             type ResourceTableData = {
+                itemModel?: string,
                 itemId?: number, //optional because it is not needed in the first row
                 Name: string,
                 ResourceCost: string,
@@ -705,7 +738,7 @@ export function MainViewer () {
             resourceTable.data = [] //initialize the table and some settings
             resourceTable.preserveStructureOnFilter = true
             resourceTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
-            resourceTable.hiddenColumns = ['itemId']
+            resourceTable.hiddenColumns = ['itemId','itemModel']
 
             //step 1: find all cost items ids related to all object of the selected category
             //here query is only created
@@ -734,6 +767,7 @@ export function MainViewer () {
             }
             if (!costitem_rel_category_ids || Object.keys(costitem_rel_category_ids).length == 0) { //return the function if any cost item is found and print the message in the panel
                 panelDown.innerHTML = `<bim-label style="padding:15px">Any COST ITEM related to ${category} category.</bim-label>`
+                updateCountLabel({countItems:0, countCostItems:0, countResources:0})
                 return
             }
 
@@ -751,16 +785,17 @@ export function MainViewer () {
             const loadTime_2 = ((endTime_2 - startTime_2) / 1000).toFixed(2); // seconds
             console.log(`TIME ${loadTime_2} s: get data of previous cost items localIds`)
 
-            if (resource != 'TotalCost'){
+            if (resource != 'TotalCost'){ //this means that a resource is selected
                 //initialize some maps needed for the process
                 const model_resources_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
+                const model_costCount_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
                 const category_elements_map: {[key:string]:any} = {} //map to associate to each category the related elements
                 const elem_resourcesDetails_Map: {[key:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string}[]} = {} //resource details object
-                let countCostItems = 0
 
                 for (const [model,costItems] of Object.entries(filteredCostItems)){ //loop over each model
                     let resourceCurrency = 'nd' //default value, here because is supposed that is used always the same currency in the same project
                     const elem_resources_Map: {[key:number]:number} = {} //map to associate to each element id the related sum of ALL costs of the choosen resource category
+                    const elem_costCount_Map: {[key:number]:number} = {} //map to associate to each element id the number of related cost items
                     for (const ci of costItems) { //loop over each filtered cost item (cost items are not ordered)
                         // --> pay attention: multiple cost items could be related to the same object and moreover each cost item could have more than one unit cost of the same category
                         // example: one column with 5 cost items related and each cost item has 1,2,3 or more unit costs of the same category
@@ -810,7 +845,7 @@ export function MainViewer () {
                             //case 1b: more than one cost item related to the same element: sums all the resources values across them
                             elem_resources_Map[elemId] ? elem_resources_Map[elemId] += resourceCost : elem_resources_Map[elemId] = resourceCost
                             //update cost items count
-                            countCostItems += 1
+                            elem_costCount_Map[elemId] ? elem_costCount_Map[elemId] += 1 : elem_costCount_Map[elemId] = 1
                         }
                         //it does not have any sense to add here object to organize elements because until the end of costitems loops could always be new cost items related to the same element
                     }
@@ -820,6 +855,7 @@ export function MainViewer () {
                         const item = await fragments.list.get(model)?.getItemsData([Number(elemId)])
                         if (!item) continue //checks if the item exists
                         const elemData = {
+                            elemModel: model,
                             elemId: Number(elemId),
                             elemName: (item as any)[0]['Name'].value,
                             totalResourceCost: resourceCost,
@@ -830,14 +866,22 @@ export function MainViewer () {
                     //step 4: associate to each model the map of element id and total resource cost
                     //category map is not needed here, because this one is used for selecting and color elements
                     model_resources_Map[model] = elem_resources_Map
+                    model_costCount_Map[model] = elem_costCount_Map
                 }
     
+                //this step is moved here to handle with ranges, in this way the colorMap contains only item within the range
+                //step 5.0 flatten map removing models level
+                const model_resources_Map_flat = flattenModelMap(model_resources_Map)
+                const model_costCount_Map_flat = flattenModelMap(model_costCount_Map) //not properly correct because you can have multiple items with same id, but this is needed to sum count items count
+                //step 5.0.1: normalize total resource cost to color across models
+                const [colorMap, normalizedValue] = normalizeAndMapToColor(model_resources_Map_flat,colorscale,rangeMin,rangeMax) //use this function to normalize values between 0 and 1 and return color and normalized value
+
                 //step 5: create the table as:
                 // category
                 //    |--- elements
                 //            |--- resources
                 //initialize also NormalizedValue column which will be populated after
-                let countItems = 0, countResources = 0
+                let countItems = 0, countResources = 0, countCostItems = 0
                 //this works with more models because this map does not divide items by model
                 //so the table is correctly created
                 for (const [cat,elements] of Object.entries(category_elements_map)) {
@@ -845,7 +889,9 @@ export function MainViewer () {
                     let totalCategoryCost = 0
                     let totalCategoryCurrency = 'nd'
                     for (const elem of elements) {
+                        if (!Object.keys(colorMap).includes(elem.elemId.toString())) continue //checks if the item id is outside of the selected form the range or not
                         countItems += 1
+                        countCostItems += model_costCount_Map_flat[elem.elemId] //sum all the count of cost items only of the items within the range
                         const tempResourceDetailsChildren = []
                         for (const resourceDetails of elem_resourcesDetails_Map[elem.elemId]){
                             countResources += 1
@@ -859,6 +905,7 @@ export function MainViewer () {
                         }
                         const row: BUI.TableGroupData<ResourceTableData> = {
                             data: {
+                                itemModel: elem.elemModel,
                                 itemId: elem.elemId,
                                 Name: elem.elemName,
                                 ResourceCost: `${Math.round(elem.totalResourceCost*100)/100} ${elem.currency}`,
@@ -870,6 +917,7 @@ export function MainViewer () {
                         totalCategoryCost += elem.totalResourceCost
                         totalCategoryCurrency = elem.currency
                     }
+                    if (totalCategoryCost==0) continue
                     resourceTable.data.push({
                         data: {
                             Name: cat,
@@ -879,22 +927,16 @@ export function MainViewer () {
                     })
                 }
 
-                updateCountLabel({countItems:countItems, countCostItems:countCostItems, countResources:countResources})
-
-                
                 const allSelectedItemsModelIdMap = Object.fromEntries(
                     Object.entries(model_resources_Map).map(([k, v]) => [k, new Set(Object.keys(v).map(Number))])
                 )
 
                 await highlighter.clear() //reset previous selections of highlighter
-                
+                updateCountLabel({countItems:Object.entries(colorMap).length, countCostItems:countCostItems, countResources:countResources})
+
+                //step 6: highlight or color element
                 //color rows indipendentely from models
                 if (btn == 'Color'){
-                    //step 6: highlight or color element
-                    //step 6.0 flatten map removing models level
-                    const model_resources_Map_flat = flattenModelMap(model_resources_Map)
-                    //step 6.1: normalize total resource cost to color across models
-                    const [colorMap, normalizedValue] = normalizeAndMapToColor(model_resources_Map_flat,colorscale) //use this function to normalize values between 0 and 1 and return color and normalized value
                     //step 6.2: add the normalized value to the table, pay attention: it is only a render value, it will not be saved in the table
                     //changing this value here is independent from model
                     resourceTable.dataTransform.NormalizedValue = (value, rowData) => {
@@ -910,6 +952,15 @@ export function MainViewer () {
                                 <bim-label>${value}</bim-label>
                                 <div style="height:1rem; width: 1rem; border-radius:5px; background-color:${colorMap[Number(itemId)]}; color:${colorMap[Number(itemId)]};">.</div>
                             </div>
+                        `
+                    }
+                    resourceTable.dataTransform.Name = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+                        const { itemModel, itemId } = rowData
+                        if (!itemId) return value //if itemId is not defined, return the original value
+                        return BUI.html`
+                            <bim-label
+                                @click=${() => {highlighter.highlightByID("select", {[itemModel as string]: new Set<number>([itemId as number])}, false, true)}}
+                            >${value}</bim-label>
                         `
                     }
                     
@@ -967,17 +1018,19 @@ export function MainViewer () {
                 await highlighter.clear() //reset previous selections of highlighter
                 const model_volume_map: {[key:string]:any} = {}
                 const model_cost_map: {[key:string]:any} = {}
+                const model_costCount_map: {[key:string]:any} = {}
                 const model_category_map: {[key:string]:any} = {}
-                let countCostItems = 0
                 for (const [model,costItems] of Object.entries(filteredCostItems)){
                     const category_item_totalCost_map: {[key:string]:{[key:number]:number}} = {}
                     const item_volume_map: {[key:number]:number|undefined} = {}
+                    model_costCount_map[model] = {}
                     for (const ci of costItems){
-                        countCostItems += 1
                         const itemId = (((ci.Controls as any)[0] as FRAGS.ItemData)._localId as FRAGS.ItemAttribute).value as number //localId of filtered elements
                         const itemCategory = (((ci.Controls as any)[0] as FRAGS.ItemData)._category as FRAGS.ItemAttribute).value as string //localId of filtered elements
                         const costItemObjectType = (ci['ObjectType'] as FRAGS.ItemAttribute).value as string
 
+                        //create a cost count per each item
+                        model_costCount_map[model][itemId] ? model_costCount_map[model][itemId] += 1 : model_costCount_map[model][itemId] = 1
                         //get cost values to get cost item cost
                         const cvId = (ci['CostValues'] as any)[0]._localId.value ? (ci['CostValues'] as any)[0]._localId.value : 'nd'
                         const costValue_Record = await fragments.getData({[model]:new Set<number>([cvId])},{
@@ -1010,16 +1063,51 @@ export function MainViewer () {
                 const model_cost_map_flat = flattenModelMap(model_cost_map)
                 const model_volume_map_flat = flattenModelMap(model_volume_map)
 
-                const allSelectedItemsModelIdMap = Object.fromEntries(
-                    Object.entries(model_cost_map).map(([k, v]) => [k, new Set(Object.keys(v).map(Number))])
-                )
-
-                const countItems = Object.keys(model_cost_map_flat).length
-                updateCountLabel({countItems:countItems,countCostItems:countCostItems,countResources:0})
-
                 const endTime_4 = performance.now(); // End timer
                 const loadTime_4 = ((endTime_4 - startTime_4) / 1000).toFixed(2); // seconds
                 console.log(`TIME ${loadTime_4} s: whole process of getting total costs data`);
+
+                //normalize cost to get colors and filter according to choosen range
+                const normalized_cost: {[key:string]:number} = {}
+                let colorMap: Record<string, string>
+                let normalizedValue: Record<string, string|number>
+                if (normalization=='Volume'){
+                    for (const [itemId,cost] of Object.entries(model_cost_map_flat)){
+                        normalized_cost[itemId] = cost / model_volume_map_flat[itemId]
+                    }
+                    [colorMap,normalizedValue] = normalizeAndMapToColor(normalized_cost,colorscale,rangeMin,rangeMax)
+                } else {
+                    [colorMap,normalizedValue] = normalizeAndMapToColor(model_cost_map_flat,colorscale,rangeMin,rangeMax)
+                }
+
+                //filter all the found elements according to the range
+                const allSelectedItemsModelIdMap = Object.fromEntries(
+                    Object.entries(model_cost_map).map(([k, v]) => [
+                        k,
+                        new Set(Object.keys(v)
+                            .map(Number)
+                            .filter(num => Object.keys(colorMap).includes(num.toString()))
+                        )
+                    ])
+                )
+                
+                //counts filtered elements
+                const countItems = Object.values(allSelectedItemsModelIdMap)
+                    .reduce((sum, set) => sum + set.size, 0)
+                //sums the cost items counts related to selected elements
+                const countCostItems = Object.entries(allSelectedItemsModelIdMap)
+                    .flatMap(([k, set]) =>
+                        Array.from(set)
+                        .map(id => model_costCount_map[k]?.[id] ?? 0)
+                    )
+                    .reduce((a, b) => a + b, 0);
+
+                //update counts labels
+                updateCountLabel({
+                    countItems:countItems,
+                    countCostItems:countCostItems,
+                    countResources:0
+                })
 
                 if (btn=='Color') {
                     highlighter.highlightByID("select", {}, true, false)
@@ -1029,19 +1117,6 @@ export function MainViewer () {
                     const endTime_5 = performance.now(); // End timer
                     const loadTime_5 = ((endTime_5 - startTime_5) / 1000).toFixed(2); // seconds
                     console.log(`TIME ${loadTime_5} s: total time to create and render cost table`);
-                    
-                    const normalized_cost: {[key:string]:number} = {}
-
-                    let colorMap: Record<string, string>
-                    let normalizedValue: Record<string, string|number>
-                    if (normalization=='Volume'){
-                        for (const [itemId,cost] of Object.entries(model_cost_map_flat)){
-                            normalized_cost[itemId] = cost / model_volume_map_flat[itemId]
-                        }
-                        [colorMap,normalizedValue] = normalizeAndMapToColor(normalized_cost,colorscale)
-                    } else {
-                        [colorMap,normalizedValue] = normalizeAndMapToColor(model_cost_map_flat,colorscale)
-                    }
 
                     const elementXCostTable = document.getElementById('elementXCostTable') as BUI.Table
                     if (normalization == 'Volume') {
@@ -1457,7 +1532,7 @@ export function MainViewer () {
                 icon="material-symbols:highlight-mouse-cursor-rounded"
                 >
                 <bim-label>
-                    Separate GUIDs with a comma (,) to select multiple elements
+                    Separate GUIDs with a comma ( , ) to select multiple elements
                 </bim-label>
                 <div style="display:flex; flex-direction:row; gap:0.5rem">
                     <bim-text-input
@@ -1578,19 +1653,58 @@ export function MainViewer () {
             }
         });
 
+        const rangeInputMin = BUI.Component.create<BUI.NumberInput>(() => {
+            return BUI.html`
+                <bim-number-input slider min='0' max='0.99' value='0' sensitivity='0.3' step='0.01' style='max-width:8.12rem'/>
+            `
+        })
+        rangeInputMin.addEventListener('change', (event) => {
+            if (!event.target) return
+            const minValue = (event.target as any).value
+            if (rangeInputMax.value < minValue) {
+                rangeInputMax.value = minValue + 0.01
+            }
+        });
+        const rangeInputMax = BUI.Component.create<BUI.NumberInput>(() => {
+            return BUI.html`
+                <bim-number-input slider min='0.01' max='1' value='1' sensitivity='0.3' step='0.01' style='max-width:8.12rem'/>
+            `
+        })
+        rangeInputMax.addEventListener('change', (event) => {
+            if (!event.target) return
+            const maxValue = (event.target as any).value
+            if (rangeInputMin.value > maxValue) {
+                rangeInputMin.value = maxValue - 0.01
+            }
+        });
+
         const colorResourcesPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
             return BUI.html`
                 <bim-panel-section
-                    label = "Cost Resources"
+                    label = "Cost Analysis"
                     icon = "ic:round-format-color-fill">
                     ${colorScaleDropdown}
                     ${resourcesDropdown}
                     ${categoriesDropdown}
                     ${unitMeasureDropdown}
+                    <div style="display:flex; gap: 1rem">
+                        <bim-label icon='oui:token-range'>Range</bim-label>
+                        <bim-button tooltip-text="Info: this range filters the items resulting from the above choices" icon='material-symbols-light:info-outline-rounded' style="max-width:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
+                        <div style="display:flex; flex-direction:column; gap:0.75rem; flex-grow:1">
+                            <div style="display: flex; justify-content:space-between">
+                                <bim-label icon = 'material-symbols:line-start-circle-outline-rounded'>Min</bim-label>
+                                ${rangeInputMin}
+                            </div>
+                            <div style="display: flex; justify-content:space-between">
+                                <bim-label icon = 'material-symbols:line-end-circle-outline-rounded'>Max</bim-label>
+                                ${rangeInputMax}
+                            </div>
+                        </div>
+                    </div>
                     ${countLabel}
                     <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                        <bim-button label='Color' @click=${onColorByResource}></bim-button>
-                        <bim-button label='Select' @click=${onColorByResource}></bim-button>                        
+                        <bim-button label='Color' @click=${onColorByCost}></bim-button>
+                        <bim-button label='Select' @click=${onColorByCost}></bim-button>
                     </div>
                 </bim-panel-section>
             `
@@ -2096,12 +2210,12 @@ export function MainViewer () {
                     ></bim-button>
                     <bim-button
                         tooltip-title="Transparency Selection"
-                        icon="streamline-plump:transparent-remix"
+                        icon="mdi:arrange-send-backward"
                         @click=${() => {onSetTransparency()}}
                     ></bim-button>
                     <bim-button
                         tooltip-title="Transparency Non-Selection"
-                        icon="ph:selection-background-duotone"
+                        icon="mdi:arrange-bring-forward"
                         @click=${() => {onSetTransparencyToNotSelectedElements()}}
                     ></bim-button>
                     <bim-button
@@ -2113,8 +2227,8 @@ export function MainViewer () {
                 <bim-toolbar-section label="5D">
                     <bim-button
                         id='elementXCostButton'
-                        tooltip-title="Open cost assignment panel of selected elements - organized by element"
-                        icon="tabler:home-dollar"
+                        tooltip-title="Show costs of selected elements"
+                        icon="fontisto:dollar"
                         @click=${()=>{onOpenElementXCostPanel()}}
                     ></bim-button>
                     <bim-button
