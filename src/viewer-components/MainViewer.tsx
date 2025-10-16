@@ -6,6 +6,9 @@ import * as BUIC from '@thatopen/ui-obc'
 import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
+import { getIFCClassNamesFromCodes } from '../custom-components/getIFCClassNamesFromCodes'
+import { convertCurrency, convertUnits } from '../custom-components/conversion'
+import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel } from '../custom-components/colors'
 import Stats, { Panel } from 'stats.js'
 
 
@@ -14,6 +17,12 @@ export function MainViewer () {
     // #region GENERAL START
     //BUI.Manager.init()
     const components = new OBC.Components()
+    const ifcImporter = new FRAGS.IfcImporter
+    const importedCategories = getIFCClassNamesFromCodes([...ifcImporter.classes.elements]) //this is only a list of strings of all the imported categories. this is not the FULL list of IFC classes
+    importedCategories.push(
+        'ALL CLASSES',
+        'IFCBUILTSYSTEM')
+    importedCategories.sort()
     // #endregion
     
     const setViewer = async (devMode:boolean=false) => {
@@ -185,6 +194,9 @@ export function MainViewer () {
                         WEBIFC.IFCCONTEXTDEPENDENTUNIT,
                         WEBIFC.IFCRELASSIGNSTOCONTROL,
                         WEBIFC.IFCRELNESTS,
+                    )
+                    importer.classes['elements'].add(
+                        WEBIFC.IFCBUILTSYSTEM //remember to add these classes also above in the importedClasses in the initial part of the script !!!
                     )
                     //ADDING NEW RELATIONS TO IMPORT
                     importer.relations.set(WEBIFC.IFCRELASSIGNSTOCONTROL, {
@@ -434,7 +446,6 @@ export function MainViewer () {
                 })
             }
 
-
             if (!e.target) return
             const target = (e.target as any).value[0]
             const field = target.split(" ")[0]
@@ -502,203 +513,20 @@ export function MainViewer () {
                 console.log(volumes)
             }
         }
-        const convertCurrency = (currency:string) => {
-            if (currency == 'EUR'){
-                currency = '€'
-            } else if (currency == 'USD'){
-                currency = '$'
-            }
-            return currency            
-        }        
-        const convertUnits = (unitMeasure: string) => {
-            //this is only to convert predefined IFC unit measures, but if there are personalized such as kg, ton, cad will be automatically used as they are
-            if (unitMeasure == 'METRE'){
-                unitMeasure = 'm'
-            } else if (unitMeasure == 'SQUARE_METRE'){
-                unitMeasure = 'm²'
-            } else if (unitMeasure == 'CUBIC_METRE'){
-                unitMeasure = 'm³'
-            } else if (unitMeasure == '') {
-                unitMeasure = 'nd'
-            }
-            return unitMeasure
-        }
-
-        
-        // Funzione per assegnare il colore discreto
-        const colorForValue = (value: number): ColorRangeKey => {
-            if (value >= 0 && value < 0.20) return "color_0_02";
-            if (value >= 0.20 && value < 0.40) return "color_02_04";
-            if (value >= 0.40 && value < 0.60) return "color_04_06";
-            if (value >= 0.60 && value < 0.80) return "color_06_08";
-            if (value >= 0.80 && value <= 1.00) return "color_08_1";
-            return "color_08_1"
-        }
-        const normalizeAndMapToColor = (
-            map: Record<string, number>,
-            colorscale: string = 'gnylrd',
-            rangeMin: number,
-            rangeMax: number
-        ): [Record<string, string>, Record<string, number>] => {
-            const colorScale = colorScaleList[colorscale];
-
-            // Normalizzazione dei valori
-            const values = Object.values(map);
-            const min = Math.min(...values);
-            const max = Math.max(...values);
-            const range = max - min || 1;
-
-            const result: Record<string, string> = {};
-            const temporaryResultNormalized: Record<string, number> = {};
-            const resultNormalized: Record<string, number> = {};
-
-            for (const [key, value] of Object.entries(map)) {
-                // Normalizzazione globale iniziale
-                temporaryResultNormalized[key] = (value - min) / range;
-            }
-
-            // Filtra solo i valori normalizzati nel range specificato
-            const filteredEntries = Object.entries(temporaryResultNormalized).filter(
-                ([, normalized]) => normalized >= rangeMin && normalized <= rangeMax
-            );
-
-            if (filteredEntries.length === 0) return [{}, {}];
-
-            // Trova il minimo e massimo dei valori filtrati (per la seconda normalizzazione)
-            const filteredValues = filteredEntries.map(([, normalized]) => normalized);
-            const fMin = Math.min(...filteredValues);
-            const fMax = Math.max(...filteredValues);
-            const fRange = fMax - fMin || 1;
-
-            for (const [key, normalized] of filteredEntries) {
-                // Seconda normalizzazione tra 0 e 1 sui valori filtrati
-                const renormalized = (normalized - fMin) / fRange;
-                resultNormalized[key] = renormalized;
-
-                // Determina il colore in base al valore normalizzato finale
-                const colorRange = colorForValue(renormalized);
-                switch (colorRange) {
-                    case "color_0_02":
-                        result[key] = colorScale.find(([v]) => v === 0)?.[1] as string;
-                        break;
-                    case "color_02_04":
-                        result[key] = colorScale.find(([v]) => v === 0.25)?.[1] as string;
-                        break;
-                    case "color_04_06":
-                        result[key] = colorScale.find(([v]) => v === 0.5)?.[1] as string;
-                        break;
-                    case "color_06_08":
-                        result[key] = colorScale.find(([v]) => v === 0.75)?.[1] as string;
-                        break;
-                    case "color_08_1":
-                        result[key] = colorScale.find(([v]) => v === 1)?.[1] as string;
-                        break;
-                }
-            }
-            return [result, resultNormalized];
-        };
-
-        
-        type ColorRangeKey = "color_0_02" | "color_02_04" | "color_04_06" | "color_06_08" | "color_08_1";
-        type GroupedData = Record<ColorRangeKey, string[]>;
-        type PerModelInput = Record<string, Record<string, any>>;
-        type PerModelGrouped = Record<string, GroupedData>;
-        const colorScaleList: {[key:string]:[number, string][]} = {
-            gnylrd: [
-                [0,'rgba(26, 150, 65, 1)'],
-                [1/4,'rgba(166, 217, 106, 1)'],
-                [2/4,'rgba(255, 255, 0, 1)'],
-                [3/4,'rgba(253, 174, 97, 1)'],
-                [1,'rgba(215, 25, 28, 1)']
-            ],
-            viridis: [
-                [0,'rgba(68, 1, 84, 1)'],
-                [1/4,'rgba(59, 82, 139, 1)'],
-                [2/4,'rgba(33, 144, 141, 1)'],
-                [3/4,'rgba(94, 201, 98, 1)'],
-                [1,'rgba(253, 231, 37, 1)']
-            ],
-            ylgnbu: [
-                [0, 'rgba(255, 255, 204, 1)'],
-                [1/4, 'rgba(194, 230, 153, 1)'],
-                [2/4, 'rgba(120, 198, 121, 1)'],
-                [3/4, 'rgba(49, 163, 84, 1)'],
-                [1, 'rgba(0, 104, 55, 1)']
-            ],
-            blues: [
-                [0, 'rgba(239, 243, 255, 1)'],
-                [1/4, 'rgba(189, 215, 231, 1)'],
-                [2/4, 'rgba(107, 174, 214, 1)'],
-                [3/4, 'rgba(33, 113, 181, 1)'],
-                [1, 'rgba(8, 69, 148, 1)']
-            ],
-            orrd: [
-                [0, 'rgba(254, 240, 217, 1)'],
-                [1/4, 'rgba(253, 212, 158, 1)'],
-                [2/4, 'rgba(253, 187, 132, 1)'],
-                [3/4, 'rgba(253, 141, 60, 1)'],
-                [1, 'rgba(217, 72, 1, 1)']
-            ],
-            cividis: [
-                [0, 'rgba(0, 32, 76, 1)'],
-                [1/4, 'rgba(55, 64, 129, 1)'],
-                [2/4, 'rgba(94, 109, 171, 1)'],
-                [3/4, 'rgba(145, 158, 203, 1)'],
-                [1, 'rgba(253, 231, 37, 1)']
-            ],
-        }
-
-        function groupIdsByNormalizedValuePerModel(normalizedData: Record<string, number>, perModelData: PerModelInput, colorscale:string='gnylrd'): PerModelGrouped {
-
-            const result: PerModelGrouped = {}
-            for (const [modelName, elements] of Object.entries(perModelData)) {
-                const grouped: GroupedData = {
-                    color_0_02: [],
-                    color_02_04: [],
-                    color_04_06: [],
-                    color_06_08: [],
-                    color_08_1: []
-                }
-                for (const id of Object.keys(elements)) {
-                const value = normalizedData[id];
-                    if (value !== undefined) {
-                        const color = colorForValue(value);
-                        if (color) {
-                            grouped[color].push(id);
-                        }
-                    }
-                }
-                result[modelName] = grouped;
-            }
-            
-            highlighter.styles.set('color_0_02', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
-            highlighter.styles.set('color_02_04', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.25)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
-            highlighter.styles.set('color_04_06', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.5)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
-            highlighter.styles.set('color_06_08', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.75)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
-            highlighter.styles.set('color_08_1', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 1)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
-
-            highlighter.styles.set('color_0_02_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
-            highlighter.styles.set('color_02_04_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.25)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
-            highlighter.styles.set('color_04_06_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.5)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
-            highlighter.styles.set('color_06_08_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.75)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
-            highlighter.styles.set('color_08_1_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 1)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
-
-            return result;
-        }
 
         const onColorByCost = async ({target}: {target: BUI.Button | string}) => {
             const startTime_tot = performance.now(); // Start timer
             updateCountLabel({countItems:'loading...', countCostItems:'loading...', countResources:'loading...'})
             const btn = typeof target === 'string' ? target : target.label //read if the clicked button is "color" or "select"
             let [resource] = resourcesDropdown.value //read the value of the resource dropdown menu (single choice)
-            let category = categoriesDropdown.value.includes('ALL CATEGORIES') ? categories : categoriesDropdown.value //read the value of category dropdown menu, list is kept because multiple choices are accepted
+            let category = categoriesDropdown.value.includes('ALL CLASSES') ? importedCategories : categoriesDropdown.value //read the value of category dropdown menu, list is kept because multiple choices are accepted
             const [normalization] = unitMeasureDropdown.value //read the value of normalization by button (single choice)
             const [colorscale] = colorScaleDropdown.value ? colorScaleDropdown.value : 'gnylrd'
             const rangeMin = rangeInputMin.value
             const rangeMax = rangeInputMax.value
 
             resource = resource == undefined ? 'TotalCost' : resource //if any resource selected use TotalCost as default
-            category = category.length == 0 ? categories : category  //if any category selected use al categories as default
+            category = category.length == 0 ? importedCategories : category  //if any category selected use al categories as default
             
             if (!resource || !category) {
                 updateCountLabel({countItems:0, countCostItems:0, countResources:0})
@@ -766,7 +594,10 @@ export function MainViewer () {
                 }
             }
             if (!costitem_rel_category_ids || Object.keys(costitem_rel_category_ids).length == 0) { //return the function if any cost item is found and print the message in the panel
-                panelDown.innerHTML = `<bim-label style="padding:15px">Any COST ITEM related to ${category} category.</bim-label>`
+                panelDown.innerHTML = `
+                    <bim-label style="padding:1rem; padding-bottom:0.25rem;"><strong>Any COST ITEM related to:</strong></bim-label>
+                    <bim-label style="display:flex; padding:1rem; padding-top:0px; white-space:normal">${category.join(", ").replace("ALL CLASSES, ", "")}.</bim-label>
+                `
                 updateCountLabel({countItems:0, countCostItems:0, countResources:0})
                 return
             }
@@ -967,7 +798,7 @@ export function MainViewer () {
                     //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
                     //here things comes different because to highlight and color elements the model is needed
                     //so, the highlighting is by model but the color and the normal value is kept from the map calculated outside of this loop
-                    const groupedColors = groupIdsByNormalizedValuePerModel(normalizedValue as Record<string,number>, model_resources_Map, colorscale)
+                    const groupedColors = groupIdsByNormalizedValuePerModel(components, normalizedValue as Record<string,number>, model_resources_Map, colorscale)
                     for (const [model,colorMap] of Object.entries(groupedColors)) {
                         const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
                         onSetTransparency({[model]:new Set(geomItems)})
@@ -1166,7 +997,7 @@ export function MainViewer () {
                     //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
                     const startTime_8 = performance.now(); // Start timer
                     //this is to color items within a range of 5 colors (faster)
-                    const groupedColors = groupIdsByNormalizedValuePerModel(normalizedValue as Record<string,number>, model_cost_map, colorscale)
+                    const groupedColors = groupIdsByNormalizedValuePerModel(components, normalizedValue as Record<string,number>, model_cost_map, colorscale)
                     for (const [model,colorMap] of Object.entries(groupedColors)) {
                         const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
                         onSetTransparency({[model]:new Set(geomItems)})
@@ -1444,11 +1275,6 @@ export function MainViewer () {
                     ${spatialTree}
                 </bim-panel-section>
             `
-            /*return BUI.html`
-                <bim-panel-section label='Spatial Structure' icon="ri:node-tree" collapsed>
-                    <bim-label>Disabled ...</bim-label>
-                </bim-panel-section>
-            `*/
         })
         const [selectedItemsCount, updateSelectedItemsCount] = BUI.Component.create<BUI.Label,{count:number}>((state:{count:number}) => {
             let loadStatement: string = ''
@@ -1614,20 +1440,14 @@ export function MainViewer () {
         //categories dropdown menu
         //capire come aggiungere tutte le categorie
         //const categories = await model.getCategories();
-        const categories = ['ALL CATEGORIES',"IFCWALL","IFCWALLSTANDARDCASE","IFCSLAB","IFCROOF","IFCWINDOW","IFCDOOR","IFCSTAIR","IFCSTAIRFLIGHT","IFCRAMP","IFCRAILING","IFCCURTAINWALL","IFCCOLUMN","IFCBEAM",
-            "IFCCOVERING","IFCCEILING","IFCFLOOR","IFCSPACE","IFCFURNITURE","IFCSHADINGDEVICE","IFCBUILDINGELEMENTPROXY","IFCFOOTING","IFCPILE","IFCMEMBER","IFCSLABELEMENTEDCASE","IFCREINFORCINGBAR","IFCREINFORCINGMESH",
-            "IFCTENDON","IFCTENDONANCHOR","IFCSTRUCTURALCURVEMEMBER","IFCSTRUCTURALSURFACEMEMBER","IFCFLOWSEGMENT","IFCFLOWFITTING","IFCFLOWTERMINAL","IFCFLOWCONTROLLER","IFCFLOWSENSOR","IFCFLOWMOVINGDEVICE",
-            "IFCDISTRIBUTIONPORT","IFCDISTRIBUTIONELEMENT","IFCENERGYCONVERSIONDEVICE","IFCPROTECTIVEDEVICE","IFCPROJECT","IFCSITE","IFCBUILDING","IFCBUILDINGSTOREY","IFCZONE","IFCOPENINGELEMENT",
-            "IFCBUILDINGELEMENTPART","IFCELEMENTASSEMBLY"].sort((a, b) => a.localeCompare(b));
         interface categoriesUI {
             listCategories: string[]
         }
-        const [categoriesDropdown,updateCategoriesDropdown] = BUI.Component.create<BUI.Dropdown, categoriesUI>((state: categoriesUI) => {
+        const [categoriesDropdown, updateCategoriesDropdown] = BUI.Component.create<BUI.Dropdown, categoriesUI>((state: categoriesUI) => {
             const { listCategories } = state
-            listCategories.sort()
-            return BUI.html`<bim-dropdown name="categories" label='Category' icon='material-symbols:category-rounded' multiple>
+            return BUI.html`<bim-dropdown name="categories" label='IFC Class' icon='material-symbols:category-rounded' multiple>
                 ${listCategories.map((x) => {
-                    if (x == 'ALL CATEGORIES') {
+                    if (x == 'ALL CLASSES') {
                         return BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px; border-bottom: 2px solid black"></bim-option>`
                     } else {
                         return BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px"></bim-option>`
@@ -1635,7 +1455,7 @@ export function MainViewer () {
                 }
                 )}
             </bim-dropdown>`},
-            { listCategories: categories}
+            { listCategories: importedCategories}
         )
         //measure units dropdown menu
         const unitMeasure = ['None','Volume']
