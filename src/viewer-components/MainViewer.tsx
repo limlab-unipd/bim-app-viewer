@@ -1576,7 +1576,7 @@ export function MainViewer () {
             const endTime_3 = performance.now(); // End timer
             const loadTime_3 = ((endTime_3 - startTime_3) / 1000).toFixed(2); // seconds
             console.log(`TIME ${loadTime_3} s: get data of selected items (within onOpenElementXCostPanel method)`)
-            console.log('selection data: \n', selectionData)
+            //console.log('selection data: \n', selectionData)
 
             const startTime_6 = performance.now(); // Start timer
             // #region INITIALIZE TABLES
