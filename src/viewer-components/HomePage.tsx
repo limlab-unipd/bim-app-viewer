@@ -11,7 +11,7 @@ export function HomePage() {
                 flexDirection: 'column',
                 overflow: 'hidden',
                 
-                backgroundImage: "linear-gradient(rgba(15, 15, 15, 0.4), rgba(15, 15, 15, 0.4)), url('/PNG/home-image-L.png')",
+                backgroundImage: "linear-gradient(rgba(20, 20, 20, 0.35), rgba(20, 20, 20, 0.35)), url('/PNG/home-image-2.png')",
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 backgroundRepeat: 'no-repeat',
