@@ -6,7 +6,7 @@ import * as BUIC from '@thatopen/ui-obc'
 import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
-import { getIFCClassNamesFromCodes } from '../custom-components/getIFCClassNamesFromCodes'
+import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-converter'
 import { convertCurrency, convertUnits } from '../custom-components/conversion'
 import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel } from '../custom-components/colors'
 import Stats, { Panel } from 'stats.js'
