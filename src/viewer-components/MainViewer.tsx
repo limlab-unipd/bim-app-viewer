@@ -904,7 +904,9 @@ export function MainViewer () {
                 let normalizedValue: Record<string, string|number>
                 if (normalization=='Volume'){
                     for (const [itemId,cost] of Object.entries(model_cost_map_flat)){
-                        normalized_cost[itemId] = cost / model_volume_map_flat[itemId]
+                        const volume = model_volume_map_flat[itemId]
+                        if (volume == 0) continue //very important to not consider non geometrical items, otherwise the normalization of cost is infinite, coloring all elements in green
+                        normalized_cost[itemId] = cost / volume
                     }
                     [colorMap,normalizedValue] = normalizeAndMapToColor(normalized_cost,colorscale,rangeMin,rangeMax)
                 } else {
@@ -980,7 +982,7 @@ export function MainViewer () {
                                 <bim-label>${Math.round(normCost*100)/100} ${Currency}/m³ (${Math.round(normValue*100)/100})</bim-label>
                             `
                         }
-                        elementXCostTable.hiddenColumns = ['ComponentsCostValues','ItemId', 'Currency', 'IfcClass']
+                        elementXCostTable.hiddenColumns = ['ComponentsCostValues','ItemId', 'Currency', 'IfcClass', 'Model']
                     } else {
                         elementXCostTable.dataTransform.Cost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
                             const { Model, ItemId } = rowData
