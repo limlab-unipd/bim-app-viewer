@@ -15,7 +15,7 @@ BUI.Manager.init()
 appRoot.render(
     <>
     <Router.BrowserRouter>
-        <MenuSidebar startingPage='viewer'></MenuSidebar>
+        <MenuSidebar></MenuSidebar>
         <Router.Routes>
             <Router.Route path='/home' element={ <HomePage /> } />
             <Router.Route path='/' element={ <MainViewer /> } />

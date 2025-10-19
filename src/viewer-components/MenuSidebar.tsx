@@ -1,13 +1,16 @@
 import * as React from 'react';
 import * as BUI from '@thatopen/ui';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-export function MenuSidebar(props:{startingPage:string}) {
+export function MenuSidebar() {
     const navigate = useNavigate();
 
     // Componente titolo (una sola volta)
-    const [pageTitle, updatePageTitle] = React.useMemo(() => BUI.Component.create<HTMLDivElement, { page: string }>((state: { page: string }) => {
-            const { page } = state;
+    const pageTitle = BUI.Component.create<HTMLDivElement>(() => {
+            //const { page } = state;
+            const location = useLocation(); // hook per l'URL corrente
+            let page = location.pathname.replace('/', '') || ''
+            page = page=='' ? page='viewer' : page
 
             // Divide la parola in lettere singole
             const letters = page.split('').map((letter) => {
@@ -22,9 +25,9 @@ export function MenuSidebar(props:{startingPage:string}) {
                     ${letters}
                 </div>
             `;
-        }, { page: props.startingPage }), []);
+        })
 
-    const setSidebar = React.useCallback(() => {
+    const setSidebar = () => {
         const toolbar = BUI.Component.create<BUI.Toolbar>(() => {
         return BUI.html`
             <bim-toolbar style="background-color:transparent; border:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%)" vertical>
@@ -36,7 +39,6 @@ export function MenuSidebar(props:{startingPage:string}) {
                     style="display:flex; min-width:2.5rem; min-height:2.5rem; align-items:center; justify-content:center"
                     @click=${(e: any) => {
                         navigate('/home');
-                        updatePageTitle({ page: e.currentTarget.id });
                     }}>
                     </bim-button>
                     <bim-button
@@ -46,7 +48,6 @@ export function MenuSidebar(props:{startingPage:string}) {
                     style="display:flex; min-width:2.5rem; min-height:2.5rem; align-items:center; justify-content:center"
                     @click=${(e: any) => {
                         navigate('/');
-                        updatePageTitle({ page: e.currentTarget.id });
                     }}>
                     </bim-button>
                     <bim-button
@@ -56,7 +57,6 @@ export function MenuSidebar(props:{startingPage:string}) {
                     style="display:flex; min-width:2.5rem; min-height:2.5rem; align-items:center; justify-content:center"
                     @click=${(e: any) => {
                         navigate('/survey');
-                        updatePageTitle({ page: e.currentTarget.id });
                     }}>
                     </bim-button>
                     <bim-button
@@ -66,7 +66,6 @@ export function MenuSidebar(props:{startingPage:string}) {
                     style="display:flex; min-width:2.5rem; min-height:2.5rem; align-items:center; justify-content:center"
                     @click=${(e: any) => {
                         navigate('/info');
-                        updatePageTitle({ page: e.currentTarget.id });
                     }}>
                     </bim-button>
                 </bim-toolbar-section>
@@ -78,8 +77,7 @@ export function MenuSidebar(props:{startingPage:string}) {
         menuSidebarDiv.innerHTML = '';
         menuSidebarDiv.appendChild(pageTitle);
         menuSidebarDiv.appendChild(toolbar);
-
-    }, [navigate, pageTitle, updatePageTitle]);
+    };
 
     React.useEffect(() => {
         setSidebar();

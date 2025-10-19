@@ -90,6 +90,15 @@
     letter-spacing: 1rem;
     text-transform: uppercase;
 }
+.pages-subheader{
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    font-family: 'Orbitron';
+    letter-spacing: 0.2rem;
+    text-transform: uppercase;
+    margin-top: 3rem;
+}
 
 .home-title{
     font-size: 7rem;
@@ -132,4 +141,18 @@ height: 16px;
 border-radius: 50%;
 background: #007bff;
 cursor: pointer;
+}
+
+
+.survey-card{
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin: 1.5rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    color:white;
+    cursor: pointer;
+    flex: 1;
+    text-align: center;
+    letter-spacing: 0.2rem;
 }
