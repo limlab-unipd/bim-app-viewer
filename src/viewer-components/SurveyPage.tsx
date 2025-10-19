@@ -11,7 +11,7 @@ export function SurveyPage() {
                 </header>
                 <iframe
                     src="https://docs.google.com/forms/d/e/1FAIpQLSfoUvaS4cCfrJ2R7NVGwAZKHD3nBTp9p6uN6ijJUo1HzCRYIA/viewform?embedded=true"
-                    style="width:100%; min-height:90vh; border:none; background-color:transparent;">
+                    style="width:100%; flex:1; overflow:auto; border:none; background-color:transparent;">
                     Loading ENG survey ...
                 </iframe>
             `
@@ -22,7 +22,7 @@ export function SurveyPage() {
                 </header>
                 <iframe
                     src="https://docs.google.com/forms/d/e/1FAIpQLSdZfrK0O9zmeo4iJHlFNG4fNv9-aR_BtMC1uRmZbCprnTPj0Q/viewform?embedded=true"
-                    style="width:100%; min-height:90vh; border:none; background-color:transparent;">
+                    style="width:100%; flex:1; overflow:auto; border:none; background-color:transparent;">
                     Loading ITA survey ...
                 </iframe>
             `
@@ -33,6 +33,8 @@ export function SurveyPage() {
         <div
             id = 'survey-page'
             style={{
+                display:'flex',
+                flexDirection: 'column',
                 flex: 1,
                 padding: "2rem",
                 overflowY: "auto",
