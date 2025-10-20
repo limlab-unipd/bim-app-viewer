@@ -11,7 +11,7 @@ export function convertCurrency (currency:string): string{
     } else if (currency == 'USD'){
         currency = '$'
     }
-    return currency            
+    return currency
 }
 
 

@@ -104,9 +104,11 @@ const colorScaleList: { [key: string]: [number, string][] } = {
  * @param colorscale - Name of the color scale to use (default: 'gnylrd')
  * @param rangeMin - Minimum normalized value to include
  * @param rangeMax - Maximum normalized value to include
+ * @param InInterval - Defines whether the filter applies to values inside or outside the selected range (rangeMin, rangeMax)
+ * @param NormalOrCost - Specifies whether the range refers to normalized values (0–1) or to actual cost values before normalization
  * @returns Tuple: [mapping of keys to color strings, mapping of keys to normalized values]
  */
-export function normalizeAndMapToColor (map: Record<string, number>, colorscale: string = 'gnylrd', rangeMin: number, rangeMax: number): [Record<string, string>, Record<string, number>] {
+export function normalizeAndMapToColor (map: Record<string, number>, colorscale: string = 'gnylrd', rangeMin: number, rangeMax: number, InInterval: string = 'Inside', NormalOrCost: string = 'Normal'): [Record<string, string>, Record<string, number>] {
     const colorScale = colorScaleList[colorscale];
 
     // Normalizzazione dei valori
@@ -118,17 +120,33 @@ export function normalizeAndMapToColor (map: Record<string, number>, colorscale:
     const result: Record<string, string> = {};
     const temporaryResultNormalized: Record<string, number> = {};
     const resultNormalized: Record<string, number> = {};
-
-    for (const [key, value] of Object.entries(map)) {
-        // Normalizzazione globale iniziale
-        temporaryResultNormalized[key] = (value - min) / range;
+    let filteredEntries: [string, number][] = []
+    
+    // Here will be done all the filtering of costs according to:
+    //      - rangeMin and rangeMax values
+    //      - values inside or outside the selected range (rangeMin, rangeMax)
+    //      - rangeMin and rangeMax refers to normalized values (0–1) or to actual cost values before normalization
+    if (NormalOrCost == 'Normal'){ // if the range uses normalized values
+        for (const [key, value] of Object.entries(map)) {
+            temporaryResultNormalized[key] = (value - min) / range; // Normalization of all values
+        }
+        // Filter elements according to normalized choosen range
+        filteredEntries = Object.entries(temporaryResultNormalized).filter(([, normalized]) => {
+            return InInterval == 'Inside' ? (normalized >= rangeMin && normalized <= rangeMax) : (normalized < rangeMin || normalized > rangeMax) // if the range is inside or outside
+        })
+    } else { // if the range refers to the cost value
+        for (const [key, value] of Object.entries(map)) { // here the filter has to be done in the initial map before normalization
+            if (InInterval=='Inside'){ // if the range is inside min and max values
+                if (value<rangeMin || value>rangeMax) continue // exclude this cost item if it is outside the range
+            } else { // if the range is outside
+                if (value>=rangeMin && value<=rangeMax) continue // exclude if the cost item is inside
+            }
+            temporaryResultNormalized[key] = (value - min) / range // normalize the cost value if it passed the previous checks
+        }
+        filteredEntries = Object.entries(temporaryResultNormalized) // extract values in the final structure
     }
 
-    // Filtra solo i valori normalizzati nel range specificato
-    const filteredEntries = Object.entries(temporaryResultNormalized).filter(
-        ([, normalized]) => normalized >= rangeMin && normalized <= rangeMax
-    );
-
+    // if no cost items respect the filters, return the function
     if (filteredEntries.length === 0) return [{}, {}];
 
     // Trova il minimo e massimo dei valori filtrati (per la seconda normalizzazione)

@@ -451,7 +451,7 @@ export function MainViewer () {
             const field = target.split(" ")[0]
             const direction = target.split(' ')[1]
             let ascending: boolean = true
-            ascending = direction == '(up)' ? false : true
+            ascending = (direction == '(highest-up)' || direction == '(A-down)') ? false : true
             sortTable(table,ascending,field)
             table.requestUpdate()
         }
@@ -524,6 +524,8 @@ export function MainViewer () {
             const [colorscale] = colorScaleDropdown.value ? colorScaleDropdown.value : 'gnylrd'
             const rangeMin = rangeInputMin.value
             const rangeMax = rangeInputMax.value
+            const rangeIntervalInOut = rangeInterval.label
+            const rangeNormalOrCost = rangeCost.label
 
             resource = resource == undefined ? 'TotalCost' : resource //if any resource selected use TotalCost as default
             category = category.length == 0 ? importedCategories : category  //if any category selected use al categories as default
@@ -625,7 +627,7 @@ export function MainViewer () {
 
                 for (const [model,costItems] of Object.entries(filteredCostItems)){ //loop over each model
                     let resourceCurrency = 'nd' //default value, here because is supposed that is used always the same currency in the same project
-                    const elem_resources_Map: {[key:number]:number} = {} //map to associate to each element id the related sum of ALL costs of the choosen resource category
+                    const elem_resources_Map: {[key:number]:number} = {} //map to associate to each element id the related sum of ALL costs of the chosen resource category
                     const elem_costCount_Map: {[key:number]:number} = {} //map to associate to each element id the number of related cost items
                     for (const ci of costItems) { //loop over each filtered cost item (cost items are not ordered)
                         // --> pay attention: multiple cost items could be related to the same object and moreover each cost item could have more than one unit cost of the same category
@@ -671,7 +673,7 @@ export function MainViewer () {
                             }
                         }
                         if (resourceValuesArray.length !== 0){ //checks if the array is not empty (empty = no resources found)
-                            //case 1a: more than one resource of the choosen category within the same unit cost item: sums all of the values
+                            //case 1a: more than one resource of the chosen category within the same unit cost item: sums all of the values
                             const resourceCost = resourceValuesArray.length>1 ? resourceValuesArray.reduce((s,v)=>s+v,0) : resourceValuesArray[0]
                             //case 1b: more than one cost item related to the same element: sums all the resources values across them
                             elem_resources_Map[elemId] ? elem_resources_Map[elemId] += resourceCost : elem_resources_Map[elemId] = resourceCost
@@ -705,7 +707,7 @@ export function MainViewer () {
                 const model_resources_Map_flat = flattenModelMap(model_resources_Map)
                 const model_costCount_Map_flat = flattenModelMap(model_costCount_Map) //not properly correct because you can have multiple items with same id, but this is needed to sum count items count
                 //step 5.0.1: normalize total resource cost to color across models
-                const [colorMap, normalizedValue] = normalizeAndMapToColor(model_resources_Map_flat,colorscale,rangeMin,rangeMax) //use this function to normalize values between 0 and 1 and return color and normalized value
+                const [colorMap, normalizedValue] = normalizeAndMapToColor(model_resources_Map_flat,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost) //use this function to normalize values between 0 and 1 and return color and normalized value
 
                 //step 5: create the table as:
                 // category
@@ -898,7 +900,7 @@ export function MainViewer () {
                 const loadTime_4 = ((endTime_4 - startTime_4) / 1000).toFixed(2); // seconds
                 console.log(`TIME ${loadTime_4} s: whole process of getting total costs data`);
 
-                //normalize cost to get colors and filter according to choosen range
+                //normalize cost to get colors and filter according to chosen range
                 const normalized_cost: {[key:string]:number} = {}
                 let colorMap: Record<string, string>
                 let normalizedValue: Record<string, string|number>
@@ -908,9 +910,9 @@ export function MainViewer () {
                         if (volume == 0) continue //very important to not consider non geometrical items, otherwise the normalization of cost is infinite, coloring all elements in green
                         normalized_cost[itemId] = cost / volume
                     }
-                    [colorMap,normalizedValue] = normalizeAndMapToColor(normalized_cost,colorscale,rangeMin,rangeMax)
+                    [colorMap,normalizedValue] = normalizeAndMapToColor(normalized_cost,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost)
                 } else {
-                    [colorMap,normalizedValue] = normalizeAndMapToColor(model_cost_map_flat,colorscale,rangeMin,rangeMax)
+                    [colorMap,normalizedValue] = normalizeAndMapToColor(model_cost_map_flat,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost)
                 }
 
                 //filter all the found elements according to the range
@@ -1392,13 +1394,12 @@ export function MainViewer () {
             </bim-dropdown>`,
         )
         //sort by resources dropdown menu
-        const sortbyResources: string[] = ['ResourceCost (up)','ResourceCost (down)', 'Name (up)', 'Name (down)']
-        sortbyResources.sort() //sort resources
+        const sortbyResources: string[] = ['ResourceCost (highest-up)','ResourceCost (highest-down)','Name (A-up)','Name (A-down)']
         const sortbyResourcesIcon: {[key:string]:string} = {
-            'ResourceCost (down)': 'gravity-ui:bars-ascending-align-left-arrow-down',
-            'ResourceCost (up)': 'gravity-ui:bars-descending-align-left-arrow-up',
-            'Name (down)': 'gravity-ui:bars-ascending-align-left-arrow-down',
-            'Name (up)': 'gravity-ui:bars-descending-align-left-arrow-up',
+            'ResourceCost (highest-down)': 'hugeicons:arrange-by-numbers-1-9',
+            'ResourceCost (highest-up)': 'hugeicons:arrange-by-numbers-9-1',
+            'Name (A-up)': 'hugeicons:arrange-by-letters-a-z',
+            'Name (A-down)': 'hugeicons:arrange-by-letters-z-a',
         }
         const sortbyResourcesDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`<bim-dropdown name="sortbyResources" style="max-width:fit-content">
@@ -1408,13 +1409,12 @@ export function MainViewer () {
             </bim-dropdown>`,
         )
         //sort by total cost dropdown menu
-        const sortbyTotalCost: string[] = ['Cost (up)','Cost (down)', 'Name (up)', 'Name (down)']
-        sortbyTotalCost.sort() //sort resources
+        const sortbyTotalCost: string[] = ['Cost (highest-up)','Cost (highest-down)','Name (A-up)','Name (A-down)']
         const sortbyTotalCostIcon: {[key:string]:string} = {
-            'Cost (down)': 'gravity-ui:bars-ascending-align-left-arrow-down',
-            'Cost (up)': 'gravity-ui:bars-descending-align-left-arrow-up',
-            'Name (down)': 'gravity-ui:bars-ascending-align-left-arrow-down',
-            'Name (up)': 'gravity-ui:bars-descending-align-left-arrow-up',
+            'Cost (highest-down)': 'hugeicons:arrange-by-numbers-1-9',
+            'Cost (highest-up)': 'hugeicons:arrange-by-numbers-9-1',
+            'Name (A-up)': 'hugeicons:arrange-by-letters-a-z',
+            'Name (A-down)': 'hugeicons:arrange-by-letters-z-a',
         }
         const sortbyTotalCostDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`<bim-dropdown name="sortbyTotalCost" style="max-width:fit-content">
@@ -1480,7 +1480,7 @@ export function MainViewer () {
 
         const rangeInputMin = BUI.Component.create<BUI.NumberInput>(() => {
             return BUI.html`
-                <bim-number-input slider min='0' max='0.99' value='0' sensitivity='0.3' step='0.01' style='max-width:8.12rem'/>
+                <bim-number-input slider min='0' max='0.99' value='0' sensitivity='0.3' step='0.01' style='max-width:8.12rem;margin-left:0.75rem'/>
             `
         })
         rangeInputMin.addEventListener('change', (event) => {
@@ -1492,7 +1492,7 @@ export function MainViewer () {
         });
         const rangeInputMax = BUI.Component.create<BUI.NumberInput>(() => {
             return BUI.html`
-                <bim-number-input slider min='0.01' max='1' value='1' sensitivity='0.3' step='0.01' style='max-width:8.12rem'/>
+                <bim-number-input slider min='0.01' max='1' value='1' sensitivity='0.3' step='0.01' style='max-width:8.12rem;margin-left:0.75rem'/>
             `
         })
         rangeInputMax.addEventListener('change', (event) => {
@@ -1502,6 +1502,61 @@ export function MainViewer () {
                 rangeInputMin.value = maxValue - 0.01
             }
         });
+        const rangeInterval = BUI.Component.create<BUI.Button>(() => {
+            return BUI.html`
+                <bim-button 
+                    @click=${(e:Event) => {
+                        (e.target as BUI.Button).label = (e.target as BUI.Button).label=='Inside'?'Outside':'Inside';
+                        (e.target as BUI.Button).icon = (e.target as BUI.Button).label=='Inside'?'iconoir:arrow-separate':'iconoir:arrow-union'
+                    }} 
+                    label='Inside'
+                    tooltip-text='Click to filter elements inside or outside the chosen range'
+                    style='width:8.12rem'
+                    icon='iconoir:arrow-separate'
+                >
+                </bim-button>
+            `
+        })
+        const rangeCost = BUI.Component.create<BUI.Button>(() => {
+            return BUI.html`
+                <bim-button 
+                    @click=${(e:Event) => {
+                        if ((e.target as BUI.Button).label=='Normal'){
+                            (e.target as BUI.Button).label = 'Cost';
+                            (e.target as BUI.Button).icon = 'mynaui:dollar-square'
+                            rangeInputMax.max = 1000000
+                            rangeInputMin.max = 999999
+                            rangeInputMax.min = 1
+                            rangeInputMax.value = 1000000
+                            rangeInputMax.step = 10
+                            rangeInputMin.step = 10
+                            rangeInputMax.suffix = '$'
+                            rangeInputMin.suffix = '$'
+                            rangeInputMax.sensitivity = 100
+                            rangeInputMin.sensitivity = 100
+                        } else {
+                            (e.target as BUI.Button).label = 'Normal';
+                            (e.target as BUI.Button).icon = 'ant-design:field-binary-outlined'
+                            rangeInputMax.max = 1
+                            rangeInputMin.max = 0.99
+                            rangeInputMax.min = 0.01
+                            rangeInputMax.value = 1
+                            rangeInputMax.step = 0.01
+                            rangeInputMin.step = 0.01
+                            rangeInputMax.suffix = ''
+                            rangeInputMin.suffix = ''
+                            rangeInputMax.sensitivity = 0.3
+                            rangeInputMin.sensitivity = 0.3
+                        }
+                    }} 
+                    label='Normal'
+                    tooltip-text='Click to filter elements using range between 0 and 1 or the cost itself'
+                    style='width:8.12rem'
+                    icon='ant-design:field-binary-outlined'
+                >
+                </bim-button>
+            `
+        })
 
         const colorResourcesPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
             return BUI.html`
@@ -1512,16 +1567,20 @@ export function MainViewer () {
                     ${resourcesDropdown}
                     ${categoriesDropdown}
                     ${unitMeasureDropdown}
-                    <div style="display:flex; gap: 1rem">
-                        <bim-label icon='oui:token-range'>Range</bim-label>
-                        <bim-button tooltip-text="Info: this range filters the items resulting from the above choices" icon='material-symbols-light:info-outline-rounded' style="max-width:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
+                    <div style="display:flex; gap: 1rem; align-items:center">
+                        <bim-label icon='mdi:slider'>Range</bim-label>
+                        <bim-button tooltip-text="Info: this range filters the items resulting from the above choices" icon='material-symbols-light:info-outline-rounded' style="max-width:fit-content; height:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
+                        <div style="display:flex; flex-direction:column; gap:0.75rem; flex-grow:1; align-items:center">
+                            ${rangeInterval}
+                            ${rangeCost}
+                        </div>
                         <div style="display:flex; flex-direction:column; gap:0.75rem; flex-grow:1">
-                            <div style="display: flex; justify-content:space-between">
-                                <bim-label icon = 'material-symbols:line-start-circle-outline-rounded'>Min</bim-label>
+                            <div style="display: flex; justify-content:end">
+                                <bim-label icon='material-symbols:line-start-circle-outline-rounded'>Min</bim-label>
                                 ${rangeInputMin}
                             </div>
-                            <div style="display: flex; justify-content:space-between">
-                                <bim-label icon = 'material-symbols:line-end-circle-outline-rounded'>Max</bim-label>
+                            <div style="display: flex; justify-content:end">
+                                <bim-label icon='material-symbols:line-end-circle-outline-rounded'>Max</bim-label>
                                 ${rangeInputMax}
                             </div>
                         </div>
