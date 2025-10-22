@@ -348,26 +348,27 @@ export function MainViewer () {
             const selectedItems = highlighter.selection.select
             highlighter.highlightByID('transparent', allItems, true, false, selectedItems)
         }
-        const onSetTransparencyToCostColor = async () => {
+        const onSetTransparencyToCostColor = async (e:Event) => {
             const selectedItems = highlighter.selection.select
-
-            if (highlighter.selection.color_02_04){
+            const buttonLabel = (e.target as any as BUI.Button).label
+            if (buttonLabel=='Reset'){
                 highlighter.highlightByID('color_0_02', highlighter.selection.color_0_02_transparent, false, false)
                 highlighter.highlightByID('color_02_04', highlighter.selection.color_02_04_transparent, false, false)
                 highlighter.highlightByID('color_04_06', highlighter.selection.color_04_06_transparent, false, false)
                 highlighter.highlightByID('color_06_08', highlighter.selection.color_06_08_transparent, false, false)
                 highlighter.highlightByID('color_08_1', highlighter.selection.color_08_1_transparent, false, false)
     
-                if (!isModelIdMapEmpty(selectedItems)) {
-                    highlighter.highlightByID('color_0_02_transparent', highlighter.selection.color_0_02, true, false, selectedItems)
-                    highlighter.highlightByID('color_02_04_transparent', highlighter.selection.color_02_04, true, false, selectedItems)
-                    highlighter.highlightByID('color_04_06_transparent', highlighter.selection.color_04_06, true, false, selectedItems)
-                    highlighter.highlightByID('color_06_08_transparent', highlighter.selection.color_06_08, true, false, selectedItems)
-                    highlighter.highlightByID('color_08_1_transparent', highlighter.selection.color_08_1, true, false, selectedItems)
-                }
+            } else if (buttonLabel=='Ghost') {
+                highlighter.highlightByID('color_0_02_transparent', highlighter.selection.color_0_02, true, false, selectedItems)
+                highlighter.highlightByID('color_02_04_transparent', highlighter.selection.color_02_04, true, false, selectedItems)
+                highlighter.highlightByID('color_04_06_transparent', highlighter.selection.color_04_06, true, false, selectedItems)
+                highlighter.highlightByID('color_06_08_transparent', highlighter.selection.color_06_08, true, false, selectedItems)
+                highlighter.highlightByID('color_08_1_transparent', highlighter.selection.color_08_1, true, false, selectedItems)
+
             } else {
                 console.log('Analysis still not performed.')
             }
+            console.log(highlighter.selection)
         }
         
         const isModelIdMapEmpty = (modelIdMap: OBC.ModelIdMap): boolean => {
@@ -823,15 +824,37 @@ export function MainViewer () {
                     //return the UI of the component
                     return BUI.html`
                         <bim-panel
-                            style="display:flex; flex-direction:column; gap:10px; margin:10px; background-color:transparent">
+                            style="display:flex; flex-direction:column; gap:10px; margin:10px; background-color:transparent; flex:1;">
                             <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px'})}>
                                 <div style="display: flex; gap: 0.5rem;">
+                                    <bim-button @click=${(e:Event) => onExpandTable(e,resourceTable)} label=${resourceTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
                                     <bim-label>Group by:</bim-label>
                                     <bim-button @click=${(e:Event) => onChangeLevelTable(e,resourceTable)} label="Item" style="max-width:fit-content"></bim-button>
                                     <bim-label>Sort by:</bim-label>
                                     ${sortbyResourcesDropdown}
-                                    <bim-button @click=${(e:Event) => onExpandTable(e,resourceTable)} label=${resourceTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
-                                    <bim-button @click=${() => onSetTransparencyToCostColor()} label="Ghost" tooltip-text="Set non-selected elements transparent. No selection = Reset transparency" style="max-width:fit-content; z-index:100"></bim-button>
+                                    <bim-label>Ghost mode:</bim-label>
+                                    <bim-button 
+                                        id='ghost-mode' 
+                                        @click=${(e:Event) => {
+                                            onSetTransparencyToCostColor(e);
+                                            (e.target as any).label = (e.target as any).label=='Ghost' ? 'Reset' : 'Ghost'
+                                        }} 
+                                        label="Ghost"
+                                        tooltip-text="Set transparency to non-selected items. On the side, you can set their opacity. Ghost mode works only on cost analysis colored items."
+                                        style="max-width:fit-content; z-index:100">
+                                    </bim-button>
+                                    <bim-number-input
+                                        id='ghost-mode-opacity' slider step="0.01"value="0.5" min="0" max="1"
+                                        style="max-width:fit-content; z-index:100"
+                                        @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                                            (highlighter.styles.get('color_0_02_transparent') as any).opacity = target.value;
+                                            (highlighter.styles.get('color_02_04_transparent') as any).opacity = target.value;
+                                            (highlighter.styles.get('color_04_06_transparent') as any).opacity = target.value;
+                                            (highlighter.styles.get('color_06_08_transparent') as any).opacity = target.value;
+                                            (highlighter.styles.get('color_08_1_transparent') as any).opacity = target.value;
+                                            await highlighter.updateColors()
+                                        }}">
+                                    </bim-number-input>
                                     <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,resourceTable)}}></bim-text-input>
                                     <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                                 </div>
@@ -1860,15 +1883,37 @@ export function MainViewer () {
             const elementXCostPanel = BUI.Component.create<BUI.Panel>(() => {
                 return BUI.html`
                 <bim-panel
-                    style="display:flex; flex-direction:column; gap:10px; margin:10px; background-color:transparent">
+                    style="display:flex; flex-direction:column; gap:10px; margin:10px; background-color:transparent; flex:1;">
                     <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px'})}>
                         <div style="display: flex; gap: 0.5rem;">
+                            <bim-button @click=${(e:Event) => onExpandTable(e,elementXcostTable)} label=${elementXcostTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
                             <bim-label>Group by:</bim-label>
                             <bim-button @click=${(e:Event) => onChangeLevelTable(e,elementXcostTable)} label="Item" style="max-width:fit-content"></bim-button>
                             <bim-label>Sort by:</bim-label>
                             ${sortbyTotalCostDropdown}
-                            <bim-button @click=${(e:Event) => onExpandTable(e,elementXcostTable)} label=${elementXcostTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
-                            <bim-button @click=${() => onSetTransparencyToCostColor()} label="Ghost" tooltip-text="Set non-selected elements transparent. No selection = Reset transparency" style="max-width:fit-content; z-index:100"></bim-button>
+                            <bim-label>Ghost mode:</bim-label>
+                            <bim-button 
+                                id='ghost-mode' 
+                                @click=${(e:Event) => {
+                                    onSetTransparencyToCostColor(e);
+                                    (e.target as any).label = (e.target as any).label=='Ghost' ? 'Reset' : 'Ghost'
+                                }} 
+                                label="Ghost"
+                                tooltip-text="Set transparency to non-selected items. On the side, you can set their opacity. Ghost mode works only on cost analysis colored items."
+                                style="max-width:fit-content; z-index:100">
+                            </bim-button>
+                            <bim-number-input
+                                id='ghost-mode-opacity' slider step="0.01" value="0.5" min="0" max="1"
+                                style="max-width:fit-content; z-index:100"
+                                @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                                    (highlighter.styles.get('color_0_02_transparent') as any).opacity = target.value;
+                                    (highlighter.styles.get('color_02_04_transparent') as any).opacity = target.value;
+                                    (highlighter.styles.get('color_04_06_transparent') as any).opacity = target.value;
+                                    (highlighter.styles.get('color_06_08_transparent') as any).opacity = target.value;
+                                    (highlighter.styles.get('color_08_1_transparent') as any).opacity = target.value;
+                                    await highlighter.updateColors()
+                                }}">
+                            </bim-number-input>
                             <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,elementXcostTable)}}></bim-text-input>
                             <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-button tooltip-text="Click on item's name to add it to the selection" icon='majesticons:lightbulb-shine' style="max-width:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
