@@ -4,8 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 export function MenuSidebar() {
     const navigate = useNavigate();
-    //const { page } = state;
-    const location = useLocation(); // hook per l'URL corrente
+    const location = useLocation(); // hoo for current url
     const page = location.pathname.replace('/', '') || ''
     let upTitle = page
     let downTitle = ''
@@ -17,29 +16,30 @@ export function MenuSidebar() {
         downTitle='urban'
     }
 
-    // Componente titolo (una sola volta)
+    // Sidebar up title component
     const pageTitle = BUI.Component.create<HTMLDivElement>(() => {
-            // Divide la parola in lettere singole
-            const letters = upTitle.split('').map((letter) => {
-                return BUI.html`
-                <h1 style="display:inline-block; margin:0 0.1em; font-family:'Orbitron', monospace; font-weight:lighter; color:rgba(224, 224, 224, 0.75); text-transform:uppercase;">
-                    ${letter}
-                </h1>`
-            })
+        // divide word in single letters
+        const letters = upTitle.split('').map((letter) => {
+            return BUI.html`
+            <h1 style="display:inline-block; margin:0 0.1em; font-family:'Orbitron', monospace; font-weight:lighter; color:rgba(224, 224, 224, 0.75); text-transform:uppercase;">
+                ${letter}
+            </h1>`
+        })
         return BUI.html`
             <div style="display:flex; flex-direction:column; justify-content:flex-start; align-items:center; width:100%; position:absolute; top:0; left:50%; transform:translateX(-50%); padding-top:0.5rem;">
                 ${letters}
             </div>`
     })
+    // Sidebar down title component
     const pageDownTitle = BUI.Component.create<HTMLDivElement>(() => {
-            // Divide la parola in lettere singole
-            const letters = downTitle.split('').map((letter) => {
-                const displayLetter = letter === ' ' ? '\u00A0' : letter;
-                return BUI.html`
-                <h1 style="display:inline-block; margin:0 0.1em; font-family:'Orbitron', monospace; font-weight:lighter; color:rgba(224, 224, 224, 0.75); text-transform:uppercase;">
-                    ${displayLetter}
-                </h1>`
-            })
+        // divide word in single letters
+        const letters = downTitle.split('').map((letter) => {
+            const displayLetter = letter === ' ' ? '\u00A0' : letter; //if there is a needed space as character
+            return BUI.html`
+            <h1 style="display:inline-block; margin:0 0.1em; font-family:'Orbitron', monospace; font-weight:lighter; color:rgba(224, 224, 224, 0.75); text-transform:uppercase;">
+                ${displayLetter}
+            </h1>`
+        })
         return BUI.html`
             <div style="display:flex; flex-direction:column; justify-content:flex-end; align-items:center; width:100%; position:absolute; bottom:0; left:50%; transform:translateX(-50%); padding-top:0.5rem;">
                 ${letters}
