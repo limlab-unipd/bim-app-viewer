@@ -10,7 +10,8 @@ export function MenuSidebar() {
             //const { page } = state;
             const location = useLocation(); // hook per l'URL corrente
             let page = location.pathname.replace('/', '') || ''
-            page = page=='' ? page='viewer' : page
+            page = page=='' ? page='cost' : page
+            page = page=='urban-viewer' ? page='urban' : page
 
             // Divide la parola in lettere singole
             const letters = page.split('').map((letter) => {
@@ -48,6 +49,15 @@ export function MenuSidebar() {
                     style="display:flex; min-width:2.5rem; min-height:2.5rem; align-items:center; justify-content:center"
                     @click=${(e: any) => {
                         navigate('/');
+                    }}>
+                    </bim-button>
+                    <bim-button
+                    id='Urban-Viewer'
+                    icon="fluent:city-24-regular"
+                    tooltip-title="Urban Viewer"
+                    style="display:flex; min-width:2.5rem; min-height:2.5rem; align-items:center; justify-content:center"
+                    @click=${(e: any) => {
+                        navigate('/urban-viewer');
                     }}>
                     </bim-button>
                     <bim-button
