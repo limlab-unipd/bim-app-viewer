@@ -1983,7 +1983,7 @@ export function MainViewer () {
                     <bim-button
                         id='world'
                         icon="tabler:world-cog"
-                        tooltip-title="World visibility settings"
+                        tooltip-title="WORLD visibility settings"
                         @click=${onSetLayout}>
                     </bim-button>
                 </bim-toolbar-section>
