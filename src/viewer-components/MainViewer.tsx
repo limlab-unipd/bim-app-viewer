@@ -1247,6 +1247,11 @@ export function MainViewer () {
         // #endregion
 
         // #region ADVANCED COMPONENTS
+        fragments.list.onItemDeleted.add(() => {
+            onClearPanel(panelDown) //clear down panel
+            onClearPanel(panelRight)
+            updateCountLabel({countItems:0, countCostItems:0, countResources:0})
+        })
         const loadingLabel = BUI.Component.create<BUI.Label>(()=>{
             return BUI.html`
                 <bim-label style='padding:20px'>Loading...</bim-label>
@@ -1335,6 +1340,10 @@ export function MainViewer () {
                 updatePropertiesTable({ modelIdMap: {} })
                 updateSelectedItemsCount({ count:0 })
             });
+            fragments.list.onItemDeleted.add(() => {
+                updatePropertiesTable({ modelIdMap: {} })
+                updateSelectedItemsCount({ count:0 })
+            })
             return BUI.html`
                 <bim-panel-section label='Properties' icon="hugeicons:property-new">
                     ${selectedItemsCount}
@@ -1346,7 +1355,7 @@ export function MainViewer () {
                     ${propertiesTable}
                 </bim-panel-section>
             `
-        })        
+        })
         const selectElementByGuidPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
             function parseCommaSeparatedString(input: string): string[] {
                 // Rimuove eventuali spazi prima/dopo ogni elemento

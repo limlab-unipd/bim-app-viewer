@@ -714,6 +714,10 @@ export function UrbanViewer () {
         // #endregion
 
         // #region ADVANCED COMPONENTS
+        fragments.list.onItemDeleted.add(() => {
+            onClearPanel(panelDown) //clear down panel
+            onClearPanel(panelRight)
+        })
         const loadingLabel = BUI.Component.create<BUI.Label>(()=>{
             return BUI.html`
                 <bim-label style='padding:20px'>Loading...</bim-label>
@@ -776,6 +780,10 @@ export function UrbanViewer () {
                 updatePropertiesTable({ modelIdMap: {} })
                 updateSelectedItemsCount({ count:0 })
             });
+            fragments.list.onItemDeleted.add(() => {
+                updatePropertiesTable({ modelIdMap: {} })
+                updateSelectedItemsCount({ count:0 })
+            })
             return BUI.html`
                 <bim-panel-section label='Properties' icon="hugeicons:property-new">
                     ${selectedItemsCount}
