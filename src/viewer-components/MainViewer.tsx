@@ -70,7 +70,10 @@ export function MainViewer () {
         world.renderer.postproduction.enabled = true
         world.dynamicAnchor = false
 
-        components.get(OBC.Raycasters).get(world);
+        //components.get(OBC.Raycasters).get(world);
+
+        const axes = new THREE.AxesHelper(1);
+        world.scene.three.add(axes);
 
         highlighter.zoomToSelection = true;
         highlighter.setup({
@@ -391,8 +394,8 @@ export function MainViewer () {
                 const categories = await entryfr.getCategories()
                 list.push(categories)
             }
-            return [...new Set(list.flat())]
-        }        
+            return [...new Set(list.flat().sort())]
+        }
         let previousLayout: string = 'main'
         const onSetLayout = ({target}: {target: BUI.Button | string}) => {
             const btn = typeof target==='string' ? target : target.id
@@ -1078,7 +1081,7 @@ export function MainViewer () {
         const panelWorldSettings = BUI.Component.create<BUI.Panel>(() => {
             return BUI.html`
                 <bim-panel
-                    label="World Visibility Settings"
+                    label="Scene Visibility Settings"
                     style="background-color:rgba(0, 0, 0, 0.45);">
                     <bim-panel-section label='Preset Styles'>
                         <bim-button label='Basic'
@@ -2033,13 +2036,20 @@ export function MainViewer () {
         const toolbar = BUI.Component.create<BUI.Toolbar>(() => {
             return BUI.html`
             <bim-toolbar style="justify-self: center">
-                <bim-toolbar-section label="Settings">
+                <bim-toolbar-section label="Scene">
                     <bim-button
                         id='world'
                         icon="tabler:world-cog"
-                        tooltip-title="WORLD visibility settings"
+                        tooltip-title="Scene Visibility Settings"
                         @click=${onSetLayout}>
                     </bim-button>
+                    <bim-button
+                        tooltip-title="Center View"
+                        icon="material-symbols:center-focus-weak"
+                        @click=${async ()=>{
+                            await world.camera.controls.setLookAt(30,30,30,0,0,0)
+                        }}
+                    ></bim-button>
                 </bim-toolbar-section>
                 <bim-toolbar-section label="Samples">
                     <bim-dropdown verical placeholder="Load...">
@@ -2186,9 +2196,23 @@ export function MainViewer () {
                             }}>
                     </bim-button>
                     <bim-button
-                        label='Test'
+                        label='Volume'
                         tooltip-title="Print volume of selected item"
                         @click=${getVolume}
+                    ></bim-button>
+                    <bim-button
+                        label='Categories'
+                        tooltip-title="Print all categories in loaded models"
+                        @click=${async () => {
+                            const categories = await getAllCategories()
+                            const lC = new Set(categories)
+                            const filteredCategories = [...new Set(importedCategories.filter(x => lC.has(x)))]
+                            filteredCategories.push('ALL CLASSES')
+                            console.log(filteredCategories)
+                            categoriesDropdown.innerHTML = ''
+                            categoriesDropdown.innerHTML = `<bim-option label='ciao' style="padding:0 10px 0 10px"></bim-option>`
+                            updateCategoriesDropdown({listCategories:filteredCategories})
+                        }}
                     ></bim-button>
                 </bim-toolbar-section>
             </bim-toolbar>
