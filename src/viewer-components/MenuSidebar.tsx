@@ -70,15 +70,6 @@ export function MenuSidebar() {
                         }}>
                     </bim-button>
                     <bim-button
-                        id='Urban-Viewer'
-                        icon="fluent:city-24-regular"
-                        tooltip-title="Urban BIM Viewer"
-                        style="display:flex; min-width:2.5rem; min-height:2.5rem; align-items:center; justify-content:center"
-                        @click=${(e: any) => {
-                            navigate('/urban-viewer');
-                        }}>
-                    </bim-button>
-                    <bim-button
                         id='Survey'
                         icon="wpf:survey"
                         tooltip-title="Survey"
