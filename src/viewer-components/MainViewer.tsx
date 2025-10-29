@@ -104,7 +104,8 @@ export function MainViewer () {
                 absolute: true,
             },
         });
-        const workerUrl ="/Worker/worker.mjs";
+        //const workerUrl ="/Worker/worker.mjs";
+        const workerUrl ="https://thatopen.github.io/engine_fragment/resources/worker.mjs";
         const fetchedUrl = await fetch(workerUrl);
         const workerBlob = await fetchedUrl.blob();
         const workerFile = new File([workerBlob], "worker.mjs", {
