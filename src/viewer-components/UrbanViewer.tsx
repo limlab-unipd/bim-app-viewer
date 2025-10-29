@@ -9,7 +9,6 @@ import * as OBCF from '@thatopen/components-front'
 import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-converter'
 import Stats, { Panel } from 'stats.js'
 import { createBar } from '../custom-components/createBar'
-import { createBar2 } from '../custom-components/createBar2'
 
 
 export function UrbanViewer () {
