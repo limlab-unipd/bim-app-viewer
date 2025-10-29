@@ -7,9 +7,9 @@ import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
 import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-converter'
-import { convertCurrency, convertUnits } from '../custom-components/conversion'
-import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel } from '../custom-components/colors'
 import Stats, { Panel } from 'stats.js'
+import { createBar } from '../custom-components/createBar'
+import { createBar2 } from '../custom-components/createBar2'
 
 
 export function UrbanViewer () {
@@ -352,29 +352,6 @@ export function UrbanViewer () {
             const selectedItems = highlighter.selection.select
             highlighter.highlightByID('transparent', allItems, true, false, selectedItems)
         }
-        const onSetTransparencyToCostColor = async (e:Event) => {
-            const selectedItems = highlighter.selection.select
-            const buttonLabel = (e.target as any as BUI.Button).label
-            if (buttonLabel=='Reset'){
-                highlighter.highlightByID('color_0_02', highlighter.selection.color_0_02_transparent, false, false)
-                highlighter.highlightByID('color_02_04', highlighter.selection.color_02_04_transparent, false, false)
-                highlighter.highlightByID('color_04_06', highlighter.selection.color_04_06_transparent, false, false)
-                highlighter.highlightByID('color_06_08', highlighter.selection.color_06_08_transparent, false, false)
-                highlighter.highlightByID('color_08_1', highlighter.selection.color_08_1_transparent, false, false)
-    
-            } else if (buttonLabel=='Ghost') {
-                highlighter.highlightByID('color_0_02_transparent', highlighter.selection.color_0_02, true, false, selectedItems)
-                highlighter.highlightByID('color_02_04_transparent', highlighter.selection.color_02_04, true, false, selectedItems)
-                highlighter.highlightByID('color_04_06_transparent', highlighter.selection.color_04_06, true, false, selectedItems)
-                highlighter.highlightByID('color_06_08_transparent', highlighter.selection.color_06_08, true, false, selectedItems)
-                highlighter.highlightByID('color_08_1_transparent', highlighter.selection.color_08_1, true, false, selectedItems)
-
-            } else {
-                console.log('Analysis still not performed.')
-            }
-            console.log(highlighter.selection)
-        }
-        
         const isModelIdMapEmpty = (modelIdMap: OBC.ModelIdMap): boolean => {
             return Object.values(modelIdMap).every(set => set.size === 0);
         }
@@ -518,6 +495,35 @@ export function UrbanViewer () {
                 console.log(volumes)
             }
         }
+
+
+
+        //#region geometry creation
+        const api = new WEBIFC.IfcAPI();
+        api.SetWasmPath("https://unpkg.com/web-ifc@0.0.72/", true);
+        await api.Init();
+        const geometryEngine = new FRAGS.GeometryEngine(api);
+
+        /*
+        let lastUpdate: any = null;
+        const maxUpdateRate = 1000; // ms
+        const requestFragmentsUpdate = async () => {
+            if (processing) {
+                return;
+            }
+            processing = true;
+
+            if (lastUpdate) {
+                clearTimeout(lastUpdate);
+            }
+            lastUpdate = setTimeout(() => {
+                regenerateFragments();
+            }, maxUpdateRate);
+        };
+        */
+
+
+        // #endregion
 
         // #endregion
 
@@ -855,6 +861,59 @@ export function UrbanViewer () {
                 </div>
             </bim-panel-section>`;
         })
+        const colorUrbanPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
+            return BUI.html`
+                <bim-panel-section
+                    label = "Environmental Urban Analysis"
+                    icon = "ic:round-format-color-fill">
+                    <div style='display:flex; flex-direction:row; gap:1rem'>
+                        <bim-label>Levels of Detail:</bim-label>
+
+                        <bim-button label='0' tooltip='Load LOD 0' @click=${async ()=>{
+                            await createBar(world,fragments,geometryEngine,0,'canberra')
+                        }}></bim-button>
+
+                        <bim-button label='1' tootltip='Load LOD 1 and hide LOD 0' @click=${async ()=>{
+                            const selection = highlighter.selection.select
+                            const item = await fragments.getData(selection)
+                            let itName: string = ''
+                            for (const [model,it] of Object.entries(item)){ 
+                                if (!(it[0]['_category'] as FRAGS.ItemAttribute).value) continue
+                                itName = (it[0]['Name'] as FRAGS.ItemAttribute).value
+                            }
+                            //aggiungere un controllo nel caso in cui itName non corrisponda a nessuna lista delle barre
+                            await createBar(world,fragments,geometryEngine,1,itName)
+                            const frMap: OBC.ModelIdMap = {}
+                            for (const [entry,entryfr] of fragments.list.entries()){
+                                console.log(entry)
+                                if (!entry.includes('LOD_0')) continue
+                                const localids = await entryfr.getLocalIds()
+                                const singleFrMap: OBC.ModelIdMap = {
+                                    [entry] : new Set<number>([...localids])
+                                }
+                                Object.assign(frMap, singleFrMap)
+                            }
+                            highlighter.clear()
+                            onSetTransparency(frMap)
+                        }}></bim-button>
+
+                        <bim-button label='2' tootltip='Load LOD 2' @click=${async ()=>{
+                            loadFragmentFile("/FRAG/Sample_one-story-house.frag")
+                        }}></bim-button>
+
+                        <bim-button label='3'></bim-button>
+                        <bim-button label='4'></bim-button>
+                    </div>
+                    <div style='display:flex; flex-direction:row; gap:1rem'>
+                        <bim-label>Geometry</bim-label>
+                        <bim-button label='Log selection' @click=${()=>{
+                            console.log(highlighter.selection.select)
+                            console.log(fragments.list)
+                        }}></bim-button>
+                    </div>
+                </bim-panel-section>
+            `
+        })
 
         // #region DROPDOWN MENUS
         //color scale dropdown
@@ -870,22 +929,6 @@ export function UrbanViewer () {
             </bim-dropdown>`,
         )
 
-        const colorUrbanPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
-            return BUI.html`
-                <bim-panel-section
-                    label = "Environmental Urban Analysis"
-                    icon = "ic:round-format-color-fill">
-                    <div style='display:flex; flex-direction:row; gap:1rem'>
-                        <bim-label>Levels of Detail:</bim-label>
-                        <bim-button label='0'></bim-button>
-                        <bim-button label='1'></bim-button>
-                        <bim-button label='2'></bim-button>
-                        <bim-button label='3'></bim-button>
-                        <bim-button label='4'></bim-button>
-                    </div>
-                </bim-panel-section>
-            `
-        })
         // #endregion
 
         //append components in panels
@@ -1204,7 +1247,7 @@ export function UrbanViewer () {
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer() //set the viewer, devMode default = false
+        setViewer(true) //set the viewer, devMode default = false
         return () => {
             if (components) {
                 components.dispose()
