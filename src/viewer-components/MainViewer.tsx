@@ -790,9 +790,9 @@ export function MainViewer () {
                         const { itemId } = rowData
                         if (!itemId) return value //if itemId is not defined, return the original value
                         return BUI.html`
-                            <div style="display: flex; flex-direction:row; justify-content:space-between; min-width:75%">
+                            <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
+                                <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; background-color:${colorMap[Number(itemId)]}; color:${colorMap[Number(itemId)]};">.</div>
                                 <bim-label>${value}</bim-label>
-                                <div style="height:1rem; width: 1rem; border-radius:5px; background-color:${colorMap[Number(itemId)]}; color:${colorMap[Number(itemId)]};">.</div>
                             </div>
                         `
                     }
@@ -982,7 +982,8 @@ export function MainViewer () {
                     console.log(`TIME ${loadTime_8} s: color elements using ranges color map (> 100 items)`);
                     
                     const startTime_5 = performance.now(); // Start timer
-                    await onOpenElementXCostPanel(allSelectedItemsModelIdMap)
+                    const norm = normalization == 'Volume' ? true : false
+                    await onOpenElementXCostPanel(allSelectedItemsModelIdMap,norm)
                     const endTime_5 = performance.now(); // End timer
                     const loadTime_5 = ((endTime_5 - startTime_5) / 1000).toFixed(2); // seconds
                     console.log(`TIME ${loadTime_5} s: total time to create and render cost table`);
@@ -993,9 +994,9 @@ export function MainViewer () {
                             const { ItemId } = rowData
                             if (!ItemId) return value //if ItemId is not defined, return the original value
                             return BUI.html`
-                                <div style="display: flex; flex-direction:row; justify-content:space-between; min-width:50%">
+                                <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
+                                    <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; background-color:${colorMap[Number(ItemId)]}; color:${colorMap[Number(ItemId)]};">.</div>
                                     <bim-label>${value}</bim-label>
-                                    <div style="height:1rem; width: 1rem; border-radius:5px; background-color:${colorMap[Number(ItemId)]}; color:${colorMap[Number(ItemId)]};">.</div>
                                 </div>
                             `
                         }
@@ -1018,15 +1019,14 @@ export function MainViewer () {
                                 <bim-label>${Math.round(normCost*100)/100} ${Currency}/m³ (${Math.round(normValue*100)/100})</bim-label>
                             `
                         }
-                        elementXCostTable.hiddenColumns = ['ComponentsCostValues','ItemId', 'Currency', 'IfcClass', 'Model']
                     } else {
                         elementXCostTable.dataTransform.Cost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
                             const { Model, ItemId } = rowData
                             if (!ItemId) return value //if ItemId is not defined, return the original value
                             return BUI.html`
-                                <div style="display: flex; flex-direction:row; justify-content:space-between; min-width:75%">
+                                <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
+                                    <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; background-color:${colorMap[Number(ItemId)]}; color:${colorMap[Number(ItemId)]};">.</div>
                                     <bim-label>${value}</bim-label>
-                                    <div style="height:1rem; width: 1rem; border-radius:5px; background-color:${colorMap[Number(ItemId)]}; color:${colorMap[Number(ItemId)]};">.</div>
                                 </div>
                             `
                         }
@@ -1630,7 +1630,7 @@ export function MainViewer () {
         panelLeft.appendChild(colorResourcesPanelSection)
 
         //advanced costs functions and components
-        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined) => {
+        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined,normalization:boolean=false) => {
             //clean panel
             panelDown.innerHTML=''
             panelDown.appendChild(loadingLabel)
@@ -1723,7 +1723,12 @@ export function MainViewer () {
             elementXcostTable.data = []
             elementXcostTable.preserveStructureOnFilter = true
             elementXcostTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
-            elementXcostTable.hiddenColumns = ['ComponentsCostValues','ItemId','ItemVolume', 'NormalizedCost', 'Currency', 'IfcClass', 'Model']
+            
+            if (normalization){
+                elementXcostTable.hiddenColumns = ['ComponentsCostValues','ItemId','Currency','IfcClass','Model']
+            } else {
+                elementXcostTable.hiddenColumns = ['ComponentsCostValues','ItemId','ItemVolume', 'NormalizedCost', 'Currency', 'IfcClass', 'Model']
+            }
             // #endregion
 
             //get cost data
