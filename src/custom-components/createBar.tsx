@@ -23,11 +23,11 @@ export async function createBar (
 
 
     interface BarSettings {
-        height: number, //altezza colonna
-        baseWidth: number, //base colonna larghezza
-        baseLength: number, //base colonna lnghezza
+        height: number, //altezza barra
+        baseWidth: number, //base barra larghezza
+        baseLength: number, //base barra lnghezza
         position: THREE.Vector3, //posizione del primo vertice della barra
-        name?: string,
+        name?: string, //nome barra
     }
     const barsObject: {[key:string] : BarSettings[]} = {
         LOD_0_canberra: [ //array con oggetti le dimensioni delle barre
@@ -53,6 +53,7 @@ export async function createBar (
         ],
     }
 
+    //controllo per verificare se la barra ha ulteriori LOD caricati, altrimenti termina l'intero componente
     const barsList = barsObject[`LOD_${LOD}_${name}`]
     if (!barsList){
         console.warn('Any LOD found for this bar.')

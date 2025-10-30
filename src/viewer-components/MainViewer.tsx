@@ -104,8 +104,8 @@ export function MainViewer () {
                 absolute: true,
             },
         });
-        //const workerUrl ="/Worker/worker.mjs";
-        const workerUrl ="https://thatopen.github.io/engine_fragment/resources/worker.mjs";
+        const workerUrl ="/Worker/worker.mjs";
+        //const workerUrl ="https://thatopen.github.io/engine_fragment/resources/worker.mjs";
         const fetchedUrl = await fetch(workerUrl);
         const workerBlob = await fetchedUrl.blob();
         const workerFile = new File([workerBlob], "worker.mjs", {
@@ -538,32 +538,6 @@ export function MainViewer () {
                 onSetLayout({target:'down'})
             }
 
-            //table type for resource table
-            type ResourceTableData = {
-                itemModel?: string,
-                itemId?: number, //optional because it is not needed in the first row
-                Name: string,
-                ResourceCost: string,
-                NormalizedValue: string,
-                ResourceUnitCost: string,
-                ElementQuantity: string,
-            }
-            //resource table
-            const resourceTable = document.createElement("bim-table") as BUI.Table<ResourceTableData>
-            resourceTable.data = [{
-                data: {
-                    Name: '',
-                    ResourceCost: '',
-                    NormalizedValue: '',
-                    ResourceUnitCost: '',
-                    ElementQuantity: '',
-                }
-            }]
-            resourceTable.data = [] //initialize the table and some settings
-            resourceTable.preserveStructureOnFilter = true
-            resourceTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
-            resourceTable.hiddenColumns = ['itemId','itemModel']
-
             //step 1: find all cost items ids related to all object of the selected category
             //here query is only created
             finder.create('COSTITEM_REL_CATEGORY', [
@@ -703,7 +677,33 @@ export function MainViewer () {
                 //step 5.0.1: normalize total resource cost to color across models
                 const [colorMap, normalizedValue] = normalizeAndMapToColor(model_resources_Map_flat,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost) //use this function to normalize values between 0 and 1 and return color and normalized value
 
-                //step 5: create the table as:
+                //step 5: RESOURCE TABLE CREATION
+                //table type for resource table
+                type ResourceTableData = {
+                    itemModel?: string,
+                    itemId?: number, //optional because it is not needed in the first row
+                    Name: string,
+                    ResourceCost: string,
+                    NormalizedValue: string,
+                    ResourceUnitCost: string,
+                    ElementQuantity: string,
+                }
+                //resource table
+                const resourceTable = document.createElement("bim-table") as BUI.Table<ResourceTableData>
+                resourceTable.data = [{
+                    data: {
+                        Name: '',
+                        ResourceCost: '',
+                        NormalizedValue: '',
+                        ResourceUnitCost: '',
+                        ElementQuantity: '',
+                    }
+                }]
+                resourceTable.data = [] //initialize the table and some settings
+                resourceTable.preserveStructureOnFilter = true
+                resourceTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
+                resourceTable.hiddenColumns = ['itemId','itemModel']
+                //create the table as:
                 // category
                 //    |--- elements
                 //            |--- resources
@@ -764,6 +764,21 @@ export function MainViewer () {
                 //step 6: highlight or color element
                 //color rows indipendentely from models
                 if (btn == 'Color'){
+                    
+                    //6.1: color model before table creation
+                    //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
+                    //here things comes different because to highlight and color elements the model is needed
+                    //so, the highlighting is by model but the color and the normal value is kept from the map calculated outside of this loop
+                    const groupedColors = groupIdsByNormalizedValuePerModel(components, normalizedValue as Record<string,number>, model_resources_Map, colorscale)
+                    for (const [model,colorMap] of Object.entries(groupedColors)) {
+                        const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
+                        onSetTransparency({[model]:new Set(geomItems)})
+                        for (const [color,ids] of Object.entries(colorMap)) {
+                            const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
+                            highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
+                        }
+                    }
+
                     //step 6.2: add the normalized value to the table, pay attention: it is only a render value, it will not be saved in the table
                     //changing this value here is independent from model
                     resourceTable.dataTransform.NormalizedValue = (value, rowData) => {
@@ -789,19 +804,6 @@ export function MainViewer () {
                                 @click=${() => {highlighter.highlightByID("select", {[itemModel as string]: new Set<number>([itemId as number])}, false, true)}}
                             >${value}</bim-label>
                         `
-                    }
-                    
-                    //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
-                    //here things comes different because to highlight and color elements the model is needed
-                    //so, the highlighting is by model but the color and the normal value is kept from the map calculated outside of this loop
-                    const groupedColors = groupIdsByNormalizedValuePerModel(components, normalizedValue as Record<string,number>, model_resources_Map, colorscale)
-                    for (const [model,colorMap] of Object.entries(groupedColors)) {
-                        const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
-                        onSetTransparency({[model]:new Set(geomItems)})
-                        for (const [color,ids] of Object.entries(colorMap)) {
-                            const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
-                            highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
-                        }
                     }
 
                 } else if (btn == 'Select') { //if select button is clicked
@@ -963,6 +965,22 @@ export function MainViewer () {
                 if (btn=='Color') {
                     highlighter.highlightByID("select", {}, true, false)
                     
+                    //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
+                    const startTime_8 = performance.now(); // Start timer
+                    //this is to color items within a range of 5 colors (faster)
+                    const groupedColors = groupIdsByNormalizedValuePerModel(components, normalizedValue as Record<string,number>, model_cost_map, colorscale)
+                    for (const [model,colorMap] of Object.entries(groupedColors)) {
+                        const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
+                        onSetTransparency({[model]:new Set(geomItems)})
+                        for (const [color,ids] of Object.entries(colorMap)) {
+                            const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
+                            highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
+                        }
+                    }
+                    const endTime_8 = performance.now(); // End timer
+                    const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
+                    console.log(`TIME ${loadTime_8} s: color elements using ranges color map (> 100 items)`);
+                    
                     const startTime_5 = performance.now(); // Start timer
                     await onOpenElementXCostPanel(allSelectedItemsModelIdMap)
                     const endTime_5 = performance.now(); // End timer
@@ -1013,22 +1031,6 @@ export function MainViewer () {
                             `
                         }
                     }
-                    
-                    //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
-                    const startTime_8 = performance.now(); // Start timer
-                    //this is to color items within a range of 5 colors (faster)
-                    const groupedColors = groupIdsByNormalizedValuePerModel(components, normalizedValue as Record<string,number>, model_cost_map, colorscale)
-                    for (const [model,colorMap] of Object.entries(groupedColors)) {
-                        const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
-                        onSetTransparency({[model]:new Set(geomItems)})
-                        for (const [color,ids] of Object.entries(colorMap)) {
-                            const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
-                            highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
-                        }
-                    }
-                    const endTime_8 = performance.now(); // End timer
-                    const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
-                    console.log(`TIME ${loadTime_8} s: color elements using ranges color map (> 100 items)`);
 
                 } else if (btn == 'Select') { //if select button is clicked
                     highlighter.highlightByID("select", allSelectedItemsModelIdMap, false, false) //only select elements removing colors

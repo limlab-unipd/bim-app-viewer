@@ -103,8 +103,8 @@ export function UrbanViewer () {
                 absolute: true,
             },
         });
-        //const workerUrl ="/Worker/worker.mjs";
-        const workerUrl ="https://thatopen.github.io/engine_fragment/resources/worker.mjs";
+        const workerUrl ="/Worker/worker.mjs";
+        //const workerUrl ="https://thatopen.github.io/engine_fragment/resources/worker.mjs";
         const fetchedUrl = await fetch(workerUrl);
         const workerBlob = await fetchedUrl.blob();
         const workerFile = new File([workerBlob], "worker.mjs", {
@@ -501,7 +501,7 @@ export function UrbanViewer () {
                 if (!(it[0]['_category'] as FRAGS.ItemAttribute).value) continue
                 itName = (it[0]['Name'] as FRAGS.ItemAttribute).value
             }
-            //aggiungere un controllo nel caso in cui itName non corrisponda a nessuna lista delle barre
+            //controllo per verificare se la barra ha ulteriori LOD caricati
             const barCreationResult = await createBar(world,fragments,geometryEngine,1,itName)
             if (!barCreationResult) {
                 addOverlay(BUI.html`Any other LOD found for <b>${itName}</b> bar.`)
@@ -518,11 +518,8 @@ export function UrbanViewer () {
                 }
                 Object.assign(frMap, singleFrMap)
             }
-            //rimuove la selezione
-            highlighter.clear()
-            //rende trasparenti gli oggetti della modelIdMap
-            onSetTransparency(frMap)
-
+            highlighter.selection.select = {} //pulisce la selezione
+            onSetTransparency(frMap) //rende trasparenti gli oggetti della modelIdMap
         }
 
         // #endregion
