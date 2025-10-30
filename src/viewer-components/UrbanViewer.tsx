@@ -216,21 +216,8 @@ export function UrbanViewer () {
             const endTime = performance.now(); // End timer
             const loadTime = ((endTime - startTime) / 1000).toFixed(2); // seconds
             console.log(`${name} IFC model loaded in ${loadTime} seconds`);
-            const overlay = document.getElementById("overlay");
-            if (overlay) {
-                const label = BUI.Component.create<HTMLDivElement>(() => {
-                    return BUI.html`
-                    <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.2); border-radius: 10px; margin: 5px">
-                        <i><b>${name}</i></b> loaded in <b>${loadTime}</b> seconds.
-                    </div>
-                    `
-                })
-                overlay.appendChild(label)
-                setTimeout(() => {
-                    label.style.display = "none";
-                }, 5000); // Nasconde dopo 4 secondi
-            }
-        }        
+            addOverlay(BUI.html`<i><b>${name}</i></b> loaded in <b>${loadTime}</b> seconds.`)
+        }
         // Function to load an IFC file triggered by the button
         const onLoadIfc = async ({target}:{target:BUI.Button}) => {
             //methods to open the file dialog and select an IFC file
@@ -264,20 +251,7 @@ export function UrbanViewer () {
             const endTime = performance.now() // End timer
             const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
             console.log(`Fragments loaded in ${loadTime} seconds`)
-            const overlay = document.getElementById("overlay");
-            if (overlay) {
-                const label = BUI.Component.create<HTMLDivElement>(() => {
-                    return BUI.html`
-                    <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.2); border-radius: 10px; margin: 5px">
-                        <b><i>${modelId}</i></b> model loaded in <b>${loadTime}</b> seconds.
-                    </div>
-                    `
-                })
-                overlay.appendChild(label)
-                setTimeout(() => {
-                    label.style.display = "none";
-                }, 5000); // Nasconde dopo 5 secondi
-            }
+            addOverlay(BUI.html`<b><i>${modelId}</i></b> model loaded in <b>${loadTime}</b> seconds.`)
         }
         const onFragmentsExport = async () => {
             for (const [, model] of fragments.list) {
@@ -494,6 +468,21 @@ export function UrbanViewer () {
                 console.log(volumes)
             }
         }
+        const addOverlay = (sentence:BUI.TemplateResult=BUI.html`Overlay <b>example</b>`) => {
+            const overlay = document.getElementById("overlay");
+            if (overlay) {
+                const label = BUI.Component.create<HTMLDivElement>(() => {
+                    return BUI.html`
+                    <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.2); border-radius: 10px; margin: 5px">
+                        ${sentence}
+                    </div>`
+                })
+                overlay.appendChild(label)
+                setTimeout(() => {
+                    label.style.display = "none";
+                }, 4000); // Nasconde dopo 4 secondi
+            }
+        }
 
 
 
@@ -503,24 +492,38 @@ export function UrbanViewer () {
         await api.Init();
         const geometryEngine = new FRAGS.GeometryEngine(api);
 
-        /*
-        let lastUpdate: any = null;
-        const maxUpdateRate = 1000; // ms
-        const requestFragmentsUpdate = async () => {
-            if (processing) {
-                return;
+        const onLoadLodOne = async () => {
+            //estrae il nome dall'oggetto selezionato per caricarne il LOD_1
+            const selection = highlighter.selection.select
+            const item = await fragments.getData(selection)
+            let itName: string = ''
+            for (const [model,it] of Object.entries(item)){ 
+                if (!(it[0]['_category'] as FRAGS.ItemAttribute).value) continue
+                itName = (it[0]['Name'] as FRAGS.ItemAttribute).value
             }
-            processing = true;
-
-            if (lastUpdate) {
-                clearTimeout(lastUpdate);
+            //aggiungere un controllo nel caso in cui itName non corrisponda a nessuna lista delle barre
+            const barCreationResult = await createBar(world,fragments,geometryEngine,1,itName)
+            if (!barCreationResult) {
+                addOverlay(BUI.html`Any other LOD found for <b>${itName}</b> bar.`)
+                return
             }
-            lastUpdate = setTimeout(() => {
-                regenerateFragments();
-            }, maxUpdateRate);
-        };
-        */
+            //seleziona gli oggetti del LOD_0 per dopo renderli trasparenti
+            const frMap: OBC.ModelIdMap = {}
+            for (const [entry,entryfr] of fragments.list.entries()){
+                console.log(entry)
+                if (!entry.includes('LOD_0')) continue
+                const localids = await entryfr.getLocalIds()
+                const singleFrMap: OBC.ModelIdMap = {
+                    [entry] : new Set<number>([...localids])
+                }
+                Object.assign(frMap, singleFrMap)
+            }
+            //rimuove la selezione
+            highlighter.clear()
+            //rende trasparenti gli oggetti della modelIdMap
+            onSetTransparency(frMap)
 
+        }
 
         // #endregion
 
@@ -873,27 +876,7 @@ export function UrbanViewer () {
                         }}></bim-button>
 
                         <bim-button label='1' tootltip='Load LOD 1 and hide LOD 0' @click=${async ()=>{
-                            const selection = highlighter.selection.select
-                            const item = await fragments.getData(selection)
-                            let itName: string = ''
-                            for (const [model,it] of Object.entries(item)){ 
-                                if (!(it[0]['_category'] as FRAGS.ItemAttribute).value) continue
-                                itName = (it[0]['Name'] as FRAGS.ItemAttribute).value
-                            }
-                            //aggiungere un controllo nel caso in cui itName non corrisponda a nessuna lista delle barre
-                            await createBar(world,fragments,geometryEngine,1,itName)
-                            const frMap: OBC.ModelIdMap = {}
-                            for (const [entry,entryfr] of fragments.list.entries()){
-                                console.log(entry)
-                                if (!entry.includes('LOD_0')) continue
-                                const localids = await entryfr.getLocalIds()
-                                const singleFrMap: OBC.ModelIdMap = {
-                                    [entry] : new Set<number>([...localids])
-                                }
-                                Object.assign(frMap, singleFrMap)
-                            }
-                            highlighter.clear()
-                            onSetTransparency(frMap)
+                            await onLoadLodOne()
                         }}></bim-button>
 
                         <bim-button label='2' tootltip='Load LOD 2' @click=${async ()=>{

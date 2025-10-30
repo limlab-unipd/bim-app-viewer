@@ -54,6 +54,10 @@ export async function createBar (
     }
 
     const barsList = barsObject[`LOD_${LOD}_${name}`]
+    if (!barsList){
+        console.warn('Any LOD found for this bar.')
+        return false
+    }
 
     // Bar geometry
     const barGeometry = new THREE.BufferGeometry();
@@ -133,4 +137,5 @@ export async function createBar (
     };
 
     await regenerateFragments();
+    return true
 }
