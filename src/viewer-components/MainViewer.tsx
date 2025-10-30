@@ -217,21 +217,8 @@ export function MainViewer () {
             const endTime = performance.now(); // End timer
             const loadTime = ((endTime - startTime) / 1000).toFixed(2); // seconds
             console.log(`${name} IFC model loaded in ${loadTime} seconds`);
-            const overlay = document.getElementById("overlay");
-            if (overlay) {
-                const label = BUI.Component.create<HTMLDivElement>(() => {
-                    return BUI.html`
-                    <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.2); border-radius: 10px; margin: 5px">
-                        <i><b>${name}</i></b> loaded in <b>${loadTime}</b> seconds.
-                    </div>
-                    `
-                })
-                overlay.appendChild(label)
-                setTimeout(() => {
-                    label.style.display = "none";
-                }, 5000); // Nasconde dopo 4 secondi
-            }
-        }        
+            addOverlay(BUI.html`<i><b>${name}</i></b> loaded in <b>${loadTime}</b> seconds.`)
+        }
         // Function to load an IFC file triggered by the button
         const onLoadIfc = async ({target}:{target:BUI.Button}) => {
             //methods to open the file dialog and select an IFC file
@@ -258,27 +245,14 @@ export function MainViewer () {
             const startTime = performance.now() // Start timer
             const modelId = path.split("/").pop()?.split(".").shift()
             if (modelId) {
-            const file = await fetch(path)
-            const buffer = await file.arrayBuffer()
-            await fragments.core.load(buffer, { modelId: modelId })
+                const file = await fetch(path)
+                const buffer = await file.arrayBuffer()
+                await fragments.core.load(buffer, { modelId: modelId })
             }
             const endTime = performance.now() // End timer
             const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
             console.log(`Fragments loaded in ${loadTime} seconds`)
-            const overlay = document.getElementById("overlay");
-            if (overlay) {
-                const label = BUI.Component.create<HTMLDivElement>(() => {
-                    return BUI.html`
-                    <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.2); border-radius: 10px; margin: 5px">
-                        <b><i>${modelId}</i></b> model loaded in <b>${loadTime}</b> seconds.
-                    </div>
-                    `
-                })
-                overlay.appendChild(label)
-                setTimeout(() => {
-                    label.style.display = "none";
-                }, 5000); // Nasconde dopo 5 secondi
-            }
+            addOverlay(BUI.html`<b><i>${modelId}</i></b> model loaded in <b>${loadTime}</b> seconds.`)
         }
         const onFragmentsExport = async () => {
             for (const [, model] of fragments.list) {
@@ -516,6 +490,21 @@ export function MainViewer () {
                 if (!selection) continue
                 const volumes = await model.getItemsVolume(selection)
                 console.log(volumes)
+            }
+        }
+        const addOverlay = (sentence:BUI.TemplateResult=BUI.html`Overlay <b>example</b>`) => {
+            const overlay = document.getElementById("overlay");
+            if (overlay) {
+                const label = BUI.Component.create<HTMLDivElement>(() => {
+                    return BUI.html`
+                    <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.2); border-radius: 10px; margin: 5px">
+                        ${sentence}
+                    </div>`
+                })
+                overlay.appendChild(label)
+                setTimeout(() => {
+                    label.style.display = "none";
+                }, 4000); // Nasconde dopo 4 secondi
             }
         }
 
