@@ -49,16 +49,10 @@ export function SurveyPage() {
             </header>
 
             <div style={{ display:'flex', flexDirection:'row' }}>
-                <section
-                    className="survey-card"
-                    onClick={() => {loadSurvey('ITA')}}
-                >
-                    <h2 className="info-card-title"  style={{ margin:"0"}}>ITA</h2>
+                <section className="survey-card" onClick={() => { loadSurvey('ITA') }}>
+                    <h2 className="info-card-title" style={{ margin: "0" }}>ITA</h2>
                 </section>
-                <section
-                    className="survey-card"
-                    onClick={() => {loadSurvey('ENG')}}
-                >
+                <section className="survey-card" onClick={() => {loadSurvey('ENG')}}>
                     <h2 className="info-card-title" style={{ margin:"0"}}>ENG</h2>
                 </section>
             </div>
