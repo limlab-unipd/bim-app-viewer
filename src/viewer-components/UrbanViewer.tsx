@@ -9,6 +9,7 @@ import * as OBCF from '@thatopen/components-front'
 import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-converter'
 import Stats, { Panel } from 'stats.js'
 import { createBar } from '../custom-components/createBar'
+import { readArrow } from '../custom-components/readArrow'
 
 
 export function UrbanViewer () {
@@ -55,7 +56,9 @@ export function UrbanViewer () {
         //world.renderer = new OBC.SimpleRenderer(components, container)
         //CAMERA
         world.camera = new OBC.OrthoPerspectiveCamera(components)
-        await world.camera.controls.setLookAt(30,30,30,0,0,0) // convenient position for the model we will load
+        const defaultPosition_CameraXYZ = 200
+        const defaultPosition_TargetXYZ = 0
+        await world.camera.controls.setLookAt(defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ) // convenient position for the model we will load
         // #endregion
 
         // #region COPONENTS GENERAL SETUP
@@ -64,6 +67,7 @@ export function UrbanViewer () {
 
         const grids = components.get(OBC.Grids)
         const grid = grids.create(world)
+        grid.config.distance = 1000
         grid.config.color.set('rgba(28, 28, 28, 1)')
         
         world.renderer.postproduction.enabled = true
@@ -465,7 +469,6 @@ export function UrbanViewer () {
                 const selection = await model.getHighlightItemIds()
                 if (!selection) continue
                 const volumes = await model.getItemsVolume(selection)
-                console.log(volumes)
             }
         }
         const addOverlay = (sentence:BUI.TemplateResult=BUI.html`Overlay <b>example</b>`) => {
@@ -502,7 +505,7 @@ export function UrbanViewer () {
                 itName = (it[0]['Name'] as FRAGS.ItemAttribute).value
             }
             //controllo per verificare se la barra ha ulteriori LOD caricati
-            const barCreationResult = await createBar(world,fragments,geometryEngine,1,itName)
+            const barCreationResult = await createBar(world,fragments,geometryEngine,1,itName,'') //da modificare
             if (!barCreationResult) {
                 addOverlay(BUI.html`Any other LOD found for <b>${itName}</b> bar.`)
                 return
@@ -510,7 +513,6 @@ export function UrbanViewer () {
             //seleziona gli oggetti del LOD_0 per dopo renderli trasparenti
             const frMap: OBC.ModelIdMap = {}
             for (const [entry,entryfr] of fragments.list.entries()){
-                console.log(entry)
                 if (!entry.includes('LOD_0')) continue
                 const localids = await entryfr.getLocalIds()
                 const singleFrMap: OBC.ModelIdMap = {
@@ -834,7 +836,6 @@ export function UrbanViewer () {
                 const target = document.getElementById('search-by-guid') as BUI.TextInput
                 const guids = parseCommaSeparatedString(target.value)
                 const frMap = await fragments.guidsToModelIdMap(guids)
-                console.log(frMap)
                 highlighter.highlightByID("select", frMap, true, true)
             }
             return BUI.html`
@@ -860,39 +861,6 @@ export function UrbanViewer () {
                 </div>
             </bim-panel-section>`;
         })
-        const colorUrbanPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
-            return BUI.html`
-                <bim-panel-section
-                    label = "Environmental Urban Analysis"
-                    icon = "ic:round-format-color-fill">
-                    <div style='display:flex; flex-direction:row; gap:1rem'>
-                        <bim-label>Levels of Detail:</bim-label>
-
-                        <bim-button label='0' tooltip='Load LOD 0' @click=${async ()=>{
-                            await createBar(world,fragments,geometryEngine,0,'canberra')
-                        }}></bim-button>
-
-                        <bim-button label='1' tootltip='Load LOD 1 and hide LOD 0' @click=${async ()=>{
-                            await onLoadLodOne()
-                        }}></bim-button>
-
-                        <bim-button label='2' tootltip='Load LOD 2' @click=${async ()=>{
-                            loadFragmentFile("/FRAG/Sample_one-story-house.frag")
-                        }}></bim-button>
-
-                        <bim-button label='3'></bim-button>
-                        <bim-button label='4'></bim-button>
-                    </div>
-                    <div style='display:flex; flex-direction:row; gap:1rem'>
-                        <bim-label>Geometry</bim-label>
-                        <bim-button label='Log selection' @click=${()=>{
-                            console.log(highlighter.selection.select)
-                            console.log(fragments.list)
-                        }}></bim-button>
-                    </div>
-                </bim-panel-section>
-            `
-        })
 
         // #region DROPDOWN MENUS
         //color scale dropdown
@@ -905,10 +873,85 @@ export function UrbanViewer () {
                 <bim-option label='Blues' value='blues' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(239, 243, 255, 1), rgba(189, 215, 231, 1), rgba(107, 174, 214, 1), rgba(33, 113, 181, 1), rgba(8, 69, 148, 1))"></bim-option>
                 <bim-option label='Viridis' value='viridis' style="padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(68, 1, 84, 1),rgba(59, 82, 139, 1),rgba(33, 144, 141, 1),rgba(94, 201, 98, 1),rgba(253, 231, 37, 1))"></bim-option>
                 <bim-option label='Cividis' value='cividis' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(0, 32, 76, 1), rgba(55, 64, 129, 1), rgba(94, 109, 171, 1), rgba(145, 158, 203, 1), rgba(253, 231, 37, 1))"></bim-option>
-            </bim-dropdown>`,
+            </bim-dropdown>`
         )
 
+        const suburbsDropdown = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="suburbs" label='Suburb'>
+                <bim-option label='Acton' value="Acton" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Braddon' value="Braddon" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Dickson' value="Dickson" style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
+        
+        const materialsDropdown = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="materials" label='Material'>
+                <bim-option label='Aluminium' value="Aluminm" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Bitumen' value="Bitumen" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Carpet' value="Carpet" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Ceramics' value="Ceramcs" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Concrete' value="Concret" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Copper' value="Copper" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Glass' value="Glass" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Insulation' value="Insultn" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Paint' value="Paint" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plasterboard' value="Plstrbr" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plastics' value="Plastcs" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Sand' value="Snd_nd_" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Steel' value="Steel" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
         // #endregion
+
+
+
+        const colorUrbanPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
+            return BUI.html`
+                <bim-panel-section
+                    label = "Environmental Urban Analysis"
+                    icon = "ic:round-format-color-fill">
+                    ${suburbsDropdown}
+                    ${materialsDropdown}
+                    <bim-button label='Load bars' @click=${async () => {
+                        const result = await createBar(world,fragments,geometryEngine,0,suburbsDropdown.value[0],materialsDropdown.value[0])
+                        addOverlay(BUI.html`<b><i>${materialsDropdown.value[0]}</i></b> bars for <b><i>${suburbsDropdown.value[0]}</i></b> suburb created in <b>${result[1]}</b> seconds.`)
+                    }}></bim-button>
+                    <bim-label>...____________________________________________________________</bim-label>
+                    <div style='display:flex; flex-direction:row; gap:1rem'>
+                        <bim-label>Levels of Detail:</bim-label>
+                        <bim-button label='0' tooltip='Load LOD 0' @click=${async ()=>{
+                            await createBar(world,fragments,geometryEngine,0,'canberra','')
+                        }}></bim-button>
+                        <bim-button label='1' tootltip='Load LOD 1 and hide LOD 0' @click=${async ()=>{
+                            await onLoadLodOne()
+                        }}></bim-button>
+                        <bim-button label='2' tootltip='Load LOD 2' @click=${async ()=>{
+                            loadFragmentFile("/FRAG/Sample_one-story-house.frag")
+                        }}></bim-button>
+                        <bim-button label='3'></bim-button>
+                        <bim-button label='4'></bim-button>
+                    </div>
+                    <div style='display:flex; flex-direction:column; gap:1rem'>
+                        <bim-label>Geometry</bim-label>
+                        <bim-button label='Log selection' @click=${()=>{
+                            console.log(highlighter.selection.select)
+                            console.log(fragments.list)
+                        }}></bim-button>
+                        <bim-label>Coordinates</bim-label>
+                        <bim-button label='Log model 1' @click=${async ()=>{
+                            for (const [k,m] of fragments.list.entries()){
+                                console.log('model:',m)
+                                console.log('coordinates:',await m.getCoordinates())
+                                console.log('matrix:',await m.getCoordinationMatrix())
+                            }
+                        }}></bim-button>
+                    </div>
+                </bim-panel-section>
+            `
+        })
 
         //append components in panels
         panelLeft.appendChild(modelsListPanelSection)
@@ -942,7 +985,7 @@ export function UrbanViewer () {
                         tooltip-title="Center View"
                         icon="material-symbols:center-focus-weak"
                         @click=${async ()=>{
-                            await world.camera.controls.setLookAt(30,30,30,0,0,0)
+                            await world.camera.controls.setLookAt(defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ)
                         }}
                     ></bim-button>
                 </bim-toolbar-section>
@@ -1226,7 +1269,7 @@ export function UrbanViewer () {
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer(true) //set the viewer, devMode default = false
+        setViewer() //set the viewer, devMode default = false
         return () => {
             if (components) {
                 components.dispose()

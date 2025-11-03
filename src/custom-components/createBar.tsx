@@ -3,14 +3,31 @@ import * as FRAGS from '@thatopen/fragments'
 import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
+import { generateUUID } from 'three/src/math/MathUtils.js'
+import { ACTON } from '../../public/JSON/ACTON'
+import { BRADDON } from '../../public/JSON/BRADDON'
+import { readArrow } from './readArrow'
 
+
+/**
+ * Create bar according to values.
+ * @param world the world instance used to render the scene
+ * @param fragments the FragmentsManager instance
+ * @param geometryEngine the GeoemtryEngine instance
+ * @param LOD the LOD you want to load
+ * @param name the name of the bar to load the next LOD
+ * @returns if the function correctly found the bar and created the next LOD or not
+ */
 export async function createBar (
         world:OBC.SimpleWorld<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBCF.PostproductionRenderer>,
         fragments:OBC.FragmentsManager,
         geometryEngine:FRAGS.GeometryEngine,
         LOD:number,
         name:string,
-    ) {
+        variable:string,
+    ): Promise<[boolean,string]> {
+
+    const startTime = performance.now() // Start timer 
 
     const bytes = FRAGS.EditUtils.newModel({ raw: true });
     const newModel = await fragments.core.load(bytes, {
@@ -22,42 +39,19 @@ export async function createBar (
     await fragments.core.update(true);
 
 
-    interface BarSettings {
-        height: number, //altezza barra
-        baseWidth: number, //base barra larghezza
-        baseLength: number, //base barra lnghezza
-        position: THREE.Vector3, //posizione del primo vertice della barra
-        name?: string, //nome barra
-    }
-    const barsObject: {[key:string] : BarSettings[]} = {
-        LOD_0_canberra: [ //array con oggetti le dimensioni delle barre
-            { height:20, baseWidth:2, baseLength:2, position:new THREE.Vector3(0,0,0), name:'acton' },
-            { height:10, baseWidth:2, baseLength:2, position:new THREE.Vector3(30,0,30), name:'city' },
-            { height:30, baseWidth:2, baseLength:2, position:new THREE.Vector3(20,0,15), name:'braddon' },
-            { height:15, baseWidth:2, baseLength:2, position:new THREE.Vector3(-10,0,20), name:'dickson' },
-        ],
-        LOD_1_braddon: [ //array con oggetti le dimensioni delle barre
-            { height:10, baseWidth:1, baseLength:1, position:new THREE.Vector3(20,0,15) },
-            { height:15, baseWidth:1, baseLength:1, position:new THREE.Vector3(16,0,12) },
-            { height:30, baseWidth:1, baseLength:1, position:new THREE.Vector3(22,0,18) },
-            { height:20, baseWidth:1, baseLength:1, position:new THREE.Vector3(15,0,17) },
-            { height:12, baseWidth:1, baseLength:1, position:new THREE.Vector3(19,0,11) },
-            { height:18, baseWidth:1, baseLength:1, position:new THREE.Vector3(27,0,8) },
-            { height:24, baseWidth:1, baseLength:1, position:new THREE.Vector3(12,0,22) },
-            { height:26, baseWidth:1, baseLength:1, position:new THREE.Vector3(14,0,10) },
-        ],
-        LOD_1_acton: [ //array con oggetti le dimensioni delle barre
-            { height:10, baseWidth:1, baseLength:1, position:new THREE.Vector3(-1,0,-1) },
-            { height:15, baseWidth:1, baseLength:1, position:new THREE.Vector3(-3,0,2) },
-            { height:5, baseWidth:1, baseLength:1, position:new THREE.Vector3(6,0,3) },
-        ],
-    }
 
-    //controllo per verificare se la barra ha ulteriori LOD caricati, altrimenti termina l'intero componente
-    const barsList = barsObject[`LOD_${LOD}_${name}`]
-    if (!barsList){
-        console.warn('Any LOD found for this bar.')
-        return false
+    // Read Arrow file
+    const arrowData = await readArrow()
+    name = name.toUpperCase()
+
+    const dataBySuburb: any[] = [];
+    const col = arrowData.getChild("DIVISION_N");
+    if (!col) throw new Error("Colonna DIVISION_N non trovata");
+
+    for (let i = 0; i < arrowData.numRows; i++) {
+        if (col.get(i) === name) {
+            dataBySuburb.push(arrowData.get(i));
+        }
     }
 
     // Bar geometry
@@ -84,12 +78,13 @@ export async function createBar (
         // Bars
         const tempObject = new THREE.Object3D();
         //creation of each bar
-        for (const set of barsList) {
-            const bar_base_dim1 = set.baseLength;
-            const bar_base_dim2 = set.baseWidth;
-            const bar_height = set.height
-            const bar_position = set.position
-            const bar_name = set.name
+        for (const set of dataBySuburb) {
+            let bar_base_dim1 = 1
+            let bar_base_dim2 = 1
+            let bar_height = set[variable]
+            let bar_position = new THREE.Vector3(parseFloat(set.centroid_x_local)/20,0,parseFloat(set.centroid_y_local)/20)
+            let bar_name = Number(set.identfr)
+            
             //estrusione
             geometryEngine.getExtrusion(barGeometry, {
                 profilePoints: [ //punti di base X,Z,Y (forse, oppure Y,Z,X)
@@ -118,9 +113,13 @@ export async function createBar (
                     _category: {
                         value: "IfcBuildingElementProxy",
                     },
-                    Name: {
-                        value: bar_name
-                    }
+                    _guid: { value: generateUUID() },
+                    Name: { value: bar_name },
+                    Suburb: { value: set.DIVISION_N ? set.DIVISION_N : bar_name },
+                    Height: { value: bar_height },
+                    Aluminium: { value: set.Aluminm ? set.Aluminm : 0 },
+                    Concrete: { value: set.Concret ? set.Concret : 0 },
+                    Steel: { value: set.Steel ? set.Steel : 0 },
                 },
                 globalTransform: tempObject.matrix.clone(),
                 samples: [
@@ -138,5 +137,10 @@ export async function createBar (
     };
 
     await regenerateFragments();
-    return true
+
+    const endTime = performance.now() // End timer
+    const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
+    console.log(`Arrow loaded in ${loadTime} seconds`)
+
+    return [true,loadTime]
 }
