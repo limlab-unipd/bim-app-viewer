@@ -9,11 +9,10 @@ import * as OBCF from '@thatopen/components-front'
 import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-converter'
 import Stats, { Panel } from 'stats.js'
 import { createBar } from '../custom-components/createBar'
-import { readArrow } from '../custom-components/readArrow'
 
 
 export function UrbanViewer () {
-
+    console.log = () => {}
     // #region GENERAL START
     //BUI.Manager.init()
     const components = new OBC.Components()
@@ -505,7 +504,7 @@ export function UrbanViewer () {
                 itName = (it[0]['Name'] as FRAGS.ItemAttribute).value
             }
             //controllo per verificare se la barra ha ulteriori LOD caricati
-            const barCreationResult = await createBar(world,fragments,geometryEngine,1,itName,'') //da modificare
+            const barCreationResult = await createBar(world,components,geometryEngine,1,itName,'','') //da modificare
             if (!barCreationResult) {
                 addOverlay(BUI.html`Any other LOD found for <b>${itName}</b> bar.`)
                 return
@@ -866,7 +865,7 @@ export function UrbanViewer () {
         //color scale dropdown
         const colorScaleDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
-            <bim-dropdown name="colorScale" label='Color Scale' icon='ic:outline-color-lens' style="min-width:100px">
+            <bim-dropdown id='color-scale-dropdown' name="colorScale" label='Color Scale' icon='ic:outline-color-lens' style="min-width:100px">
                 <bim-option label='Green-Yellow-Red' value='gnylrd' style="color:black; padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(26, 150, 65, 1),rgba(166, 217, 106, 1),rgba(255, 255, 0, 1),rgba(253, 174, 97, 1),rgba(215, 25, 28, 1))"></bim-option>
                 <bim-option label='Yellow-Green-Blue' value='ylgnbu' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(255, 255, 204, 1), rgba(194, 230, 153, 1), rgba(120, 198, 121, 1), rgba(49, 163, 84, 1), rgba(0, 104, 55, 1))"></bim-option>
                 <bim-option label='Orange-Red' value='orrd' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(254, 240, 217, 1), rgba(253, 212, 158, 1), rgba(253, 187, 132, 1), rgba(253, 141, 60, 1), rgba(217, 72, 1, 1))"></bim-option>
@@ -879,15 +878,148 @@ export function UrbanViewer () {
         const suburbsDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
             <bim-dropdown name="suburbs" label='Suburb'>
-                <bim-option label='Acton' value="Acton" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Braddon' value="Braddon" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Dickson' value="Dickson" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Acton" value="ACTON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Ainslie" value="AINSLIE" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Amaroo" value="AMAROO" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Aranda" value="ARANDA" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Banks" value="BANKS" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Barton" value="BARTON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Belconnen" value="BELCONNEN" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Bonner" value="BONNER" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Bonython" value="BONYTHON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Braddon" value="BRADDON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Bruce" value="BRUCE" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Calwell" value="CALWELL" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Campbell" value="CAMPBELL" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Capital hill" value="CAPITAL HILL" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Casey" value="CASEY" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Chapman" value="CHAPMAN" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Charnwood" value="CHARNWOOD" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Chifley" value="CHIFLEY" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Chisholm" value="CHISHOLM" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="City" value="CITY" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Conder" value="CONDER" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Cook" value="COOK" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Coombs" value="COOMBS" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Crace" value="CRACE" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Curtin" value="CURTIN" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Deakin" value="DEAKIN" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Denman prospect" value="DENMAN PROSPECT" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Dickson" value="DICKSON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Downer" value="DOWNER" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Duffy" value="DUFFY" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Dunlop" value="DUNLOP" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Evatt" value="EVATT" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Fadden" value="FADDEN" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Farrer" value="FARRER" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Fisher" value="FISHER" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Florey" value="FLOREY" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Flynn" value="FLYNN" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Forde" value="FORDE" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Forrest" value="FORREST" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Franklin" value="FRANKLIN" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Fraser" value="FRASER" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Fyshwick" value="FYSHWICK" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Garran" value="GARRAN" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Gilmore" value="GILMORE" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Giralang" value="GIRALANG" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Gordon" value="GORDON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Gowrie" value="GOWRIE" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Greenway" value="GREENWAY" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Griffith" value="GRIFFITH" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Gungahlin" value="GUNGAHLIN" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Hackett" value="HACKETT" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Hall" value="HALL" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Harrison" value="HARRISON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Hawker" value="HAWKER" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Higgins" value="HIGGINS" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Holder" value="HOLDER" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Holt" value="HOLT" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Hughes" value="HUGHES" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Hume" value="HUME" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Isaacs" value="ISAACS" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Isabella plains" value="ISABELLA PLAINS" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Jacka" value="JACKA" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Kaleen" value="KALEEN" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Kambah" value="KAMBAH" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Kingston" value="KINGSTON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Latham" value="LATHAM" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Lawson" value="LAWSON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Lyneham" value="LYNEHAM" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Lyons" value="LYONS" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Macarthur" value="MACARTHUR" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Macgregor" value="MACGREGOR" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Macquarie" value="MACQUARIE" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Mawson" value="MAWSON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Mckellar" value="MCKELLAR" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Melba" value="MELBA" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Mitchell" value="MITCHELL" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Monash" value="MONASH" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Moncrieff" value="MONCRIEFF" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Narrabundah" value="NARRABUNDAH" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Ngunnawal" value="NGUNNAWAL" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Nicholls" value="NICHOLLS" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="O'connor" value="O'CONNOR" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="O'malley" value="O'MALLEY" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Oxley" value="OXLEY" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Page" value="PAGE" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Palmerston" value="PALMERSTON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Parkes" value="PARKES" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Pearce" value="PEARCE" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Phillip" value="PHILLIP" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Red hill" value="RED HILL" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Reid" value="REID" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Richardson" value="RICHARDSON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Rivett" value="RIVETT" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Russell" value="RUSSELL" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Scullin" value="SCULLIN" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Spence" value="SPENCE" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Stirling" value="STIRLING" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Theodore" value="THEODORE" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Torrens" value="TORRENS" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Turner" value="TURNER" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Wanniassa" value="WANNIASSA" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Waramanga" value="WARAMANGA" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Watson" value="WATSON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Weetangera" value="WEETANGERA" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Weston" value="WESTON" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Wright" value="WRIGHT" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label="Yarralumla" value="YARRALUMLA" style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
         )
         
-        const materialsDropdown = BUI.Component.create<BUI.Dropdown>(
+        const paramOneDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
-            <bim-dropdown name="materials" label='Material'>
+            <bim-dropdown name="param_one" label='Parameter 1 (height)'>
+                <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Gross floor area' value="grss_fl" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Net floor area' value="usbl_fl" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Total tonnes' value="Tonnes" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Aluminium' value="Aluminm" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Bitumen' value="Bitumen" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Carpet' value="Carpet" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Ceramics' value="Ceramcs" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Concrete' value="Concret" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Copper' value="Copper" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Glass' value="Glass" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Insulation' value="Insultn" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Paint' value="Paint" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plasterboard' value="Plstrbr" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plastics' value="Plastcs" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Sand' value="Snd_nd_" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Steel' value="Steel" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
+        const paramTwoDropdown = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="param_two" label='Parameter 2 (color)'>
+                <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Gross floor area' value="grss_fl" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Net floor area' value="usbl_fl" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Total tonnes' value="Tonnes" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Aluminium' value="Aluminm" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Bitumen' value="Bitumen" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Carpet' value="Carpet" style="padding:0 10px 0 10px"></bim-option>
@@ -913,17 +1045,21 @@ export function UrbanViewer () {
                 <bim-panel-section
                     label = "Environmental Urban Analysis"
                     icon = "ic:round-format-color-fill">
+                    ${colorScaleDropdown}
                     ${suburbsDropdown}
-                    ${materialsDropdown}
+                    ${paramOneDropdown}
+                    ${paramTwoDropdown}
                     <bim-button label='Load bars' @click=${async () => {
-                        const result = await createBar(world,fragments,geometryEngine,0,suburbsDropdown.value[0],materialsDropdown.value[0])
-                        addOverlay(BUI.html`<b><i>${materialsDropdown.value[0]}</i></b> bars for <b><i>${suburbsDropdown.value[0]}</i></b> suburb created in <b>${result[1]}</b> seconds.`)
+                        modelsListPanelSection.collapsed=true
+                        const result = await createBar(world,components,geometryEngine,0,suburbsDropdown.value[0],paramOneDropdown.value[0],paramTwoDropdown.value[0])
+                        addOverlay(BUI.html`<b><i>${paramOneDropdown.value[0]}</i></b> bars for <b><i>${suburbsDropdown.value[0]}</i></b> suburb created in <b>${result[1]}</b> seconds.`)
                     }}></bim-button>
+
                     <bim-label>...____________________________________________________________</bim-label>
                     <div style='display:flex; flex-direction:row; gap:1rem'>
                         <bim-label>Levels of Detail:</bim-label>
                         <bim-button label='0' tooltip='Load LOD 0' @click=${async ()=>{
-                            await createBar(world,fragments,geometryEngine,0,'canberra','')
+                            await createBar(world,components,geometryEngine,0,'canberra','','')
                         }}></bim-button>
                         <bim-button label='1' tootltip='Load LOD 1 and hide LOD 0' @click=${async ()=>{
                             await onLoadLodOne()
@@ -934,19 +1070,29 @@ export function UrbanViewer () {
                         <bim-button label='3'></bim-button>
                         <bim-button label='4'></bim-button>
                     </div>
-                    <div style='display:flex; flex-direction:column; gap:1rem'>
-                        <bim-label>Geometry</bim-label>
+                    <div style='display:flex; flex-direction:row; gap:1rem'>
                         <bim-button label='Log selection' @click=${()=>{
                             console.log(highlighter.selection.select)
                             console.log(fragments.list)
                         }}></bim-button>
-                        <bim-label>Coordinates</bim-label>
-                        <bim-button label='Log model 1' @click=${async ()=>{
+                        <bim-button label='Log model' @click=${async ()=>{
                             for (const [k,m] of fragments.list.entries()){
                                 console.log('model:',m)
                                 console.log('coordinates:',await m.getCoordinates())
                                 console.log('matrix:',await m.getCoordinationMatrix())
                             }
+                        }}></bim-button>
+                        <bim-button label='Log models' @click=${async ()=>{
+                            for (const [m,n] of fragments.list.entries()){
+                                console.log(m)
+                                console.log(await n.getLocalIds())
+                                console.log()
+                            }
+                        }}></bim-button>
+                        <bim-button label='Color' @click=${async ()=>{
+                            highlighter.styles.set('color_test', {color: new THREE.Color('rgba(26, 150, 65, 1)'),opacity: 1,transparent: false,renderedFaces: 0,})
+                            highlighter.highlightByID('color_test', highlighter.selection.select, true, false)
+                            console.log(highlighter.selection.select)
                         }}></bim-button>
                     </div>
                 </bim-panel-section>

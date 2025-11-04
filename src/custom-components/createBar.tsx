@@ -4,10 +4,9 @@ import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
 import { generateUUID } from 'three/src/math/MathUtils.js'
-import { ACTON } from '../../public/JSON/ACTON'
-import { BRADDON } from '../../public/JSON/BRADDON'
 import { readArrow } from './readArrow'
-
+import { normalizeAndMapToColor } from './colors'
+import { colorBar } from './colorBar'
 
 /**
  * Create bar according to values.
@@ -20,13 +19,15 @@ import { readArrow } from './readArrow'
  */
 export async function createBar (
         world:OBC.SimpleWorld<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBCF.PostproductionRenderer>,
-        fragments:OBC.FragmentsManager,
+        components:OBC.Components,
         geometryEngine:FRAGS.GeometryEngine,
         LOD:number,
-        name:string,
-        variable:string,
+        name:string='ACTON',
+        paramOne:string='Concret',
+        paramTwo:string='Glass',
     ): Promise<[boolean,string]> {
 
+    const fragments = components.get(OBC.FragmentsManager)
     const startTime = performance.now() // Start timer 
 
     const bytes = FRAGS.EditUtils.newModel({ raw: true });
@@ -37,8 +38,6 @@ export async function createBar (
     });
     world.scene.three.add(newModel.object);
     await fragments.core.update(true);
-
-
 
     // Read Arrow file
     const arrowData = await readArrow()
@@ -81,7 +80,7 @@ export async function createBar (
         for (const set of dataBySuburb) {
             let bar_base_dim1 = 1
             let bar_base_dim2 = 1
-            let bar_height = set[variable]
+            let bar_height = set[paramOne]
             let bar_position = new THREE.Vector3(parseFloat(set.centroid_x_local)/20,0,parseFloat(set.centroid_y_local)/20)
             let bar_name = Number(set.identfr)
             
@@ -135,12 +134,14 @@ export async function createBar (
         await fragments.core.update(true);
         processing = false;
     };
-
+    
     await regenerateFragments();
 
     const endTime = performance.now() // End timer
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
     console.log(`Arrow loaded in ${loadTime} seconds`)
+
+    colorBar(components,dataBySuburb,1,name,paramTwo)
 
     return [true,loadTime]
 }
