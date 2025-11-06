@@ -1022,7 +1022,7 @@ export function UrbanViewer () {
 
 
 
-        const previousLoadedSuburbs = []
+        const previousLoadedSuburbs: string[] = []
         const colorUrbanPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
             return BUI.html`
                 <bim-panel-section
