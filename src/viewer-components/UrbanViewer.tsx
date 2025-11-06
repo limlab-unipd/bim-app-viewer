@@ -7,12 +7,14 @@ import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
 import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-converter'
-import Stats, { Panel } from 'stats.js'
-import { createBar } from '../custom-components/createBar'
+import Stats from 'stats.js'
+import { readArrow } from '../custom-components/readArrow'
+import { bar_create_LOD0 } from '../custom-components/bar_create_LOD0'
+import { bar_create_LOD1 } from '../custom-components/bar_create_LOD1'
+import { addOverlay } from '../custom-components/addOverlay'
 
 
 export function UrbanViewer () {
-    console.log = () => {}
     // #region GENERAL START
     //BUI.Manager.init()
     const components = new OBC.Components()
@@ -55,9 +57,12 @@ export function UrbanViewer () {
         //world.renderer = new OBC.SimpleRenderer(components, container)
         //CAMERA
         world.camera = new OBC.OrthoPerspectiveCamera(components)
-        const defaultPosition_CameraXYZ = 200
+        const defaultPosition_CameraXYZ = 300
         const defaultPosition_TargetXYZ = 0
         await world.camera.controls.setLookAt(defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ) // convenient position for the model we will load
+        world.camera.threeOrtho.far = 20000 // distanza massima del clipping plane per vedere gli oggetti: per la camera ortografica
+        world.camera.threePersp.far = 20000 // distanza massima del clipping plane per vedere gli oggetti: per la camera prospettica (quella usata di default)
+        world.camera.controls.minDistance = 500 //serve per poter continuare a zoommare velocemente anche da distante, tuttavia modifica anche lo zoom quando si seleziona un elemento ma va bene lo stesso
         // #endregion
 
         // #region COPONENTS GENERAL SETUP
@@ -174,6 +179,8 @@ export function UrbanViewer () {
         world.renderer.postproduction.enabled = false
     
         // #region LOGIC FUNCTIONS
+        //read arrow file
+        const arrowData = await readArrow()
         //function to load the IFC file
         const loadIfcFile = async (path: string) => {
             const name = path.split('/').pop()?.split('.ifc')[0] || path.split('/').pop() || path
@@ -323,6 +330,28 @@ export function UrbanViewer () {
             if (!modelIdMap) { modelIdMap = highlighter.selection.select }
             highlighter.highlightByID('transparent', modelIdMap, false, false)
         }
+        const onSetTransparencyWithColors = async (LOD:number=0) => {
+            const frMap: OBC.ModelIdMap = {}
+            for (const [entry,entryfr] of fragments.list.entries()){
+                if (!entry.includes(`LOD_${LOD}`)) continue
+                const localids = await entryfr.getLocalIds()
+                localids.forEach((id) => {
+                    if (highlighter.selection.color_0_02[entry] && highlighter.selection.color_0_02[entry].has(id)){
+                        highlighter.highlightByID('color_0_02_transparent',{[entry] : new Set<number>([id])},false,false)
+                    } else if (highlighter.selection.color_02_04[entry] && highlighter.selection.color_02_04[entry].has(id)){
+                        highlighter.highlightByID('color_02_04_transparent',{[entry] : new Set<number>([id])},false,false)
+                    } else if (highlighter.selection.color_04_06[entry] && highlighter.selection.color_04_06[entry].has(id)){
+                        highlighter.highlightByID('color_04_06_transparent',{[entry] : new Set<number>([id])},false,false)
+                    } else if (highlighter.selection.color_06_08[entry] && highlighter.selection.color_06_08[entry].has(id)){
+                        highlighter.highlightByID('color_06_08_transparent',{[entry] : new Set<number>([id])},false,false)
+                    } else if (highlighter.selection.color_08_1[entry] && highlighter.selection.color_08_1[entry].has(id)){
+                        highlighter.highlightByID('color_08_1_transparent',{[entry] : new Set<number>([id])},false,false)
+                    }
+                    //console.log(highlighter.selection)
+                })
+            }
+            highlighter.selection.select = {} //pulisce la selezione
+        }
         const onSetTransparencyToNotSelectedElements = async () => {
             const allItems = await getAllItems()
             const selectedItems = highlighter.selection.select
@@ -470,22 +499,6 @@ export function UrbanViewer () {
                 const volumes = await model.getItemsVolume(selection)
             }
         }
-        const addOverlay = (sentence:BUI.TemplateResult=BUI.html`Overlay <b>example</b>`) => {
-            const overlay = document.getElementById("overlay");
-            if (overlay) {
-                const label = BUI.Component.create<HTMLDivElement>(() => {
-                    return BUI.html`
-                    <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.2); border-radius: 10px; margin: 5px">
-                        ${sentence}
-                    </div>`
-                })
-                overlay.appendChild(label)
-                setTimeout(() => {
-                    label.style.display = "none";
-                }, 4000); // Nasconde dopo 4 secondi
-            }
-        }
-
 
 
         //#region geometry creation
@@ -493,36 +506,6 @@ export function UrbanViewer () {
         api.SetWasmPath("https://unpkg.com/web-ifc@0.0.72/", true);
         await api.Init();
         const geometryEngine = new FRAGS.GeometryEngine(api);
-
-        const onLoadLodOne = async () => {
-            //estrae il nome dall'oggetto selezionato per caricarne il LOD_1
-            const selection = highlighter.selection.select
-            const item = await fragments.getData(selection)
-            let itName: string = ''
-            for (const [model,it] of Object.entries(item)){ 
-                if (!(it[0]['_category'] as FRAGS.ItemAttribute).value) continue
-                itName = (it[0]['Name'] as FRAGS.ItemAttribute).value
-            }
-            //controllo per verificare se la barra ha ulteriori LOD caricati
-            const barCreationResult = await createBar(world,components,geometryEngine,1,itName,'','') //da modificare
-            if (!barCreationResult) {
-                addOverlay(BUI.html`Any other LOD found for <b>${itName}</b> bar.`)
-                return
-            }
-            //seleziona gli oggetti del LOD_0 per dopo renderli trasparenti
-            const frMap: OBC.ModelIdMap = {}
-            for (const [entry,entryfr] of fragments.list.entries()){
-                if (!entry.includes('LOD_0')) continue
-                const localids = await entryfr.getLocalIds()
-                const singleFrMap: OBC.ModelIdMap = {
-                    [entry] : new Set<number>([...localids])
-                }
-                Object.assign(frMap, singleFrMap)
-            }
-            highlighter.selection.select = {} //pulisce la selezione
-            onSetTransparency(frMap) //rende trasparenti gli oggetti della modelIdMap
-        }
-
         // #endregion
 
         // #endregion
@@ -987,7 +970,6 @@ export function UrbanViewer () {
                 <bim-option label="Yarralumla" value="YARRALUMLA" style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
         )
-        
         const paramOneDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
             <bim-dropdown name="param_one" label='Parameter 1 (height)'>
@@ -1040,34 +1022,34 @@ export function UrbanViewer () {
 
 
 
+        const previousLoadedSuburbs = []
         const colorUrbanPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
             return BUI.html`
                 <bim-panel-section
                     label = "Environmental Urban Analysis"
                     icon = "ic:round-format-color-fill">
                     ${colorScaleDropdown}
-                    ${suburbsDropdown}
                     ${paramOneDropdown}
                     ${paramTwoDropdown}
-                    <bim-button label='Load bars' @click=${async () => {
-                        modelsListPanelSection.collapsed=true
-                        const result = await createBar(world,components,geometryEngine,0,suburbsDropdown.value[0],paramOneDropdown.value[0],paramTwoDropdown.value[0])
-                        addOverlay(BUI.html`<b><i>${paramOneDropdown.value[0]}</i></b> bars for <b><i>${suburbsDropdown.value[0]}</i></b> suburb created in <b>${result[1]}</b> seconds.`)
-                    }}></bim-button>
-
-                    <bim-label>...____________________________________________________________</bim-label>
                     <div style='display:flex; flex-direction:row; gap:1rem'>
                         <bim-label>Levels of Detail:</bim-label>
-                        <bim-button label='0' tooltip='Load LOD 0' @click=${async ()=>{
-                            await createBar(world,components,geometryEngine,0,'canberra','','')
+
+                        <bim-button label='0' tooltip='Load LOD 0' @click=${async (e:Event)=>{
+                            await bar_create_LOD0(world,components,geometryEngine,arrowData,paramOneDropdown.value[0],paramTwoDropdown.value[0]);
+                            (e.target! as BUI.Button).disabled = true
                         }}></bim-button>
+
                         <bim-button label='1' tootltip='Load LOD 1 and hide LOD 0' @click=${async ()=>{
-                            await onLoadLodOne()
+                            await bar_create_LOD1(world,components,geometryEngine,arrowData,paramOneDropdown.value[0],paramTwoDropdown.value[0],previousLoadedSuburbs)
+                            onSetTransparencyWithColors(0)
                         }}></bim-button>
+
                         <bim-button label='2' tootltip='Load LOD 2' @click=${async ()=>{
                             loadFragmentFile("/FRAG/Sample_one-story-house.frag")
                         }}></bim-button>
+                        
                         <bim-button label='3'></bim-button>
+
                         <bim-button label='4'></bim-button>
                     </div>
                     <div style='display:flex; flex-direction:row; gap:1rem'>
@@ -1132,6 +1114,7 @@ export function UrbanViewer () {
                         icon="material-symbols:center-focus-weak"
                         @click=${async ()=>{
                             await world.camera.controls.setLookAt(defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ)
+                            //world.camera.fitToItems()
                         }}
                     ></bim-button>
                 </bim-toolbar-section>

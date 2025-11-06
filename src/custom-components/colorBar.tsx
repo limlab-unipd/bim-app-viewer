@@ -1,27 +1,23 @@
 import * as OBC from '@thatopen/components'
 import * as FRAGS from '@thatopen/fragments'
-import * as WEBIFC from 'web-ifc'
-import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
 import * as BUI from '@thatopen/ui'
-import { generateUUID } from 'three/src/math/MathUtils.js'
-import { readArrow } from './readArrow'
-import { normalizeAndMapToColor, urbanMapToColor } from './colors'
+import { urbanMapToColor } from './colors'
 
 
 export async function colorBar (
         components:OBC.Components,
-        dataBySuburb:any,
+        dataForBars:any,
         LOD:number,
         name:string,
         param:string,
     ) {
 
     // array di righe (già filtrate)
-    const rows = dataBySuburb; // tuo array
+    const rows: any = Object.values(dataForBars); // tuo array
 
     // estrai valori "name"
-    const values = rows.map((r:any) => r[param] as number);
+    const values = LOD==0 ? rows.map((r:any) => r.param_two as number) : rows.map((r:any) => r[param] as number)
 
     // calcola min e max
     const min = Math.min(...values);
@@ -33,18 +29,17 @@ export async function colorBar (
     // crea mappa identfr da dati Ray - valore normalizzato del parametro scelto
     const map_identfr_normValue: Record<string, number> = {};
     for (let i = 0; i < rows.length; i++) {
-        const key = String(rows[i].identfr);
+        const key = LOD==0 ? String(rows[i].suburb) : String(rows[i].identfr);
         map_identfr_normValue[key] = normalized[i];
     }
 
     const fragments = components.get(OBC.FragmentsManager)
-    const highlighter = components.get(OBCF.Highlighter)
 
     // sceglie solo il modello con -DELTA nel nome, che è quello con le geometrie
     let model: FRAGS.FragmentsModel
     let modelName: string
     for (const [mName,m] of fragments.list.entries()){
-        if (mName.toUpperCase().includes(name.concat('-DELTA'))) {
+        if (mName.includes(name.concat('-DELTA'))) {
             model = m
             modelName = mName
         }
