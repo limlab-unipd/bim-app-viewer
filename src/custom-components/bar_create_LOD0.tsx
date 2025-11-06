@@ -146,7 +146,7 @@ export async function bar_create_LOD0 (
             elementsData.push({
                 attributes: {
                     _category: {
-                        value: "IfcBuildingElementProxy",
+                        value: "IfcBar",
                     },
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },

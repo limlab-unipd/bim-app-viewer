@@ -12,6 +12,7 @@ import { readArrow } from '../custom-components/readArrow'
 import { bar_create_LOD0 } from '../custom-components/bar_create_LOD0'
 import { bar_create_LOD1 } from '../custom-components/bar_create_LOD1'
 import { addOverlay } from '../custom-components/addOverlay'
+import { createTable } from '../custom-components/createTable'
 
 
 export function UrbanViewer () {
@@ -1036,7 +1037,9 @@ export function UrbanViewer () {
 
                         <bim-button label='0' tooltip='Load LOD 0' @click=${async (e:Event)=>{
                             await bar_create_LOD0(world,components,geometryEngine,arrowData,paramOneDropdown.value[0],paramTwoDropdown.value[0]);
-                            (e.target! as BUI.Button).disabled = true
+                            //(e.target! as BUI.Button).disabled = true
+                            await createTable(panelDown,fragments,components,paramOneDropdown.value[0],paramTwoDropdown.value[0])
+                            onSetLayout({target:'down'})
                         }}></bim-button>
 
                         <bim-button label='1' tootltip='Load LOD 1 and hide LOD 0' @click=${async ()=>{
