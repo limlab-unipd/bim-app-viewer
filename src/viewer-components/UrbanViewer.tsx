@@ -410,39 +410,6 @@ export function UrbanViewer () {
             table.expanded = !table.expanded;
             button.label = table.expanded ? "Collapse" : "Expand";
         }
-        const onSortTable = (e: Event, table:BUI.Table<any>) => {
-            function parseValue(value: string): number | string {
-                const numericPart = value.split(' ')[0]
-                const parsed = Number(numericPart)
-                // Se il valore è numerico e la stringa inizia con quel numero, trattalo come numero
-                if (!isNaN(parsed) && value.trim().startsWith(numericPart)) { return parsed }
-                // Altrimenti trattalo come stringa (case-insensitive)
-                return value.toLowerCase()
-            }
-
-            function sortTable(table: BUI.Table<any>,ascending: boolean = true,field: string) {
-                const direction = ascending ? 1 : -1
-                table.data.sort((a, b) => {
-                    const valA = parseValue(a.data[field] || '')
-                    const valB = parseValue(b.data[field] || '')
-                    // Se entrambi sono numeri
-                    if (typeof valA === 'number' && typeof valB === 'number') {
-                        return (valA - valB) * direction
-                    }
-                    // Ordinamento alfabetico
-                    return valA.toString().localeCompare(valB.toString()) * direction
-                })
-            }
-
-            if (!e.target) return
-            const target = (e.target as any).value[0]
-            const field = target.split(" ")[0]
-            const direction = target.split(' ')[1]
-            let ascending: boolean = true
-            ascending = (direction == '(highest-up)' || direction == '(A-down)') ? false : true
-            sortTable(table,ascending,field)
-            table.requestUpdate()
-        }
         let originalDataWithCategories: any = null //needed here otherwise within the function will be initilized each time so will be impossibile to store the previous value
         const onChangeLevelTable = (e: Event, table:BUI.Table<any>) => {
             const button = e.target as BUI.Button

@@ -401,7 +401,8 @@ export function MainViewer () {
             table.expanded = !table.expanded;
             button.label = table.expanded ? "Collapse" : "Expand";
         }
-        const onSortTable = (e: Event, table:BUI.Table<any>) => {
+        
+        const onSortTable = (table:BUI.Table<any>, field:string, ascending:boolean=true) => {
             function parseValue(value: string): number | string {
                 const numericPart = value.split(' ')[0]
                 const parsed = Number(numericPart)
@@ -410,30 +411,20 @@ export function MainViewer () {
                 // Altrimenti trattalo come stringa (case-insensitive)
                 return value.toLowerCase()
             }
-
-            function sortTable(table: BUI.Table<any>,ascending: boolean = true,field: string) {
-                const direction = ascending ? 1 : -1
-                table.data.sort((a, b) => {
-                    const valA = parseValue(a.data[field] || '')
-                    const valB = parseValue(b.data[field] || '')
-                    // Se entrambi sono numeri
-                    if (typeof valA === 'number' && typeof valB === 'number') {
-                        return (valA - valB) * direction
-                    }
-                    // Ordinamento alfabetico
-                    return valA.toString().localeCompare(valB.toString()) * direction
-                })
-            }
-
-            if (!e.target) return
-            const target = (e.target as any).value[0]
-            const field = target.split(" ")[0]
-            const direction = target.split(' ')[1]
-            let ascending: boolean = true
-            ascending = (direction == '(highest-up)' || direction == '(A-down)') ? false : true
-            sortTable(table,ascending,field)
+            const direction = ascending ? 1 : -1
+            table.data.sort((a, b) => {
+                const valA = parseValue(a.data[field] || '')
+                const valB = parseValue(b.data[field] || '')
+                // Se entrambi sono numeri
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    return (valA - valB) * direction
+                }
+                // Ordinamento alfabetico
+                return valA.toString().localeCompare(valB.toString()) * direction
+            })
             table.requestUpdate()
         }
+        
         let originalDataWithCategories: any = null //needed here otherwise within the function will be initilized each time so will be impossibile to store the previous value
         const onChangeLevelTable = (e: Event, table:BUI.Table<any>) => {
             const button = e.target as BUI.Button
@@ -814,7 +805,20 @@ export function MainViewer () {
 
                 sortbyResourcesDropdown.addEventListener('change', (e) => {
                     if (!e.target) return
-                    onSortTable(e, resourceTable)}
+                    const field = (e.target as BUI.Dropdown).value[0]
+                    const ascending = sortbyDirectionResourceCost.icon=='meteor-icons:arrow-up' ? false : true
+                    onSortTable(resourceTable, field, ascending)}
+                )
+                const sortbyDirectionResourceCost = BUI.Component.create<BUI.Dropdown>(
+                    () => BUI.html`
+                        <bim-button icon='meteor-icons:arrow-up' style="max-width:fit-content; z-index:100" tooltip-text='Ascending or descending order'
+                            @click="${(e:Event) => {
+                                if (!e.target) return
+                                const button = e.target as BUI.Button
+                                button.icon = button.icon=='meteor-icons:arrow-up' ? 'meteor-icons:arrow-down' : 'meteor-icons:arrow-up'
+                                const ascending = button.icon=='meteor-icons:arrow-up' ? false : true
+                                onSortTable(resourceTable, sortbyResourcesDropdown.value[0], ascending)}}">
+                        </bim-button>`,
                 )
                 //step 7: create the panel component to show the table
                 const categoryXResourcePanel = BUI.Component.create<BUI.Panel>(() => {
@@ -829,6 +833,7 @@ export function MainViewer () {
                                     <bim-button @click=${(e:Event) => onChangeLevelTable(e,resourceTable)} label="Item" style="max-width:fit-content"></bim-button>
                                     <bim-label>Sort by:</bim-label>
                                     ${sortbyResourcesDropdown}
+                                    ${sortbyDirectionResourceCost}
                                     <bim-label>Ghost mode:</bim-label>
                                     <bim-button 
                                         id='ghost-mode' 
@@ -1423,33 +1428,17 @@ export function MainViewer () {
             </bim-dropdown>`,
         )
         //sort by resources dropdown menu
-        const sortbyResources: string[] = ['ResourceCost (highest-up)','ResourceCost (highest-down)','Name (A-up)','Name (A-down)']
-        const sortbyResourcesIcon: {[key:string]:string} = {
-            'ResourceCost (highest-down)': 'hugeicons:arrange-by-numbers-1-9',
-            'ResourceCost (highest-up)': 'hugeicons:arrange-by-numbers-9-1',
-            'Name (A-up)': 'hugeicons:arrange-by-letters-a-z',
-            'Name (A-down)': 'hugeicons:arrange-by-letters-z-a',
-        }
         const sortbyResourcesDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`<bim-dropdown name="sortbyResources" style="max-width:fit-content">
-                ${sortbyResources.map(
-                    (x) => BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px" icon=${sortbyResourcesIcon[x]}></bim-option>`
-                )}
+                <bim-option label='Name' style="padding:0 10px 0 10px" icon='qlementine-icons:rename-16'></bim-option>
+                <bim-option label='ResourceCost' style="padding:0 10px 0 10px" icon='solar:dollar-linear'></bim-option>
             </bim-dropdown>`,
         )
         //sort by total cost dropdown menu
-        const sortbyTotalCost: string[] = ['Cost (highest-up)','Cost (highest-down)','Name (A-up)','Name (A-down)']
-        const sortbyTotalCostIcon: {[key:string]:string} = {
-            'Cost (highest-down)': 'hugeicons:arrange-by-numbers-1-9',
-            'Cost (highest-up)': 'hugeicons:arrange-by-numbers-9-1',
-            'Name (A-up)': 'hugeicons:arrange-by-letters-a-z',
-            'Name (A-down)': 'hugeicons:arrange-by-letters-z-a',
-        }
         const sortbyTotalCostDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`<bim-dropdown name="sortbyTotalCost" style="max-width:fit-content">
-                ${sortbyTotalCost.map(
-                    (x) => BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px" icon=${sortbyTotalCostIcon[x]}></bim-option>`
-                )}
+                <bim-option label='Name' style="padding:0 10px 0 10px" icon='qlementine-icons:rename-16'></bim-option>
+                <bim-option label='Cost' style="padding:0 10px 0 10px" icon='solar:dollar-linear'></bim-option>
             </bim-dropdown>`,
         )
         //resources dropdown menu
@@ -1891,7 +1880,20 @@ export function MainViewer () {
 
             sortbyTotalCostDropdown.addEventListener('change', (e) => {
                 if (!e.target) return
-                onSortTable(e, elementXcostTable)}
+                const field = (e.target as BUI.Dropdown).value[0]
+                const ascending = sortbyDirectionTotalCost.icon=='meteor-icons:arrow-up' ? false : true
+                onSortTable(elementXcostTable, field, ascending)}
+            )
+            const sortbyDirectionTotalCost = BUI.Component.create<BUI.Dropdown>(
+                () => BUI.html`
+                    <bim-button icon='meteor-icons:arrow-up' style="max-width:fit-content; z-index:100" tooltip-text='Ascending or descending order'
+                        @click="${(e:Event) => {
+                            if (!e.target) return
+                            const button = e.target as BUI.Button
+                            button.icon = button.icon=='meteor-icons:arrow-up' ? 'meteor-icons:arrow-down' : 'meteor-icons:arrow-up'
+                            const ascending = button.icon=='meteor-icons:arrow-up' ? false : true
+                            onSortTable(elementXcostTable, sortbyTotalCostDropdown.value[0], ascending)}}">
+                    </bim-button>`,
             )
             const elementXCostPanel = BUI.Component.create<BUI.Panel>(() => {
                 return BUI.html`
@@ -1904,6 +1906,7 @@ export function MainViewer () {
                             <bim-button @click=${(e:Event) => onChangeLevelTable(e,elementXcostTable)} label="Item" style="max-width:fit-content"></bim-button>
                             <bim-label>Sort by:</bim-label>
                             ${sortbyTotalCostDropdown}
+                            ${sortbyDirectionTotalCost}
                             <bim-label>Ghost mode:</bim-label>
                             <bim-button 
                                 id='ghost-mode' 

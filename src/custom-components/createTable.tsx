@@ -108,7 +108,7 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
             <bim-dropdown name="sortTable" style="max-width:fit-content"
                 @change="${(e:Event) => {
                     if (!e.target) return
-                    const ascending = sortByDirection.icon=='meteor-icons:arrow-up' ? true : false
+                    const ascending = sortByDirection.icon=='meteor-icons:arrow-up' ? false : true
                     onSortTable(urbanTable, (e.target as any).value[0]), ascending}}">
                 <bim-option style="padding:0 0.5rem 0 0.5rem" label="Suburb" value="Suburb" icon='lets-icons:map-light'></bim-option>
                 <bim-option style="padding:0 0.5rem 0 0.5rem" label=${paramOne} value='Param1' icon='icon-park-outline:one-key'></bim-option>
