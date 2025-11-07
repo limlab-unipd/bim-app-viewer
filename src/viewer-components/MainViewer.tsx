@@ -802,6 +802,8 @@ export function MainViewer () {
                         return BUI.html`
                             <bim-label
                                 @click=${() => {highlighter.highlightByID("select", {[itemModel as string]: new Set<number>([itemId as number])}, false, true)}}
+                                @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
+                                @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
                             >${value}</bim-label>
                         `
                     }
@@ -1846,6 +1848,8 @@ export function MainViewer () {
                             return BUI.html`
                                 <bim-label
                                     @click=${() => {highlighter.highlightByID("select", {[Model as string]: new Set<number>([ItemId as number])}, false, true)}}
+                                    @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
+                                    @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
                                 >${value}</bim-label>
                             `
                         }
