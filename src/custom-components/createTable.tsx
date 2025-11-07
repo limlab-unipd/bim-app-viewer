@@ -91,7 +91,11 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
     urbanTable.dataTransform.Suburb = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
         const { model, localId } = rowData
         return BUI.html`
-            <bim-label @click=${() => {highlighter.highlightByID("select", {[model as string]: new Set<number>([localId as number])}, false, true)}}>
+            <bim-label 
+                @click=${() => {highlighter.highlightByID("select", {[model as string]: new Set<number>([localId as number])}, false, true)}}
+                @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
+                @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
+            >
                 ${value}
             </bim-label>`
     }
@@ -143,7 +147,7 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
     })
 
     //APPEND THE PANEL
-    panelDown.label = `Canberra suburbs`
+    panelDown.label = `CANBERRA SUBURBS`
     panelDown.appendChild(urbanDownPanel)
 }
 
