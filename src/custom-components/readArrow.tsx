@@ -1,7 +1,11 @@
-import { tableFromIPC } from 'apache-arrow';
+import { tableFromIPC } from 'apache-arrow'
+import { addOverlay } from './addOverlay'
+import * as BUI from '@thatopen/ui'
 
 export async function readArrow(file:string='buildings') {
-    const startTime = performance.now() // Start timer 
+    addOverlay(BUI.html`Loading data ...`)
+
+    const startTime = performance.now() // Start timer
     let resp
     if (file=='suburbs'){
         resp = await fetch('/ARROW/data_ACT suburbs_local_coordinates_sliced.arrow');
@@ -17,8 +21,8 @@ export async function readArrow(file:string='buildings') {
     const endTime = performance.now() // End timer
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
     console.log(`Arrow ${file} loaded in ${loadTime} seconds`)
-    // arrow completo (168 MB) --> 11.51 s
-    // arrow sliced (40 MB) --> 0.68 - 1.99 s
+
+    addOverlay(BUI.html`Data correctly loaded!`)
     
     return table;
 }

@@ -63,7 +63,7 @@ export function UrbanViewer () {
         await world.camera.controls.setLookAt(defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ) // convenient position for the model we will load
         world.camera.threeOrtho.far = 20000 // distanza massima del clipping plane per vedere gli oggetti: per la camera ortografica
         world.camera.threePersp.far = 20000 // distanza massima del clipping plane per vedere gli oggetti: per la camera prospettica (quella usata di default)
-        world.camera.controls.minDistance = 500 //serve per poter continuare a zoommare velocemente anche da distante, tuttavia modifica anche lo zoom quando si seleziona un elemento ma va bene lo stesso
+        world.camera.controls.minDistance = 250 //serve per poter continuare a zoommare velocemente anche da distante, tuttavia modifica anche lo zoom quando si seleziona un elemento ma va bene lo stesso
         // #endregion
 
         // #region COPONENTS GENERAL SETUP
@@ -709,8 +709,8 @@ export function UrbanViewer () {
 
         // #region ADVANCED COMPONENTS
         fragments.list.onItemDeleted.add(() => {
-            onClearPanel(panelDown) //clear down panel
-            onClearPanel(panelRight)
+            //onClearPanel(panelDown) //clear down panel
+            //onClearPanel(panelRight)
         })
         const loadingLabel = BUI.Component.create<BUI.Label>(()=>{
             return BUI.html`
@@ -973,7 +973,7 @@ export function UrbanViewer () {
         )
         const paramOneDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
-            <bim-dropdown name="param_one" label='Parameter 1 (height)'>
+            <bim-dropdown name="param_one" label='Parameter 1 (bar height)' icon='icon-park-outline:one-key'>
                 <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Gross floor area' value="grss_fl" style="padding:0 10px 0 10px"></bim-option>
@@ -997,7 +997,7 @@ export function UrbanViewer () {
         )
         const paramTwoDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
-            <bim-dropdown name="param_two" label='Parameter 2 (color)'>
+            <bim-dropdown name="param_two" label='Parameter 2 (bar color)' icon='icon-park-outline:two-key'>
                 <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Gross floor area' value="grss_fl" style="padding:0 10px 0 10px"></bim-option>
@@ -1032,22 +1032,22 @@ export function UrbanViewer () {
                     ${colorScaleDropdown}
                     ${paramOneDropdown}
                     ${paramTwoDropdown}
+                    <bim-label icon='solar:city-bold-duotone'>City Visualization Level:</bim-label>
                     <div style='display:flex; flex-direction:row; gap:1rem'>
-                        <bim-label>Levels of Detail:</bim-label>
 
-                        <bim-button label='0' tooltip='Load LOD 0' @click=${async (e:Event)=>{
+                        <bim-button label='0' tooltip='Load CVL-0' @click=${async (e:Event)=>{
                             await bar_create_LOD0(world,components,geometryEngine,arrowData,paramOneDropdown.value[0],paramTwoDropdown.value[0]);
                             //(e.target! as BUI.Button).disabled = true
                             await createTable(panelDown,fragments,components,paramOneDropdown.value[0],paramTwoDropdown.value[0])
                             onSetLayout({target:'down'})
                         }}></bim-button>
 
-                        <bim-button label='1' tootltip='Load LOD 1 and hide LOD 0' @click=${async ()=>{
+                        <bim-button label='1' tootltip='Load CVL-1 and hide CVL-0' @click=${async ()=>{
                             await bar_create_LOD1(world,components,geometryEngine,arrowData,paramOneDropdown.value[0],paramTwoDropdown.value[0],previousLoadedSuburbs)
                             onSetTransparencyWithColors(0)
                         }}></bim-button>
 
-                        <bim-button label='2' tootltip='Load LOD 2' @click=${async ()=>{
+                        <bim-button label='2' tootltip='Load CVL-2' @click=${async ()=>{
                             loadFragmentFile("/FRAG/Sample_one-story-house.frag")
                         }}></bim-button>
                         

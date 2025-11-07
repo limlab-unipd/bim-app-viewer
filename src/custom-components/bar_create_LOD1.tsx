@@ -39,7 +39,7 @@ export async function bar_create_LOD1 (
     //getting the selected bar name
     const selection = highlighter.selection.select
     if (Object.entries(selection).length == 0) {
-        addOverlay(BUI.html`<b>WARNING: Please select any LOD 0 bar to proceed.</b>`,'warning')
+        addOverlay(BUI.html`<b>WARNING: Please select any CVL-0 bar to proceed.</b>`,'warning')
         return
     }
     const item = await fragments.getData(selection)
@@ -48,7 +48,7 @@ export async function bar_create_LOD1 (
         name = (it[0]['Name'] as FRAGS.ItemAttribute).value
     }
     if (previousLoadedSuburbs.includes(name)) { 
-        addOverlay(BUI.html`<b>WARNING: LOD 1 of ${name} already loaded.</b>`,'warning')
+        addOverlay(BUI.html`<b>WARNING: CVL-1 of ${name} already loaded.</b>`,'warning')
         return 
     } else { 
         previousLoadedSuburbs.push(name) 
@@ -106,7 +106,7 @@ export async function bar_create_LOD1 (
         for (const [key,set] of Object.entries(dataForBars)) {
             const bar_base_dim2 = 1
             const bar_base_dim1 = 1
-            const bar_height = set[paramOne]
+            const bar_height = Number(set[paramOne])
             const bar_position = new THREE.Vector3(parseFloat(set.centroid_x_local)/20,0,parseFloat(set.centroid_y_local)/20)
             const bar_name = Number(set.identfr).toString()
             

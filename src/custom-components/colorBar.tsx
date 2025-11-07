@@ -17,7 +17,7 @@ export async function colorBar (
     const rows: any = Object.values(dataForBars); // tuo array
 
     // estrai valori "name"
-    const values = LOD==0 ? rows.map((r:any) => r.param_two as number) : rows.map((r:any) => r[param] as number)
+    const values = LOD==0 ? rows.map((r:any) => Number(r.param_two)) : rows.map((r:any) => Number(r[param]))
 
     // calcola min e max
     const min = Math.min(...values);

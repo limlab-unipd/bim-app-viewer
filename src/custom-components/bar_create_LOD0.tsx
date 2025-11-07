@@ -63,10 +63,10 @@ export async function bar_create_LOD0 (
         const suburb = colSuburbs.get(i)
         //const row = arrowData.get(i)
         //dataCity[suburb] ? dataCity[suburb].push(row) : dataCity[suburb] = [row]
-        const rowOne = colParamOne?.get(i)
-        const rowTwo = colParamTwo?.get(i)
+        const rowOne = Number(colParamOne?.get(i))
+        const rowTwo = Number(colParamTwo?.get(i))
         dataCity[suburb] ? 
-            (dataCity[suburb].param_one+=rowOne,dataCity[suburb].param_two+=rowTwo) : 
+            (dataCity[suburb].param_one+=rowOne,dataCity[suburb].param_two!+=rowTwo) : 
             dataCity[suburb] = {suburb:suburb, param_one:rowOne, param_two:rowTwo}
     }
     dataForBars = dataCity
@@ -173,7 +173,7 @@ export async function bar_create_LOD0 (
     
     await regenerateFragments();
 
-    colorBar(components,dataForBars!,lod,name,paramTwo)
+    await colorBar(components,dataForBars!,lod,name,paramTwo)
 
     const endTime = performance.now() // End timer
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
