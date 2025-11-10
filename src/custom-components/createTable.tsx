@@ -26,7 +26,7 @@ const onSortTable = (table:BUI.Table<any>, field:string, ascending:boolean=true)
     table.requestUpdate()
 }
 
-export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsManager,components:OBC.Components,paramOne:string='Concret',paramTwo:string='Glass') {
+export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsManager,components:OBC.Components,paramOne:string='Concret',paramTwo:string='Glass'): Promise<BUI.Table<any>> {
 
     const highlighter = components.get(OBCF.Highlighter)
     await onClearPanel(panelDown)
@@ -41,6 +41,7 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
         Color:any,
     }
     const urbanTable = document.createElement("bim-table") as BUI.Table<tableType>
+    urbanTable.id = 'urban-table'
     urbanTable.data = [{
         data: {
             Suburb: '',
@@ -92,7 +93,10 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
         const { model, localId } = rowData
         return BUI.html`
             <bim-label 
-                @click=${() => {highlighter.highlightByID("select", {[model as string]: new Set<number>([localId as number])}, false, true)}}
+                @click=${() => {
+                    highlighter.highlightByID("select", {[model as string]: new Set<number>([localId as number])}, false, true)
+                    console.log(rowData)
+                    }}
                 @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
                 @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
             >
@@ -150,5 +154,6 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
     panelDown.label = `CANBERRA SUBURBS`
     panelDown.appendChild(urbanDownPanel)
     
+    return urbanTable
 }
 

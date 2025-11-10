@@ -258,4 +258,6 @@ export function urbanMapToColor (components:OBC.Components, map:{[key:string]:nu
         const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
         highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
     }
+
+    return result
 }

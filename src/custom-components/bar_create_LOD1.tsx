@@ -25,7 +25,7 @@ export async function bar_create_LOD1 (
         paramOne:string='Concret',
         paramTwo:string='Glass',
         previousLoadedSuburbs:string[],
-    ) {
+    ): Promise<boolean> {
 
     //initialize variables
     const fragments = components.get(OBC.FragmentsManager)
@@ -34,22 +34,36 @@ export async function bar_create_LOD1 (
     const lod: number = 1
     let dataForBars:{[key:string]:any}
     const dataBySuburb: {[key:string]:any} = {} //all buildings of single suburb
+    interface sectionObject {
+        suburb?: string;
+        section?: string;
+        param_one?: number;
+        param_two?: number;
+        centroid_x_local?:number[];
+        centroid_y_local?:number[];
+    }
+    const dataBySection: {[key:string]:sectionObject} = {} //all buildings of single suburb
     let name = ''
+    const urbanTable = document.getElementById('urban-table') as BUI.Table
 
     //getting the selected bar name
     const selection = highlighter.selection.select
     if (Object.entries(selection).length == 0) {
-        addOverlay(BUI.html`<b>WARNING: Please select any CVL-0 bar to proceed.</b>`,'warning')
-        return
+        addOverlay(BUI.html`<b>WARNING: Please select any UVL-0 bar to proceed.</b>`,'warning')
+        return false
     }
     const item = await fragments.getData(selection)
-    for (const [model,it] of Object.entries(item)){ 
+    for (const [model,it] of Object.entries(item)){
+        if (!model.includes('LOD_0')) {
+            addOverlay(BUI.html`<b>WARNING: The selected bar can't be used to load UVL-1. Please select any UVL-0 bar to proceed.</b>`,'warning')
+            return false
+        }
         if (!(it[0]['_category'] as FRAGS.ItemAttribute).value) continue
         name = (it[0]['Name'] as FRAGS.ItemAttribute).value
     }
-    if (previousLoadedSuburbs.includes(name)) { 
-        addOverlay(BUI.html`<b>WARNING: CVL-1 of ${name} already loaded.</b>`,'warning')
-        return 
+    if (previousLoadedSuburbs.includes(name)) {
+        addOverlay(BUI.html`<b>WARNING: UVL-1 of ${name} already loaded.</b>`,'warning')
+        return false
     } else { 
         previousLoadedSuburbs.push(name) 
     }
@@ -57,7 +71,7 @@ export async function bar_create_LOD1 (
     //create new base model for geometries
     const bytes = FRAGS.EditUtils.newModel({ raw: true });
     const newModel = await fragments.core.load(bytes, {
-        modelId: `lod_${lod}_${name}`,
+        modelId: `LOD_${lod}_${name}`,
         camera: world.camera.three,
         raw: true,
     });
@@ -73,7 +87,20 @@ export async function bar_create_LOD1 (
             dataBySuburb[Number(row!.identfr).toString()] = row
         }
     }
-    dataForBars = dataBySuburb
+    for (const [identfr,row] of Object.entries(dataBySuburb)) {
+        const section = Number(row!.MB_CODE).toString()
+        //dataBySection[section] ? dataBySection[section].push(row) : dataBySection[section] = [row]
+        dataBySection[section] ? '' : dataBySection[section] = {}
+        dataBySection[section].suburb = name
+        dataBySection[section].section = section
+        const rowOne = Number(row[paramOne])
+        const rowTwo = Number(row[paramTwo])
+        dataBySection[section].param_one ? dataBySection[section].param_one+=rowOne : dataBySection[section].param_one = rowOne
+        dataBySection[section].param_two ? dataBySection[section].param_two+=rowTwo : dataBySection[section].param_two = rowTwo
+        dataBySection[section].centroid_x_local ? dataBySection[section].centroid_x_local.push(row.centroid_x_local) : dataBySection[section].centroid_x_local = [row.centroid_x_local]
+        dataBySection[section].centroid_y_local ? dataBySection[section].centroid_y_local.push(row.centroid_y_local) : dataBySection[section].centroid_y_local = [row.centroid_y_local]
+    }
+    dataForBars = dataBySection
     //console.log(dataForBars!)
     //return [true,'']
     
@@ -82,6 +109,7 @@ export async function bar_create_LOD1 (
 
     // building generation logic
     let processing = false;
+    const blocks: any[] = []
     const regenerateFragments = async () => {
         const elementsData: FRAGS.NewElementData[] = [];
         await fragments.core.editor.reset(newModel.modelId)
@@ -101,14 +129,25 @@ export async function bar_create_LOD1 (
         // Bars
         const tempObject = new THREE.Object3D();
         //creation of each bar
-        let x=0
-        let y = 0
         for (const [key,set] of Object.entries(dataForBars)) {
-            const bar_base_dim2 = 1
-            const bar_base_dim1 = 1
-            const bar_height = Number(set[paramOne])
-            const bar_position = new THREE.Vector3(parseFloat(set.centroid_x_local)/20,0,parseFloat(set.centroid_y_local)/20)
-            const bar_name = Number(set.identfr).toString()
+            const bar_base_dim2 = 5
+            const bar_base_dim1 = 5
+            const bar_height = Number(set.param_one)/1000
+            const centr_x = (Math.max(...set.centroid_x_local)+Math.min(...set.centroid_x_local))/2
+            const centr_y = (Math.max(...set.centroid_y_local)+Math.min(...set.centroid_y_local))/2
+            const bar_position = new THREE.Vector3(centr_x/20,0,centr_y/20)
+            const bar_name = Number(set.section).toString()
+
+            blocks.push(
+                {
+                    data: {
+                        Suburb: bar_name,
+                        Param1: set.param_one,
+                        Param2: set.param_two,
+                        Color: 'blue',
+                    },
+                }
+            )
             
             //estrusione
             geometryEngine.getExtrusion(barGeometry, {
@@ -140,11 +179,8 @@ export async function bar_create_LOD1 (
                     },
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
-                    Suburb: { value: set.DIVISION_N ? set.DIVISION_N : bar_name },
+                    Suburb: { value: set.suburb },
                     Height: { value: bar_height },
-                    Aluminium: { value: set.Aluminm ? set.Aluminm : 0 },
-                    Concrete: { value: set.Concret ? set.Concret : 0 },
-                    Steel: { value: set.Steel ? set.Steel : 0 },
                 },
                 globalTransform: tempObject.matrix.clone(),
                 samples: [
@@ -163,10 +199,43 @@ export async function bar_create_LOD1 (
     
     await regenerateFragments();
 
-    await colorBar(components,dataForBars!,lod,name,paramTwo)
-    
+    const [map_color_ids,map_id_name,modelName]: any[] = await colorBar(components,dataForBars!,lod,name,paramTwo)
+
     const endTime = performance.now() // End timer
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
     console.log(`Bars created in ${loadTime} seconds`)
     addOverlay(BUI.html`Bars for <b><i>${name}</i></b> suburb created in <b>${loadTime}</b> seconds.`)
+
+    console.log(map_color_ids)
+    for (const row of blocks){
+        const section = row.data.Suburb
+        const localId = Object.keys(map_id_name).filter(k => map_id_name[k as keyof typeof map_id_name] === section)
+        row.data.localId = Number(localId[0])
+        row.data.model = modelName
+        switch (true) {
+            case (map_color_ids['color_0_02'] as string[])?.includes(localId[0]):
+                row.data.Color = highlighter.styles.get('color_0_02')?.color.getStyle()!
+                break;
+            case (map_color_ids['color_02_04'] as string[])?.includes(localId[0]):
+                row.data.Color = highlighter.styles.get('color_02_04')?.color.getStyle()!
+                break;
+            case (map_color_ids['color_04_06'] as string[])?.includes(localId[0]):
+                row.data.Color = highlighter.styles.get('color_04_06')?.color.getStyle()!
+                break;
+            case (map_color_ids['color_06_08'] as string[])?.includes(localId[0]):
+                row.data.Color = highlighter.styles.get('color_06_08')?.color.getStyle()!
+                break;
+            case (map_color_ids['color_08_1'] as string[])?.includes(localId[0]):
+                row.data.Color = highlighter.styles.get('color_08_1')?.color.getStyle()!
+                break;
+        }
+    }
+
+    for (const [,data] of Object.entries(urbanTable.data)){
+        if (data.data.Suburb != name) continue
+        data.children = blocks
+    }
+    urbanTable.requestUpdate()
+
+    return true
 }

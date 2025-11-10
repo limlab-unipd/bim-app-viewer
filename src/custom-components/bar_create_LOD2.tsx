@@ -7,46 +7,56 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
-import { readArrow } from './readArrow'
 
 /**
  * Create bar according to values.
  * @param world the world instance used to render the scene
  * @param fragments the FragmentsManager instance
  * @param geometryEngine the GeoemtryEngine instance
- * @param LOD the LOD you want to load
- * @param name the name of the bar to load the next LOD
- * @returns if the function correctly found the bar and created the next LOD or not
+ * @param lod the lod you want to load
+ * @param name the name of the bar to load the next lod
+ * @returns if the function correctly found the bar and created the next lod or not
  */
-export async function bar_create_LOD0 (
+export async function bar_create_LOD2 (
         world:OBC.SimpleWorld<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBCF.PostproductionRenderer>,
         components:OBC.Components,
         geometryEngine:FRAGS.GeometryEngine,
         arrowData:Table<any>,
         paramOne:string='Concret',
         paramTwo:string='Glass',
+        previousLoadedSuburbs:string[],
     ): Promise<boolean> {
 
-    if (!arrowData) {
-        addOverlay(BUI.html`Please load any samples before.`,'warning')
-        return false
-    }
-    
     //initialize variables
     const fragments = components.get(OBC.FragmentsManager)
+    const highlighter = components.get(OBCF.Highlighter)
     const startTime = performance.now() // Start timer
-    const lod: number = 0
-    const name: string = 'CANBERRA'
+    const lod: number = 2
     let dataForBars:{[key:string]:any}
-    interface cityObject {
-        suburb: string;
-        param_one: number;
-        param_two?: number;
-        centroid_x_local?:number;
-        centroid_y_local?:number;
+    const dataBySection: {[key:string]:any} = {} //all buildings of single suburb
+    let name = ''
+
+    //getting the selected bar name
+    const selection = highlighter.selection.select
+    if (Object.entries(selection).length == 0) {
+        addOverlay(BUI.html`<b>WARNING: Please select any UVL-1 bar to proceed.</b>`,'warning')
+        return false
     }
-    const dataCity: {[key:string]:cityObject} = {}
-    const dataSuburbsCentroid: {[key:string]:{centroid_x_local:number,centroid_y_local:number}} = {}
+    const item = await fragments.getData(selection)
+    for (const [model,it] of Object.entries(item)){ 
+        if (!model.includes('LOD_1')) {
+            addOverlay(BUI.html`<b>WARNING: The selected bar can't be used to load UVL-2. Please select any UVL-1 bar to proceed.</b>`,'warning')
+            return false
+        }
+        if (!(it[0]['_category'] as FRAGS.ItemAttribute).value) continue
+        name = (it[0]['Name'] as FRAGS.ItemAttribute).value
+    }
+    if (previousLoadedSuburbs.includes(name)) { 
+        addOverlay(BUI.html`<b>WARNING: UVL-2 of ${name} already loaded.</b>`,'warning')
+        return false 
+    } else {
+        previousLoadedSuburbs.push(name) 
+    }
 
     //create new base model for geometries
     const bytes = FRAGS.EditUtils.newModel({ raw: true });
@@ -59,35 +69,17 @@ export async function bar_create_LOD0 (
     await fragments.core.update(true);
 
     //filter arrow data
-    const colSuburbs = arrowData.getChild("DIVISION_N");
-    if (!colSuburbs) throw new Error("DIVISION_N column not found");
-    const colParamOne = arrowData.getChild(paramOne)
-    const colParamTwo = arrowData.getChild(paramTwo)
-
+    const col = arrowData.getChild("MB_CODE");
+    if (!col) throw new Error("MB_CODE column not found");
     for (let i = 0; i < arrowData.numRows; i++) {
-        const suburb = colSuburbs.get(i)
-        //const row = arrowData.get(i)
-        //dataCity[suburb] ? dataCity[suburb].push(row) : dataCity[suburb] = [row]
-        const rowOne = Number(colParamOne?.get(i))
-        const rowTwo = Number(colParamTwo?.get(i))
-        dataCity[suburb] ? 
-            (dataCity[suburb].param_one+=rowOne,dataCity[suburb].param_two!+=rowTwo) : 
-            dataCity[suburb] = {suburb:suburb, param_one:rowOne, param_two:rowTwo}
+        if (Number(col.get(i)).toString() === name) {
+            const row = arrowData.get(i)
+            dataBySection[Number(row!.identfr).toString()] = row
+        }
     }
-    dataForBars = dataCity
+    dataForBars = dataBySection
     //console.log(dataForBars!)
     //return [true,'']
-    
-    const arrowData_suburbsCentroids = await readArrow('suburbs')
-    const suburbsCentroids_colSuburbs = arrowData_suburbsCentroids.getChild("DIVISION_N")
-    const suburbsCentroids_centroid_x_local = arrowData_suburbsCentroids.getChild("centroid_x_local")
-    const suburbsCentroids_centroid_y_local = arrowData_suburbsCentroids.getChild("centroid_y_local")
-    for (let i = 0; i < arrowData_suburbsCentroids.numRows; i++) {
-        const suburb = suburbsCentroids_colSuburbs!.get(i)
-        const centroid_x_local = suburbsCentroids_centroid_x_local?.get(i)
-        const centroid_y_local = suburbsCentroids_centroid_y_local?.get(i)
-        dataSuburbsCentroid[suburb] = { centroid_x_local:centroid_x_local, centroid_y_local:centroid_y_local }
-    }
     
     // Bar geometry
     const barGeometry = new THREE.BufferGeometry();
@@ -113,17 +105,14 @@ export async function bar_create_LOD0 (
         // Bars
         const tempObject = new THREE.Object3D();
         //creation of each bar
+        let x=0
+        let y = 0
         for (const [key,set] of Object.entries(dataForBars)) {
-            const bar_base_dim1 = 20
-            const bar_base_dim2 = 20
-            const bar_height = set.param_one/1000
-            const bar_name = set.suburb
-            let bar_position
-            try {
-                bar_position = new THREE.Vector3(dataSuburbsCentroid[bar_name].centroid_x_local/20,0,dataSuburbsCentroid[bar_name].centroid_y_local/20) //calcolare centroide
-            } catch (error) {
-                continue
-            }
+            const bar_base_dim2 = 1
+            const bar_base_dim1 = 1
+            const bar_height = Number(set[paramOne])
+            const bar_position = new THREE.Vector3(parseFloat(set.centroid_x_local)/20,0,parseFloat(set.centroid_y_local)/20)
+            const bar_name = Number(set.identfr).toString()
             
             //estrusione
             geometryEngine.getExtrusion(barGeometry, {
@@ -151,15 +140,15 @@ export async function bar_create_LOD0 (
             elementsData.push({
                 attributes: {
                     _category: {
-                        value: "IfcBar",
+                        value: "IfcBuildingElementProxy",
                     },
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
                     Suburb: { value: set.DIVISION_N ? set.DIVISION_N : bar_name },
-                    BarHeight: { value: paramOne },
-                    BarColor: { value: paramTwo },
-                    [paramOne]: { value: Math.round(set.param_one*1000)/1000 },
-                    [paramTwo]: { value: Math.round(set.param_two*1000)/1000 },
+                    Height: { value: bar_height },
+                    Aluminium: { value: set.Aluminm ? set.Aluminm : 0 },
+                    Concrete: { value: set.Concret ? set.Concret : 0 },
+                    Steel: { value: set.Steel ? set.Steel : 0 },
                 },
                 globalTransform: tempObject.matrix.clone(),
                 samples: [
@@ -179,10 +168,10 @@ export async function bar_create_LOD0 (
     await regenerateFragments();
 
     await colorBar(components,dataForBars!,lod,name,paramTwo)
-
+    
     const endTime = performance.now() // End timer
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
     console.log(`Bars created in ${loadTime} seconds`)
-    addOverlay(BUI.html`Bars for <b><i>${name}</i></b> created in <b>${loadTime}</b> seconds.`)
+    addOverlay(BUI.html`Bars for <b><i>${name}</i></b> suburb created in <b>${loadTime}</b> seconds.`)
     return true
 }

@@ -10,9 +10,10 @@ import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-convert
 import Stats from 'stats.js'
 import { readArrow } from '../custom-components/readArrow'
 import { bar_create_LOD0 } from '../custom-components/bar_create_LOD0'
-import { bar_create_LOD1 } from '../custom-components/bar_create_LOD1'
+import { bar_create_LOD2 } from '../custom-components/bar_create_LOD2'
 import { addOverlay } from '../custom-components/addOverlay'
 import { createTable } from '../custom-components/createTable'
+import { bar_create_LOD1 } from '../custom-components/bar_create_LOD1'
 
 
 export function UrbanViewer () {
@@ -181,7 +182,7 @@ export function UrbanViewer () {
     
         // #region LOGIC FUNCTIONS
         //read arrow file
-        const arrowData = await readArrow()
+        let arrowData
         //function to load the IFC file
         const loadIfcFile = async (path: string) => {
             const name = path.split('/').pop()?.split('.ifc')[0] || path.split('/').pop() || path
@@ -996,31 +997,41 @@ export function UrbanViewer () {
                 <bim-panel-section
                     label = "Environmental Urban Analysis"
                     icon = "ic:round-format-color-fill">
+                    <bim-label style="display:flex; white-space:normal">Select a bar, choose options below, then load its next UVL (example: select a UVL-1 bar then click button to load its UVL-2).</bim-label>
                     ${colorScaleDropdown}
                     ${paramOneDropdown}
                     ${paramTwoDropdown}
-                    <bim-label icon='solar:city-bold-duotone'>Urban Visualization Level:</bim-label>
-                    <div style='display:flex; flex-direction:row; gap:1rem'>
+                    <bim-label icon='solar:city-bold-duotone'>Urban Visualization Level</bim-label>
+                    <div style='display:flex; flex-direction:row; gap:0.5rem'>
 
-                        <bim-button label='0' tooltip='Load CVL-0' @click=${async (e:Event)=>{
-                            await bar_create_LOD0(world,components,geometryEngine,arrowData,paramOneDropdown.value[0],paramTwoDropdown.value[0]);
+                        <bim-button label='0' tooltip='Load UVL-0' @click=${async (e:Event)=>{
+                            const result_0 = await bar_create_LOD0(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0]);
                             //(e.target! as BUI.Button).disabled = true
-                            await createTable(panelDown,fragments,components,paramOneDropdown.value[0],paramTwoDropdown.value[0])
-                            if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
-                                onSetLayout({target:'down'})
+                            if (result_0) {
+                                await createTable(panelDown,fragments,components,paramOneDropdown.value[0],paramTwoDropdown.value[0])
+                                if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
+                                    onSetLayout({target:'down'})
+                                }
                             }
                         }}></bim-button>
+                        <bim-label>></bim-label>
 
-                        <bim-button label='1' tootltip='Load CVL-1 and hide CVL-0' @click=${async ()=>{
-                            await bar_create_LOD1(world,components,geometryEngine,arrowData,paramOneDropdown.value[0],paramTwoDropdown.value[0],previousLoadedSuburbs)
-                            onSetTransparencyWithColors(0)
+                        <bim-button label='1' tootltip='Load UVL-1 and hide UVL-0' @click=${async ()=>{
+                            const result_1 = await bar_create_LOD1(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0],previousLoadedSuburbs)
+                            result_1 ? await onSetTransparencyWithColors(0) : ''
                         }}></bim-button>
+                        <bim-label>></bim-label>
 
-                        <bim-button label='2' tootltip='Load CVL-2' @click=${async ()=>{
+                        <bim-button label='2' tootltip='Load UVL-2' @click=${async ()=>{
+                            const result_2 = await bar_create_LOD2(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0],previousLoadedSuburbs)
+                            result_2 ? await onSetTransparencyWithColors(1) : ''
+                        }}></bim-button>
+                        <bim-label>></bim-label>
+                        
+                        <bim-button label='3' tootltip='Load UVL-2' @click=${async ()=>{
                             loadFragmentFile("/FRAG/Sample_one-story-house.frag")
                         }}></bim-button>
-                        
-                        <bim-button label='3'></bim-button>
+                        <bim-label>></bim-label>
 
                         <bim-button label='4'></bim-button>
                     </div>
@@ -1096,8 +1107,9 @@ export function UrbanViewer () {
                             <bim-button
                                 icon="fluent:data-histogram-24-filled"
                                 label="Canberra (AU)"
-                                @click=${() => {
-                                        loadFragmentFile("/FRAG/Sample_priceAnalysis.frag")
+                                @click=${async () => {
+                                        arrowData = await readArrow()
+                                        //loadFragmentFile("/FRAG/Sample_priceAnalysis.frag")
                                     }}>
                             </bim-button>
                         </bim-option>

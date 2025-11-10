@@ -17,7 +17,7 @@ export async function colorBar (
     const rows: any = Object.values(dataForBars); // tuo array
 
     // estrai valori "name"
-    const values = LOD==0 ? rows.map((r:any) => Number(r.param_two)) : rows.map((r:any) => Number(r[param]))
+    const values = LOD==0||LOD==1 ? rows.map((r:any) => Number(r.param_two)) : rows.map((r:any) => Number(r[param]))
 
     // calcola min e max
     const min = Math.min(...values);
@@ -29,7 +29,7 @@ export async function colorBar (
     // crea mappa identfr da dati Ray - valore normalizzato del parametro scelto
     const map_identfr_normValue: Record<string, number> = {};
     for (let i = 0; i < rows.length; i++) {
-        const key = LOD==0 ? String(rows[i].suburb) : String(rows[i].identfr);
+        const key = LOD==0 ? String(rows[i].suburb) : LOD==1 ? String(rows[i].section) : String(rows[i].identfr);
         map_identfr_normValue[key] = normalized[i];
     }
 
@@ -64,5 +64,7 @@ export async function colorBar (
 
     // colora tutti gli oggetti
     const colorScaleDropdown = document.getElementById('color-scale-dropdown') as BUI.Dropdown
-    urbanMapToColor(components, map_id_normValue, colorScaleDropdown.value[0], modelName!)
+    const map_color_ids = urbanMapToColor(components, map_id_normValue, colorScaleDropdown.value[0], modelName!)
+
+    return [map_color_ids,map_id_identfr,modelName!]
 }
