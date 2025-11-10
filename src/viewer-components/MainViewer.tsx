@@ -2031,7 +2031,7 @@ export function MainViewer () {
             return BUI.html`
                 <bim-grid
                 floating
-                style="padding: 20px">
+                style="padding: 10px">
                 </bim-grid>
             `;
         })

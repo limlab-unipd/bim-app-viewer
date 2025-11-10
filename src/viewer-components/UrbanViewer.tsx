@@ -1006,7 +1006,9 @@ export function UrbanViewer () {
                             await bar_create_LOD0(world,components,geometryEngine,arrowData,paramOneDropdown.value[0],paramTwoDropdown.value[0]);
                             //(e.target! as BUI.Button).disabled = true
                             await createTable(panelDown,fragments,components,paramOneDropdown.value[0],paramTwoDropdown.value[0])
-                            onSetLayout({target:'down'})
+                            if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
+                                onSetLayout({target:'down'})
+                            }
                         }}></bim-button>
 
                         <bim-button label='1' tootltip='Load CVL-1 and hide CVL-0' @click=${async ()=>{

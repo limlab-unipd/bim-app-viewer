@@ -7,7 +7,7 @@ const onSearch = (e: Event, table:BUI.Table<any>) => {
     const input = e.target as BUI.TextInput;
     table.queryString = input.value !== "" ? input.value : null
 }
-const onClearPanel = (panel: BUI.Panel, title:string='Void Panel') => {
+const onClearPanel = async (panel: BUI.Panel, title:string='Void Panel') => {
     panel.innerHTML = ''
     panel.label = title
 }
@@ -26,11 +26,10 @@ const onSortTable = (table:BUI.Table<any>, field:string, ascending:boolean=true)
     table.requestUpdate()
 }
 
-
 export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsManager,components:OBC.Components,paramOne:string='Concret',paramTwo:string='Glass') {
 
     const highlighter = components.get(OBCF.Highlighter)
-    panelDown.innerHTML = ''
+    await onClearPanel(panelDown)
 
     //CREATE THE TABLE
     type tableType = {
@@ -54,25 +53,26 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
     urbanTable.preserveStructureOnFilter = true
     urbanTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
     urbanTable.hiddenColumns = ['model', 'localId']
+
     for (const [modelName,model] of fragments.list.entries()){
         if (!modelName.includes('-DELTA')) continue
         const items = await model.getItems()
         for (const [id,data] of items.entries()){
             let color: string = ''
             switch (true) {
-                case highlighter.selection.color_0_02[modelName].has(id):
+                case (highlighter.selection.color_0_02?.[modelName]?.has(id)): //optional chaining check needed because sometimes some ranges are empty
                     color = highlighter.styles.get('color_0_02')?.color.getStyle()!
                     break;
-                case highlighter.selection.color_02_04[modelName].has(id):
+                case (highlighter.selection.color_02_04?.[modelName]?.has(id)):
                     color = highlighter.styles.get('color_02_04')?.color.getStyle()!
                     break;
-                case highlighter.selection.color_04_06[modelName].has(id):
+                case (highlighter.selection.color_04_06?.[modelName]?.has(id)):
                     color = highlighter.styles.get('color_04_06')?.color.getStyle()!
                     break;
-                case highlighter.selection.color_06_08[modelName].has(id):
+                case (highlighter.selection.color_06_08?.[modelName]?.has(id)):
                     color = highlighter.styles.get('color_06_08')?.color.getStyle()!
                     break;
-                case highlighter.selection.color_08_1[modelName].has(id):
+                case (highlighter.selection.color_08_1?.[modelName]?.has(id)):
                     color = highlighter.styles.get('color_08_1')?.color.getStyle()!
                     break;
             }
@@ -149,5 +149,6 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
     //APPEND THE PANEL
     panelDown.label = `CANBERRA SUBURBS`
     panelDown.appendChild(urbanDownPanel)
+    
 }
 

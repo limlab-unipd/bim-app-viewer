@@ -111,7 +111,6 @@ html.bim-ui-light {
     display: flex;
     overflow: auto;
     margin: 0px;
-    border-radius: 5px;
     background-color: var(--background);
     position: absolute;
     top:0;
