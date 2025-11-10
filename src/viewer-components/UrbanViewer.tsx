@@ -999,7 +999,7 @@ export function UrbanViewer () {
                     ${colorScaleDropdown}
                     ${paramOneDropdown}
                     ${paramTwoDropdown}
-                    <bim-label icon='solar:city-bold-duotone'>City Visualization Level:</bim-label>
+                    <bim-label icon='solar:city-bold-duotone'>Urban Visualization Level:</bim-label>
                     <div style='display:flex; flex-direction:row; gap:1rem'>
 
                         <bim-button label='0' tooltip='Load CVL-0' @click=${async (e:Event)=>{
@@ -1022,7 +1022,7 @@ export function UrbanViewer () {
 
                         <bim-button label='4'></bim-button>
                     </div>
-                    <div style='display:flex; flex-direction:row; gap:1rem'>
+                    <div style='display:none; flex-direction:row; gap:1rem'>
                         <bim-button label='Log selection' @click=${()=>{
                             console.log(highlighter.selection.select)
                             console.log(fragments.list)
@@ -1062,8 +1062,8 @@ export function UrbanViewer () {
         const floatingGrid = BUI.Component.create<BUI.Grid>(() => {
             return BUI.html`
                 <bim-grid
-                floating
-                style="padding: 20px">
+                    floating
+                    style="padding: 0.5rem">
                 </bim-grid>
             `;
         })
@@ -1219,7 +1219,7 @@ export function UrbanViewer () {
             `;
         })
 
-        const panelDownHeight = '50%'
+        const panelDownHeight = '40%'
         const panelLeftWidth = '25%'
         const panelRightWidth = '25%'
         const left_right = {
