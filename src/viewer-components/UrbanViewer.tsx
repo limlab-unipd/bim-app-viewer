@@ -491,6 +491,7 @@ export function UrbanViewer () {
         const panelRight = BUI.Component.create<BUI.Panel>(() => {
             return BUI.html`
             <bim-panel
+                id="panel-right"
                 label="Right Panel"
                 style="background-color:rgba(0,0,0,0.85);">
             </bim-panel>
@@ -499,6 +500,7 @@ export function UrbanViewer () {
         const panelDown = BUI.Component.create<BUI.Panel>(() => {
             return BUI.html`
             <bim-panel
+                id = "panel-down"
                 label="Down Panel"
                 style="background-color:rgba(0,0,0,0.85); display:flex">
             </bim-panel>
@@ -826,7 +828,6 @@ export function UrbanViewer () {
                 <bim-option label='Cividis' value='cividis' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(0, 32, 76, 1), rgba(55, 64, 129, 1), rgba(94, 109, 171, 1), rgba(145, 158, 203, 1), rgba(253, 231, 37, 1))"></bim-option>
             </bim-dropdown>`
         )
-
         const suburbsDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
             <bim-dropdown name="suburbs" label='Suburb'>
@@ -987,6 +988,16 @@ export function UrbanViewer () {
                 <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
         )
+        const normalizationCheckbox = BUI.Component.create<BUI.Checkbox>(
+            () => BUI.html`
+            <bim-checkbox label='Normalize bars height' icon='heroicons:chart-bar-16-solid' id='normalizaiton-checkbox' style="border-bottom: 1px solid var(--bim-ui_bg-contrast-20); padding-bottom:0.5rem"
+                @change="${(e:Event) => {
+                    if (!e.target) return
+                    const chekcbox = e.target as BUI.Checkbox   
+                    chekcbox.icon = chekcbox.checked ? 'fluent:column-triple-20-filled' : 'heroicons:chart-bar-16-solid'
+                }}">
+            </bim-checkbox>`
+        )
         // #endregion
 
 
@@ -998,11 +1009,14 @@ export function UrbanViewer () {
                     label = "Environmental Urban Analysis"
                     icon = "ic:round-format-color-fill">
                     <bim-label style="display:flex; white-space:normal">Select a bar, choose options below, then load its next UVL (example: select a UVL-1 bar then click button to load its UVL-2).</bim-label>
+                    <bim-label style="display:flex; white-space:normal">Set:</bim-label>
                     ${colorScaleDropdown}
                     ${paramOneDropdown}
                     ${paramTwoDropdown}
+                    ${normalizationCheckbox}
                     <bim-label icon='solar:city-bold-duotone'>Urban Visualization Level</bim-label>
-                    <div style='display:flex; flex-direction:row; gap:0.5rem'>
+                    <div style='display:flex; flex-direction:row; gap:0.25rem'>
+                        <bim-label style="display:flex; white-space:normal">Load:</bim-label>
 
                         <bim-button label='0' tooltip='Load UVL-0' @click=${async (e:Event)=>{
                             const result_0 = await bar_create_LOD0(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0]);

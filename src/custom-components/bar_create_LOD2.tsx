@@ -81,12 +81,26 @@ export async function bar_create_LOD2 (
             dataBySection[Number(row!.identfr).toString()] = row
         }
     }
-    dataForBars = dataBySection
+    function normalizeParamOne(data: Record<string, any>): Record<string, any> {
+        const values = Object.values(data).map(d => d[paramOne]);
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        return Object.fromEntries(
+            Object.entries(data).map(([key, obj]) => [
+            key,
+            {
+                ...obj,
+                param_one_normalized: (obj[paramOne] - min) / (max - min),
+            },
+            ])
+        )
+    }
+    dataForBars = normalizeParamOne(dataBySection)
     //console.log(dataForBars!)
-    //return [true,'']
     
     // Bar geometry
     const barGeometry = new THREE.BufferGeometry();
+    const normalizationCheckbox = document.getElementById('normalizaiton-checkbox') as BUI.Checkbox
 
     // building generation logic
     let processing = false;
@@ -115,7 +129,7 @@ export async function bar_create_LOD2 (
         for (const [key,set] of Object.entries(dataForBars)) {
             const bar_base_dim2 = 1
             const bar_base_dim1 = 1
-            const bar_height = Number(set[paramOne])
+            const bar_height = normalizationCheckbox ? set.param_one_normalized*100 : Number(set[paramOne])/1000
             const bar_position = new THREE.Vector3(parseFloat(set.centroid_x_local)/20,0,parseFloat(set.centroid_y_local)/20)
             const bar_name = Number(set.identfr).toString()
             
@@ -223,6 +237,12 @@ export async function bar_create_LOD2 (
         }
     }
     urbanTable.requestUpdate()
+
+    const parametersLabels = document.getElementById('parameters-labels')
+    const label = BUI.Component.create<BUI.Label>(() => {
+        return BUI.html`<bim-label id='uvl-1-parameters-used'>UVL ${lod} - ${name} - Param1 (bar height): ${paramOne}   //   Param2 (bar color): ${paramTwo}</bim-label>`
+    })
+    parametersLabels?.appendChild(label)
 
     return true
 }

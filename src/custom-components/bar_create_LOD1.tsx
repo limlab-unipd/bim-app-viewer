@@ -100,12 +100,26 @@ export async function bar_create_LOD1 (
         dataBySection[section].centroid_x_local ? dataBySection[section].centroid_x_local.push(row.centroid_x_local) : dataBySection[section].centroid_x_local = [row.centroid_x_local]
         dataBySection[section].centroid_y_local ? dataBySection[section].centroid_y_local.push(row.centroid_y_local) : dataBySection[section].centroid_y_local = [row.centroid_y_local]
     }
-    dataForBars = dataBySection
+    function normalizeParamOne(data: Record<string, any>): Record<string, any> {
+        const values = Object.values(data).map(d => d.param_one);
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        return Object.fromEntries(
+            Object.entries(data).map(([key, obj]) => [
+            key,
+            {
+                ...obj,
+                param_one_normalized: (obj.param_one - min) / (max - min),
+            },
+            ])
+        )
+    }
+    dataForBars = normalizeParamOne(dataBySection)
     //console.log(dataForBars!)
-    //return [true,'']
     
     // Bar geometry
     const barGeometry = new THREE.BufferGeometry();
+    const normalizationCheckbox = document.getElementById('normalizaiton-checkbox') as BUI.Checkbox
 
     // building generation logic
     let processing = false;
@@ -132,7 +146,7 @@ export async function bar_create_LOD1 (
         for (const [key,set] of Object.entries(dataForBars)) {
             const bar_base_dim2 = 5
             const bar_base_dim1 = 5
-            const bar_height = Number(set.param_one)/1000
+            const bar_height = normalizationCheckbox ? set.param_one_normalized*200 : Number(set.param_one)/1000
             const centr_x = (Math.max(...set.centroid_x_local)+Math.min(...set.centroid_x_local))/2
             const centr_y = (Math.max(...set.centroid_y_local)+Math.min(...set.centroid_y_local))/2
             const bar_position = new THREE.Vector3(centr_x/20,0,centr_y/20)
@@ -235,6 +249,12 @@ export async function bar_create_LOD1 (
         data.children = blocks
     }
     urbanTable.requestUpdate()
+
+    const parametersLabels = document.getElementById('parameters-labels')
+    const label = BUI.Component.create<BUI.Label>(() => {
+        return BUI.html`<bim-label id='uvl-1-parameters-used'>UVL ${lod} - ${name} - Param1 (bar height): ${paramOne}   //   Param2 (bar color): ${paramTwo}</bim-label>`
+    })
+    parametersLabels?.appendChild(label)
 
     return true
 }

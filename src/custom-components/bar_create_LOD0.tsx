@@ -74,9 +74,22 @@ export async function bar_create_LOD0 (
             (dataCity[suburb].param_one+=rowOne,dataCity[suburb].param_two!+=rowTwo) : 
             dataCity[suburb] = {suburb:suburb, param_one:rowOne, param_two:rowTwo}
     }
-    dataForBars = dataCity
+    function normalizeParamOne(data: Record<string, any>): Record<string, any> {
+        const values = Object.values(data).map(d => d.param_one);
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        return Object.fromEntries(
+            Object.entries(data).map(([key, obj]) => [
+            key,
+            {
+                ...obj,
+                param_one_normalized: (obj.param_one - min) / (max - min),
+            },
+            ])
+        )
+    }
+    dataForBars = normalizeParamOne(dataCity)
     //console.log(dataForBars!)
-    //return [true,'']
     
     const arrowData_suburbsCentroids = await readArrow('suburbs')
     const suburbsCentroids_colSuburbs = arrowData_suburbsCentroids.getChild("DIVISION_N")
@@ -91,6 +104,7 @@ export async function bar_create_LOD0 (
     
     // Bar geometry
     const barGeometry = new THREE.BufferGeometry();
+    const normalizationCheckbox = document.getElementById('normalizaiton-checkbox') as BUI.Checkbox
 
     // building generation logic
     let processing = false;
@@ -116,7 +130,7 @@ export async function bar_create_LOD0 (
         for (const [key,set] of Object.entries(dataForBars)) {
             const bar_base_dim1 = 20
             const bar_base_dim2 = 20
-            const bar_height = set.param_one/1000
+            const bar_height = normalizationCheckbox.checked ? set.param_one_normalized*300 : set.param_one/1000
             const bar_name = set.suburb
             let bar_position
             try {
@@ -184,5 +198,6 @@ export async function bar_create_LOD0 (
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
     console.log(`Bars created in ${loadTime} seconds`)
     addOverlay(BUI.html`Bars for <b><i>${name}</i></b> created in <b>${loadTime}</b> seconds.`)
+    
     return true
 }
