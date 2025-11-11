@@ -142,8 +142,8 @@ export async function bar_create_LOD1 (
                 {
                     data: {
                         Suburb: bar_name,
-                        Param1: set.param_one,
-                        Param2: set.param_two,
+                        Param1: Math.round(set.param_one*1000)/1000,
+                        Param2: Math.round(set.param_two*1000)/1000,
                         Color: 'blue',
                     },
                 }
@@ -206,7 +206,6 @@ export async function bar_create_LOD1 (
     console.log(`Bars created in ${loadTime} seconds`)
     addOverlay(BUI.html`Bars for <b><i>${name}</i></b> suburb created in <b>${loadTime}</b> seconds.`)
 
-    console.log(map_color_ids)
     for (const row of blocks){
         const section = row.data.Suburb
         const localId = Object.keys(map_id_name).filter(k => map_id_name[k as keyof typeof map_id_name] === section)

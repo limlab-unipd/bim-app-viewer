@@ -35,6 +35,8 @@ export async function bar_create_LOD2 (
     let dataForBars:{[key:string]:any}
     const dataBySection: {[key:string]:any} = {} //all buildings of single suburb
     let name = ''
+    let suburb = ''
+    const urbanTable = document.getElementById('urban-table') as BUI.Table
 
     //getting the selected bar name
     const selection = highlighter.selection.select
@@ -42,6 +44,7 @@ export async function bar_create_LOD2 (
         addOverlay(BUI.html`<b>WARNING: Please select any UVL-1 bar to proceed.</b>`,'warning')
         return false
     }
+    
     const item = await fragments.getData(selection)
     for (const [model,it] of Object.entries(item)){ 
         if (!model.includes('LOD_1')) {
@@ -50,6 +53,7 @@ export async function bar_create_LOD2 (
         }
         if (!(it[0]['_category'] as FRAGS.ItemAttribute).value) continue
         name = (it[0]['Name'] as FRAGS.ItemAttribute).value
+        suburb = (it[0]['Suburb'] as FRAGS.ItemAttribute).value
     }
     if (previousLoadedSuburbs.includes(name)) { 
         addOverlay(BUI.html`<b>WARNING: UVL-2 of ${name} already loaded.</b>`,'warning')
@@ -86,6 +90,7 @@ export async function bar_create_LOD2 (
 
     // building generation logic
     let processing = false;
+    const buildings: any[] = []
     const regenerateFragments = async () => {
         const elementsData: FRAGS.NewElementData[] = [];
         await fragments.core.editor.reset(newModel.modelId)
@@ -114,6 +119,17 @@ export async function bar_create_LOD2 (
             const bar_position = new THREE.Vector3(parseFloat(set.centroid_x_local)/20,0,parseFloat(set.centroid_y_local)/20)
             const bar_name = Number(set.identfr).toString()
             
+            buildings.push(
+                {
+                    data: {
+                        Suburb: bar_name,
+                        Param1: Math.round(Number(set[paramOne])*1000)/1000,
+                        Param2: Math.round(Number(set[paramTwo])*1000)/1000,
+                        Color: 'blue',
+                    },
+                }
+            )
+
             //estrusione
             geometryEngine.getExtrusion(barGeometry, {
                 profilePoints: [ //punti di base X,Z,Y (forse, oppure Y,Z,X)
@@ -167,11 +183,46 @@ export async function bar_create_LOD2 (
     
     await regenerateFragments();
 
-    await colorBar(components,dataForBars!,lod,name,paramTwo)
+    const [map_color_ids,map_id_name,modelName]: any[] = await colorBar(components,dataForBars!,lod,name,paramTwo)
     
     const endTime = performance.now() // End timer
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
     console.log(`Bars created in ${loadTime} seconds`)
     addOverlay(BUI.html`Bars for <b><i>${name}</i></b> suburb created in <b>${loadTime}</b> seconds.`)
+
+    for (const row of buildings){
+        const block = row.data.Suburb
+        const localId = Object.keys(map_id_name).filter(k => map_id_name[k as keyof typeof map_id_name] === block)
+        row.data.localId = Number(localId[0])
+        row.data.model = modelName
+        switch (true) {
+            case (map_color_ids['color_0_02'] as string[])?.includes(localId[0]):
+                row.data.Color = highlighter.styles.get('color_0_02')?.color.getStyle()!
+                break;
+            case (map_color_ids['color_02_04'] as string[])?.includes(localId[0]):
+                row.data.Color = highlighter.styles.get('color_02_04')?.color.getStyle()!
+                break;
+            case (map_color_ids['color_04_06'] as string[])?.includes(localId[0]):
+                row.data.Color = highlighter.styles.get('color_04_06')?.color.getStyle()!
+                break;
+            case (map_color_ids['color_06_08'] as string[])?.includes(localId[0]):
+                row.data.Color = highlighter.styles.get('color_06_08')?.color.getStyle()!
+                break;
+            case (map_color_ids['color_08_1'] as string[])?.includes(localId[0]):
+                row.data.Color = highlighter.styles.get('color_08_1')?.color.getStyle()!
+                break;
+        }
+    }
+
+    for (const [,data] of Object.entries(urbanTable.data)){
+        if (data.data.Suburb != suburb) continue
+        if (!data.children) continue
+        for (const childrenData of data.children){
+            if (childrenData.data.Suburb != name) continue
+            childrenData.children = buildings
+        }
+    }
+    urbanTable.requestUpdate()
+
     return true
 }

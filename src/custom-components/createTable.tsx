@@ -23,6 +23,34 @@ const onSortTable = (table:BUI.Table<any>, field:string, ascending:boolean=true)
         // Ordinamento alfabetico
         return valA.toString().localeCompare(valB.toString()) * direction
     })
+
+    for (const suburb of table.data){
+        if (!suburb.children) continue;
+        (suburb.children as BUI.TableGroupData<any>[]).sort((a, b) => {
+            const valA = a.data[field]
+            const valB = b.data[field]
+            // Se entrambi sono numeri
+            if (typeof valA === 'number' && typeof valB === 'number') {
+                return (valA - valB) * direction
+            }
+            // Ordinamento alfabetico
+            return valA.toString().localeCompare(valB.toString()) * direction
+        })
+        for (const block of suburb.children){
+            if (!block.children) continue
+            (block.children as BUI.TableGroupData<any>[]).sort((a, b) => {
+                const valA = a.data[field]
+                const valB = b.data[field]
+                // Se entrambi sono numeri
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    return (valA - valB) * direction
+                }
+                // Ordinamento alfabetico
+                return valA.toString().localeCompare(valB.toString()) * direction
+            })
+        }
+    }
+
     table.requestUpdate()
 }
 
@@ -82,8 +110,8 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
                     model: modelName,
                     localId: id,
                     Suburb: data.data.Suburb.value,
-                    Param1: data.data[paramOne].value,
-                    Param2: data.data[paramTwo].value,
+                    Param1: Math.round(data.data[paramOne].value*1000)/1000,
+                    Param2: Math.round(data.data[paramTwo].value*1000)/1000,
                     Color: color,
                 }
             })
@@ -95,7 +123,6 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
             <bim-label 
                 @click=${() => {
                     highlighter.highlightByID("select", {[model as string]: new Set<number>([localId as number])}, false, true)
-                    console.log(rowData)
                     }}
                 @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
                 @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
