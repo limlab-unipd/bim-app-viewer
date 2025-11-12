@@ -182,4 +182,3 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
     
     return urbanTable
 }
-
