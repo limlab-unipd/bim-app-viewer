@@ -171,9 +171,6 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
                     <bim-button @click=${() => {onClearPanel(panelDown)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                     <bim-button tooltip-text="Click on item's name to add it to the selection" icon='majesticons:lightbulb-shine' style="max-width:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
                 </div>
-                <div id='parameters-labels'>
-                    <bim-label id='uvl-1-parameters-used'>UVL 0 - CANBERRA - Param1 (bar height): ${paramOne} // Param2 (bar color): ${paramTwo}</bim-label>
-                </div>
                 ${urbanTable}
             </div>
         </bim-panel>`

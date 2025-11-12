@@ -7,6 +7,7 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
+import { group_lod0, group_lod1 } from './parametersForGrouping'
 
 /**
  * Create bar according to values.
@@ -79,8 +80,8 @@ export async function bar_create_LOD1 (
     await fragments.core.update(true);
 
     //filter arrow data
-    const col = arrowData.getChild("DIVISION_N");
-    if (!col) throw new Error("DIVISION_N column not found");
+    const col = arrowData.getChild(group_lod0);
+    if (!col) throw new Error(`${group_lod0} column not found`);
     for (let i = 0; i < arrowData.numRows; i++) {
         if (col.get(i) === name) {
             const row = arrowData.get(i)
@@ -88,7 +89,7 @@ export async function bar_create_LOD1 (
         }
     }
     for (const [identfr,row] of Object.entries(dataBySuburb)) {
-        const section = Number(row!.MB_CODE).toString()
+        const section = Number(row![group_lod1]).toString()
         //dataBySection[section] ? dataBySection[section].push(row) : dataBySection[section] = [row]
         dataBySection[section] ? '' : dataBySection[section] = {}
         dataBySection[section].suburb = name
@@ -100,6 +101,7 @@ export async function bar_create_LOD1 (
         dataBySection[section].centroid_x_local ? dataBySection[section].centroid_x_local.push(row.centroid_x_local) : dataBySection[section].centroid_x_local = [row.centroid_x_local]
         dataBySection[section].centroid_y_local ? dataBySection[section].centroid_y_local.push(row.centroid_y_local) : dataBySection[section].centroid_y_local = [row.centroid_y_local]
     }
+    //add the column with the normalization always, then it is choosed below the normalized or the not normalized one
     function normalizeParamOne(data: Record<string, any>): Record<string, any> {
         const values = Object.values(data).map(d => d.param_one);
         const min = Math.min(...values);
@@ -119,7 +121,7 @@ export async function bar_create_LOD1 (
     
     // Bar geometry
     const barGeometry = new THREE.BufferGeometry();
-    const normalizationCheckbox = document.getElementById('normalizaiton-checkbox') as BUI.Checkbox
+    const normalizationCheckbox = document.getElementById('normalization-checkbox') as BUI.Checkbox
 
     // building generation logic
     let processing = false;
@@ -250,11 +252,19 @@ export async function bar_create_LOD1 (
     }
     urbanTable.requestUpdate()
 
-    const parametersLabels = document.getElementById('parameters-labels')
-    const label = BUI.Component.create<BUI.Label>(() => {
-        return BUI.html`<bim-label id='uvl-1-parameters-used'>UVL ${lod} - ${name} - Param1 (bar height): ${paramOne}   //   Param2 (bar color): ${paramTwo}</bim-label>`
+    const colorScaleDropdown = document.getElementById('color-scale-dropdown') as BUI.Dropdown
+    const historyTable = document.getElementById('history-table') as BUI.Table
+    historyTable?.data.push({
+        data: {
+            UVL: lod,
+            Suburb: name,
+            Param1: paramOne,
+            Param2: paramTwo,
+            ColorScale: colorScaleDropdown.value[0] ? colorScaleDropdown.value[0] : 'gnylrd',
+            Normalization: normalizationCheckbox.checked,
+        }
     })
-    parametersLabels?.appendChild(label)
+    historyTable.requestUpdate()
 
     return true
 }

@@ -483,6 +483,7 @@ export function UrbanViewer () {
         const panelLeft = BUI.Component.create<BUI.Panel>(() => {
             return BUI.html`
             <bim-panel
+                id='panel-left'
                 label="BIM PANEL"
                 style="background-color:rgba(0,0,0,0.85);">
             </bim-panel>
@@ -990,7 +991,7 @@ export function UrbanViewer () {
         )
         const normalizationCheckbox = BUI.Component.create<BUI.Checkbox>(
             () => BUI.html`
-            <bim-checkbox label='Normalize bars height' icon='heroicons:chart-bar-16-solid' id='normalizaiton-checkbox' style="border-bottom: 1px solid var(--bim-ui_bg-contrast-20); padding-bottom:0.5rem"
+            <bim-checkbox label='Normalize bars height' icon='heroicons:chart-bar-16-solid' id='normalization-checkbox' style="border-bottom: 1px solid var(--bim-ui_bg-contrast-20); padding-bottom:0.5rem"
                 @change="${(e:Event) => {
                     if (!e.target) return
                     const chekcbox = e.target as BUI.Checkbox   
@@ -1015,16 +1016,20 @@ export function UrbanViewer () {
                     ${paramTwoDropdown}
                     ${normalizationCheckbox}
                     <bim-label icon='solar:city-bold-duotone'>Urban Visualization Level</bim-label>
-                    <div style='display:flex; flex-direction:row; gap:0.25rem'>
+                    <div style='display:flex; flex-direction:row; gap:0.5rem'>
                         <bim-label style="display:flex; white-space:normal">Load:</bim-label>
 
                         <bim-button label='0' tooltip='Load UVL-0' @click=${async (e:Event)=>{
-                            const result_0 = await bar_create_LOD0(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0]);
+                            const result_0 = await bar_create_LOD0(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0],panelRight);
                             //(e.target! as BUI.Button).disabled = true
                             if (result_0) {
                                 await createTable(panelDown,fragments,components,paramOneDropdown.value[0],paramTwoDropdown.value[0])
                                 if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                     onSetLayout({target:'down'})
+                                }
+                                if (floatingGrid.layout && !(floatingGrid.layout as string).includes('right')) {
+                                    onSetLayout({target:'right'})
+                                    panelRight.label = 'History of UVLs loadings'
                                 }
                             }
                         }}></bim-button>
@@ -1248,8 +1253,8 @@ export function UrbanViewer () {
         })
 
         const panelDownHeight = '40%'
-        const panelLeftWidth = '25%'
-        const panelRightWidth = '25%'
+        const panelLeftWidth = '20%'
+        const panelRightWidth = '20%'
         const left_right = {
                 template: `
                     "panelLeft toolbar panelRight" auto

@@ -8,6 +8,7 @@ import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { readArrow } from './readArrow'
+import { group_lod0 } from './parametersForGrouping'
 
 /**
  * Create bar according to values.
@@ -25,6 +26,7 @@ export async function bar_create_LOD0 (
         arrowData:Table<any>,
         paramOne:string='Concret',
         paramTwo:string='Glass',
+        panelRight:BUI.Panel,
     ): Promise<boolean> {
 
     if (!arrowData) {
@@ -59,8 +61,8 @@ export async function bar_create_LOD0 (
     await fragments.core.update(true);
 
     //filter arrow data
-    const colSuburbs = arrowData.getChild("DIVISION_N");
-    if (!colSuburbs) throw new Error("DIVISION_N column not found");
+    const colSuburbs = arrowData.getChild(group_lod0);
+    if (!colSuburbs) throw new Error(`${group_lod0} column not found`);
     const colParamOne = arrowData.getChild(paramOne)
     const colParamTwo = arrowData.getChild(paramTwo)
 
@@ -92,7 +94,7 @@ export async function bar_create_LOD0 (
     //console.log(dataForBars!)
     
     const arrowData_suburbsCentroids = await readArrow('suburbs')
-    const suburbsCentroids_colSuburbs = arrowData_suburbsCentroids.getChild("DIVISION_N")
+    const suburbsCentroids_colSuburbs = arrowData_suburbsCentroids.getChild(group_lod0)
     const suburbsCentroids_centroid_x_local = arrowData_suburbsCentroids.getChild("centroid_x_local")
     const suburbsCentroids_centroid_y_local = arrowData_suburbsCentroids.getChild("centroid_y_local")
     for (let i = 0; i < arrowData_suburbsCentroids.numRows; i++) {
@@ -104,7 +106,7 @@ export async function bar_create_LOD0 (
     
     // Bar geometry
     const barGeometry = new THREE.BufferGeometry();
-    const normalizationCheckbox = document.getElementById('normalizaiton-checkbox') as BUI.Checkbox
+    const normalizationCheckbox = document.getElementById('normalization-checkbox') as BUI.Checkbox
 
     // building generation logic
     let processing = false;
@@ -169,7 +171,7 @@ export async function bar_create_LOD0 (
                     },
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
-                    Suburb: { value: set.DIVISION_N ? set.DIVISION_N : bar_name },
+                    Suburb: { value: set[group_lod0] ? set[group_lod0] : bar_name },
                     BarHeight: { value: paramOne },
                     BarColor: { value: paramTwo },
                     [paramOne]: { value: Math.round(set.param_one*1000)/1000 },
@@ -198,6 +200,34 @@ export async function bar_create_LOD0 (
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
     console.log(`Bars created in ${loadTime} seconds`)
     addOverlay(BUI.html`Bars for <b><i>${name}</i></b> created in <b>${loadTime}</b> seconds.`)
+
+    //HISTORY TABLE
+    panelRight.innerHTML=''
+    const colorScaleDropdown = document.getElementById('color-scale-dropdown') as BUI.Dropdown
+    type historyTableType = {
+        UVL: number,
+        Suburb: string,
+        Param1: string,
+        Param2: string,
+        ColorScale:any,
+        Normalization:boolean,
+    }
+    const historyTable = document.createElement("bim-table") as BUI.Table<historyTableType>
+    historyTable.id = 'history-table'
+    historyTable.data = [{
+        data: {
+            UVL: lod,
+            Suburb: name,
+            Param1: paramOne,
+            Param2: paramTwo,
+            ColorScale: colorScaleDropdown.value[0] ? colorScaleDropdown.value[0] : 'gnylrd',
+            Normalization: normalizationCheckbox.checked,
+        }
+    }]
+    historyTable.preserveStructureOnFilter = true
+    //historyTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
+    historyTable.hiddenColumns = []
+    panelRight?.appendChild(historyTable)
     
     return true
 }
