@@ -26,6 +26,7 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/three": "0.175.0",
+    "@types/wellknown": "^0.5.8",
     "@vitejs/plugin-react": "^4.6.0",
     "apache-arrow": "^21.1.0",
     "eslint": "^9.30.1",

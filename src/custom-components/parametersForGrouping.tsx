@@ -1,5 +1,30 @@
-// possible columns to use:
-// DIVISION_N or SA2_NAME for lod 0
-// SA1_MAI or MB_CODE for lod 1
-export const group_lod0 = 'DIVISION_N'
-export const group_lod1 = 'SA1_MAI'
+// parameter from Ray data to choose to group data
+export const groupColumn = {
+    lod0 : 'DIVISION_N', //DIVISION_N or SA2_NAME
+    lod1 : 'SA1_MAI', //SA1_MAI or MB_CODE
+}
+
+// scale factor to scale the map
+export const coordinatesScaleFactor = 1 //it is a reducing factor, so it reduce the scale by the factor
+
+// height to use to normalize data per each lod
+export const normalizationHeight = {
+    notNormalized : 200, // this value only divide the not normalized value by this number, to not have bars too high
+    lod0 : 3000,
+    lod1 : 2000,
+    lod2 : 1000,
+}
+
+// side length of the base square of bars
+export const barsBase = {
+    lod0 : 250,
+    lod1 : 75,
+    lod2 : 10,
+}
+
+// CENTROID FROM: https://epsg.io/map#srs=28355&x=693145.6576212854&y=6090713.28243175&z=17&layer=streets
+// EPSG: 28355
+export const globalCentroid = {
+    x : 693145.6576212854,
+    y : 6090713.28243175,
+}

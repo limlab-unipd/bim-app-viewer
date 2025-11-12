@@ -8,7 +8,7 @@ import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { readArrow } from './readArrow'
-import { group_lod0 } from './parametersForGrouping'
+import { barsBase, coordinatesScaleFactor, groupColumn, normalizationHeight } from './parametersForGrouping'
 
 /**
  * Create bar according to values.
@@ -61,8 +61,8 @@ export async function bar_create_LOD0 (
     await fragments.core.update(true);
 
     //filter arrow data
-    const colSuburbs = arrowData.getChild(group_lod0);
-    if (!colSuburbs) throw new Error(`${group_lod0} column not found`);
+    const colSuburbs = arrowData.getChild(groupColumn.lod0);
+    if (!colSuburbs) throw new Error(`${groupColumn.lod0} column not found`);
     const colParamOne = arrowData.getChild(paramOne)
     const colParamTwo = arrowData.getChild(paramTwo)
 
@@ -94,7 +94,7 @@ export async function bar_create_LOD0 (
     //console.log(dataForBars!)
     
     const arrowData_suburbsCentroids = await readArrow('suburbs')
-    const suburbsCentroids_colSuburbs = arrowData_suburbsCentroids.getChild(group_lod0)
+    const suburbsCentroids_colSuburbs = arrowData_suburbsCentroids.getChild(groupColumn.lod0)
     const suburbsCentroids_centroid_x_local = arrowData_suburbsCentroids.getChild("centroid_x_local")
     const suburbsCentroids_centroid_y_local = arrowData_suburbsCentroids.getChild("centroid_y_local")
     for (let i = 0; i < arrowData_suburbsCentroids.numRows; i++) {
@@ -130,13 +130,13 @@ export async function bar_create_LOD0 (
         const tempObject = new THREE.Object3D();
         //creation of each bar
         for (const [key,set] of Object.entries(dataForBars)) {
-            const bar_base_dim1 = 20
-            const bar_base_dim2 = 20
-            const bar_height = normalizationCheckbox.checked ? set.param_one_normalized*300 : set.param_one/1000
+            const bar_base_dim1 = barsBase.lod0
+            const bar_base_dim2 = barsBase.lod0
+            const bar_height = normalizationCheckbox.checked ? set.param_one_normalized*normalizationHeight.lod0 : set.param_one/normalizationHeight.notNormalized
             const bar_name = set.suburb
             let bar_position
             try {
-                bar_position = new THREE.Vector3(dataSuburbsCentroid[bar_name].centroid_x_local/20,0,dataSuburbsCentroid[bar_name].centroid_y_local/20) //calcolare centroide
+                bar_position = new THREE.Vector3(dataSuburbsCentroid[bar_name].centroid_x_local/coordinatesScaleFactor,0,dataSuburbsCentroid[bar_name].centroid_y_local/coordinatesScaleFactor) //calcolare centroide
             } catch (error) {
                 continue
             }
@@ -144,10 +144,10 @@ export async function bar_create_LOD0 (
             //estrusione
             geometryEngine.getExtrusion(barGeometry, {
                 profilePoints: [ //punti di base X,Z,Y (forse, oppure Y,Z,X)
-                    0, 0, 0,
-                    0, 0, bar_base_dim1,
-                    bar_base_dim2, 0, bar_base_dim1,
-                    bar_base_dim2, 0, 0,
+                    -bar_base_dim1, 0, -bar_base_dim1,
+                    -bar_base_dim1, 0, bar_base_dim1,
+                    bar_base_dim1, 0, bar_base_dim1,
+                    bar_base_dim1, 0, -bar_base_dim1,
                 ],
                 direction: [0, 1, 0], //vettore direzione
                 cap: true,
@@ -171,7 +171,7 @@ export async function bar_create_LOD0 (
                     },
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
-                    Suburb: { value: set[group_lod0] ? set[group_lod0] : bar_name },
+                    Suburb: { value: set[groupColumn.lod0] ? set[groupColumn.lod0] : bar_name },
                     BarHeight: { value: paramOne },
                     BarColor: { value: paramTwo },
                     [paramOne]: { value: Math.round(set.param_one*1000)/1000 },

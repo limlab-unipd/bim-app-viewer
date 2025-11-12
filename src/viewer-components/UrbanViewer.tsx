@@ -14,6 +14,7 @@ import { bar_create_LOD2 } from '../custom-components/bar_create_LOD2'
 import { addOverlay } from '../custom-components/addOverlay'
 import { createTable } from '../custom-components/createTable'
 import { bar_create_LOD1 } from '../custom-components/bar_create_LOD1'
+import { suburbsBoundaries } from '../custom-components/suburbsBoundaries'
 
 
 export function UrbanViewer () {
@@ -59,12 +60,12 @@ export function UrbanViewer () {
         //world.renderer = new OBC.SimpleRenderer(components, container)
         //CAMERA
         world.camera = new OBC.OrthoPerspectiveCamera(components)
-        const defaultPosition_CameraXYZ = 300
-        const defaultPosition_TargetXYZ = 0
-        await world.camera.controls.setLookAt(defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ) // convenient position for the model we will load
-        world.camera.threeOrtho.far = 20000 // distanza massima del clipping plane per vedere gli oggetti: per la camera ortografica
-        world.camera.threePersp.far = 20000 // distanza massima del clipping plane per vedere gli oggetti: per la camera prospettica (quella usata di default)
-        world.camera.controls.minDistance = 250 //serve per poter continuare a zoommare velocemente anche da distante, tuttavia modifica anche lo zoom quando si seleziona un elemento ma va bene lo stesso
+        const def_camera = {x:-10000, y:17500, z:-24800}
+        const def_target = {x:-5200, y:0, z:-9300}
+        await world.camera.controls.setLookAt(def_camera.x,def_camera.y,def_camera.z,def_target.x,def_target.y,def_target.z) // convenient position for the model we will load: (cameraX,Y,Z,targetX,Y,Z)
+        world.camera.threeOrtho.far = 1000000 // distanza massima del clipping plane per vedere gli oggetti: per la camera ortografica
+        world.camera.threePersp.far = 1000000 // distanza massima del clipping plane per vedere gli oggetti: per la camera prospettica (quella usata di default)
+        world.camera.controls.minDistance = 2500 //serve per poter continuare a zoommare velocemente anche da distante, tuttavia modifica anche lo zoom quando si seleziona un elemento ma va bene lo stesso
         // #endregion
 
         // #region COPONENTS GENERAL SETUP
@@ -1115,7 +1116,7 @@ export function UrbanViewer () {
                         tooltip-title="Center View"
                         icon="material-symbols:center-focus-weak"
                         @click=${async ()=>{
-                            await world.camera.controls.setLookAt(defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_CameraXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ,defaultPosition_TargetXYZ)
+                            await world.camera.controls.setLookAt(def_camera.x,def_camera.y,def_camera.z,def_target.x,def_target.y,def_target.z)
                             //world.camera.fitToItems()
                         }}
                     ></bim-button>
@@ -1128,6 +1129,7 @@ export function UrbanViewer () {
                                 label="Canberra (AU)"
                                 @click=${async () => {
                                         arrowData = await readArrow()
+                                        await suburbsBoundaries(world,components)
                                         //loadFragmentFile("/FRAG/Sample_priceAnalysis.frag")
                                     }}>
                             </bim-button>
@@ -1180,7 +1182,12 @@ export function UrbanViewer () {
                         id="down"
                         icon="mynaui:panel-bottom-open"
                         tooltip-title="Open/Close bottom panel"
-                        @click=${onSetLayout}>
+                        @click=${ () => {
+                                onSetLayout
+                                console.log(world.camera.controls.getPosition(new THREE.Vector3))
+                                console.log(world.camera.controls.getTarget(new THREE.Vector3))
+                            }
+                        }>
                     </bim-button>
                     <bim-button
                         id="right"

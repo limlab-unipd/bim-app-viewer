@@ -7,7 +7,7 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
-import { group_lod0, group_lod1 } from './parametersForGrouping'
+import { barsBase, coordinatesScaleFactor, groupColumn, normalizationHeight } from './parametersForGrouping'
 
 /**
  * Create bar according to values.
@@ -80,8 +80,8 @@ export async function bar_create_LOD1 (
     await fragments.core.update(true);
 
     //filter arrow data
-    const col = arrowData.getChild(group_lod0);
-    if (!col) throw new Error(`${group_lod0} column not found`);
+    const col = arrowData.getChild(groupColumn.lod0);
+    if (!col) throw new Error(`${groupColumn.lod0} column not found`);
     for (let i = 0; i < arrowData.numRows; i++) {
         if (col.get(i) === name) {
             const row = arrowData.get(i)
@@ -89,7 +89,7 @@ export async function bar_create_LOD1 (
         }
     }
     for (const [identfr,row] of Object.entries(dataBySuburb)) {
-        const section = Number(row![group_lod1]).toString()
+        const section = Number(row![groupColumn.lod1]).toString()
         //dataBySection[section] ? dataBySection[section].push(row) : dataBySection[section] = [row]
         dataBySection[section] ? '' : dataBySection[section] = {}
         dataBySection[section].suburb = name
@@ -146,12 +146,12 @@ export async function bar_create_LOD1 (
         const tempObject = new THREE.Object3D();
         //creation of each bar
         for (const [key,set] of Object.entries(dataForBars)) {
-            const bar_base_dim2 = 5
-            const bar_base_dim1 = 5
-            const bar_height = normalizationCheckbox ? set.param_one_normalized*200 : Number(set.param_one)/1000
+            const bar_base_dim2 = barsBase.lod1
+            const bar_base_dim1 = barsBase.lod1
+            const bar_height = normalizationCheckbox ? set.param_one_normalized*normalizationHeight.lod1 : Number(set.param_one)/normalizationHeight.notNormalized
             const centr_x = (Math.max(...set.centroid_x_local)+Math.min(...set.centroid_x_local))/2
             const centr_y = (Math.max(...set.centroid_y_local)+Math.min(...set.centroid_y_local))/2
-            const bar_position = new THREE.Vector3(centr_x/20,0,centr_y/20)
+            const bar_position = new THREE.Vector3(centr_x/coordinatesScaleFactor,0,centr_y/coordinatesScaleFactor)
             const bar_name = Number(set.section).toString()
 
             blocks.push(
@@ -168,10 +168,10 @@ export async function bar_create_LOD1 (
             //estrusione
             geometryEngine.getExtrusion(barGeometry, {
                 profilePoints: [ //punti di base X,Z,Y (forse, oppure Y,Z,X)
-                    0, 0, 0,
-                    0, 0, bar_base_dim1,
-                    bar_base_dim2, 0, bar_base_dim1,
-                    bar_base_dim2, 0, 0,
+                    -bar_base_dim1, 0, -bar_base_dim1,
+                    -bar_base_dim1, 0, bar_base_dim1,
+                    bar_base_dim1, 0, bar_base_dim1,
+                    bar_base_dim1, 0, -bar_base_dim1,
                 ],
                 direction: [0, 1, 0], //vettore direzione
                 cap: true,

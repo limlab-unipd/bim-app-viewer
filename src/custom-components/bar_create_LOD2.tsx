@@ -7,7 +7,7 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
-import { group_lod1 } from './parametersForGrouping'
+import { barsBase, coordinatesScaleFactor, groupColumn, normalizationHeight } from './parametersForGrouping'
 
 /**
  * Create bar according to values.
@@ -74,8 +74,8 @@ export async function bar_create_LOD2 (
     await fragments.core.update(true);
 
     //filter arrow data
-    const col = arrowData.getChild(group_lod1);
-    if (!col) throw new Error(`${group_lod1} column not found`);
+    const col = arrowData.getChild(groupColumn.lod1);
+    if (!col) throw new Error(`${groupColumn.lod1} column not found`);
     for (let i = 0; i < arrowData.numRows; i++) {
         if (Number(col.get(i)).toString() === name) {
             const row = arrowData.get(i)
@@ -128,10 +128,10 @@ export async function bar_create_LOD2 (
         let x=0
         let y = 0
         for (const [key,set] of Object.entries(dataForBars)) {
-            const bar_base_dim2 = 1
-            const bar_base_dim1 = 1
-            const bar_height = normalizationCheckbox ? set.param_one_normalized*100 : Number(set[paramOne])/1000
-            const bar_position = new THREE.Vector3(parseFloat(set.centroid_x_local)/20,0,parseFloat(set.centroid_y_local)/20)
+            const bar_base_dim2 = barsBase.lod2
+            const bar_base_dim1 = barsBase.lod2
+            const bar_height = normalizationCheckbox ? set.param_one_normalized*normalizationHeight.lod2 : Number(set[paramOne])/normalizationHeight.notNormalized
+            const bar_position = new THREE.Vector3(parseFloat(set.centroid_x_local)/coordinatesScaleFactor,0,parseFloat(set.centroid_y_local)/coordinatesScaleFactor)
             const bar_name = Number(set.identfr).toString()
             
             buildings.push(
@@ -148,10 +148,10 @@ export async function bar_create_LOD2 (
             //estrusione
             geometryEngine.getExtrusion(barGeometry, {
                 profilePoints: [ //punti di base X,Z,Y (forse, oppure Y,Z,X)
-                    0, 0, 0,
-                    0, 0, bar_base_dim1,
-                    bar_base_dim2, 0, bar_base_dim1,
-                    bar_base_dim2, 0, 0,
+                    -bar_base_dim1, 0, -bar_base_dim1,
+                    -bar_base_dim1, 0, bar_base_dim1,
+                    bar_base_dim1, 0, bar_base_dim1,
+                    bar_base_dim1, 0, -bar_base_dim1,
                 ],
                 direction: [0, 1, 0], //vettore direzione
                 cap: true,
