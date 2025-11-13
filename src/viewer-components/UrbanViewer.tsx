@@ -511,7 +511,7 @@ export function UrbanViewer () {
         const panelDown = BUI.Component.create<BUI.Panel>(() => {
             return BUI.html`
             <bim-panel
-                id = "panel-down"
+            id = "panel-down"
                 label="Down Panel"
                 style="background-color:rgba(0,0,0,0.85); display:flex">
             </bim-panel>
@@ -522,7 +522,35 @@ export function UrbanViewer () {
                 <bim-panel
                     label="World Visibility Settings"
                     style="background-color:rgba(0, 0, 0, 0.45);">
-                    <bim-panel-section label='Preset Styles'>
+                    <bim-panel-section label='Camera Settings'>
+                        <bim-label style="display:flex; white-space:normal">Change the zoom speed and the default position of the camera according to UVL</bim-label>
+                        <bim-dropdown label='UVL'
+                            @change="${(e:Event) => {
+                                if (!e.target) return
+                                const target=e.target as BUI.Dropdown
+                                let uvlFactor = 1
+                                switch (target.value[0]) {
+                                    case 0: uvlFactor=1
+                                        break;
+                                    case 1: uvlFactor=2.5
+                                        break;
+                                    case 2: uvlFactor=25
+                                        break;
+                                    case 3: uvlFactor=1000
+                                        break;
+                                }
+                                world.camera.controls.minDistance = 2500/uvlFactor
+                                centerViewButton.addEventListener('click', async (e) => {
+                                    await world.camera.controls.setLookAt(def_camera.x/uvlFactor,def_camera.y/uvlFactor,def_camera.z/uvlFactor,def_target.x/uvlFactor,def_target.y/uvlFactor,def_target.z/uvlFactor)
+                                })
+                            }}">
+                            <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-0' value='0'></bim-option>
+                            <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-1' value='1'></bim-option>
+                            <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-2' value='2'></bim-option>
+                            <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-3' value='3'></bim-option>
+                        </bim-dropdown>
+                    </bim-panel-section>
+                    <bim-panel-section label='Ambient Preset Styles'>
                         <bim-button label='Basic'
                             @click="${async () => {
                                 const transparencyOpacity = document.getElementById('transparency-opacity') as BUI.NumberInput
@@ -832,6 +860,18 @@ export function UrbanViewer () {
             </bim-panel-section>`;
         })
 
+        const centerViewButton = BUI.Component.create<BUI.Button>(() => {
+            return BUI.html`
+                <bim-button
+                    tooltip-title="Center View"
+                    icon="material-symbols:center-focus-weak"
+                    @click=${async ()=>{
+                        await world.camera.controls.setLookAt(def_camera.x,def_camera.y,def_camera.z,def_target.x,def_target.y,def_target.z)
+                        //world.camera.fitToItems()
+                    }}
+                ></bim-button>`
+        })
+
         // #region DROPDOWN MENUS
         //color scale dropdown
         const colorScaleDropdown = BUI.Component.create<BUI.Dropdown>(
@@ -843,118 +883,6 @@ export function UrbanViewer () {
                 <bim-option label='Blues' value='blues' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(239, 243, 255, 1), rgba(189, 215, 231, 1), rgba(107, 174, 214, 1), rgba(33, 113, 181, 1), rgba(8, 69, 148, 1))"></bim-option>
                 <bim-option label='Viridis' value='viridis' style="padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(68, 1, 84, 1),rgba(59, 82, 139, 1),rgba(33, 144, 141, 1),rgba(94, 201, 98, 1),rgba(253, 231, 37, 1))"></bim-option>
                 <bim-option label='Cividis' value='cividis' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(0, 32, 76, 1), rgba(55, 64, 129, 1), rgba(94, 109, 171, 1), rgba(145, 158, 203, 1), rgba(253, 231, 37, 1))"></bim-option>
-            </bim-dropdown>`
-        )
-        const suburbsDropdown = BUI.Component.create<BUI.Dropdown>(
-            () => BUI.html`
-            <bim-dropdown name="suburbs" label='Suburb'>
-                <bim-option label="Acton" value="ACTON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Ainslie" value="AINSLIE" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Amaroo" value="AMAROO" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Aranda" value="ARANDA" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Banks" value="BANKS" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Barton" value="BARTON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Belconnen" value="BELCONNEN" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Bonner" value="BONNER" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Bonython" value="BONYTHON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Braddon" value="BRADDON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Bruce" value="BRUCE" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Calwell" value="CALWELL" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Campbell" value="CAMPBELL" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Capital hill" value="CAPITAL HILL" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Casey" value="CASEY" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Chapman" value="CHAPMAN" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Charnwood" value="CHARNWOOD" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Chifley" value="CHIFLEY" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Chisholm" value="CHISHOLM" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="City" value="CITY" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Conder" value="CONDER" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Cook" value="COOK" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Coombs" value="COOMBS" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Crace" value="CRACE" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Curtin" value="CURTIN" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Deakin" value="DEAKIN" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Denman prospect" value="DENMAN PROSPECT" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Dickson" value="DICKSON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Downer" value="DOWNER" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Duffy" value="DUFFY" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Dunlop" value="DUNLOP" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Evatt" value="EVATT" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Fadden" value="FADDEN" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Farrer" value="FARRER" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Fisher" value="FISHER" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Florey" value="FLOREY" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Flynn" value="FLYNN" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Forde" value="FORDE" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Forrest" value="FORREST" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Franklin" value="FRANKLIN" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Fraser" value="FRASER" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Fyshwick" value="FYSHWICK" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Garran" value="GARRAN" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Gilmore" value="GILMORE" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Giralang" value="GIRALANG" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Gordon" value="GORDON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Gowrie" value="GOWRIE" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Greenway" value="GREENWAY" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Griffith" value="GRIFFITH" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Gungahlin" value="GUNGAHLIN" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Hackett" value="HACKETT" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Hall" value="HALL" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Harrison" value="HARRISON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Hawker" value="HAWKER" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Higgins" value="HIGGINS" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Holder" value="HOLDER" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Holt" value="HOLT" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Hughes" value="HUGHES" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Hume" value="HUME" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Isaacs" value="ISAACS" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Isabella plains" value="ISABELLA PLAINS" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Jacka" value="JACKA" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Kaleen" value="KALEEN" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Kambah" value="KAMBAH" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Kingston" value="KINGSTON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Latham" value="LATHAM" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Lawson" value="LAWSON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Lyneham" value="LYNEHAM" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Lyons" value="LYONS" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Macarthur" value="MACARTHUR" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Macgregor" value="MACGREGOR" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Macquarie" value="MACQUARIE" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Mawson" value="MAWSON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Mckellar" value="MCKELLAR" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Melba" value="MELBA" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Mitchell" value="MITCHELL" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Monash" value="MONASH" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Moncrieff" value="MONCRIEFF" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Narrabundah" value="NARRABUNDAH" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Ngunnawal" value="NGUNNAWAL" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Nicholls" value="NICHOLLS" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="O'connor" value="O'CONNOR" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="O'malley" value="O'MALLEY" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Oxley" value="OXLEY" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Page" value="PAGE" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Palmerston" value="PALMERSTON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Parkes" value="PARKES" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Pearce" value="PEARCE" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Phillip" value="PHILLIP" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Red hill" value="RED HILL" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Reid" value="REID" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Richardson" value="RICHARDSON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Rivett" value="RIVETT" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Russell" value="RUSSELL" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Scullin" value="SCULLIN" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Spence" value="SPENCE" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Stirling" value="STIRLING" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Theodore" value="THEODORE" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Torrens" value="TORRENS" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Turner" value="TURNER" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Wanniassa" value="WANNIASSA" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Waramanga" value="WARAMANGA" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Watson" value="WATSON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Weetangera" value="WEETANGERA" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Weston" value="WESTON" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Wright" value="WRIGHT" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label="Yarralumla" value="YARRALUMLA" style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
         )
         const paramOneDropdown = BUI.Component.create<BUI.Dropdown>(
@@ -1127,14 +1055,7 @@ export function UrbanViewer () {
                         tooltip-title="Scene Visibility Settings"
                         @click=${onSetLayout}>
                     </bim-button>
-                    <bim-button
-                        tooltip-title="Center View"
-                        icon="material-symbols:center-focus-weak"
-                        @click=${async ()=>{
-                            await world.camera.controls.setLookAt(def_camera.x,def_camera.y,def_camera.z,def_target.x,def_target.y,def_target.z)
-                            //world.camera.fitToItems()
-                        }}
-                    ></bim-button>
+                    ${centerViewButton}
                     <bim-button
                         tooltip-title="Hide Markers"
                         icon="mdi:map-marker-remove-outline"
@@ -1430,7 +1351,7 @@ export function UrbanViewer () {
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer(true) //set the viewer, devMode default = false
+        setViewer() //set the viewer, devMode default = false
         return () => {
             if (components) {
                 components.dispose()
