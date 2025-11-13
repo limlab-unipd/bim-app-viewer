@@ -27,6 +27,7 @@ export function UrbanViewer () {
         'ALL CLASSES',
         'IFCBUILTSYSTEM')
     importedCategories.sort()
+    const marker = components.get(OBCF.Marker)
     // #endregion
     
     const setViewer = async (devMode:boolean=false) => {
@@ -305,9 +306,16 @@ export function UrbanViewer () {
         const onFragmentsPrint = async () => { //test function on fragments
             //it doesn't work with non geometric elements (IfcCostItem)
             const selection = highlighter.selection.select //modelIdMap -> association to exp id
-            console.log("ModelIdMap: ", selection)
-            const itemdata = await fragments.getData(selection) //frags.itemdata -> attributes, guid and expid (localId)
-            console.log("ItemData: ", itemdata)
+            console.log('Selection:',selection)
+            for (const [model,items] of Object.entries(selection)){
+                const entryModelIdMap : OBC.ModelIdMap = {[model]:items}
+                console.log('Entry:', entryModelIdMap)
+                console.log("ModelIdMap: ", entryModelIdMap)
+                const itemdata = await fragments.getData(entryModelIdMap) //frags.itemdata -> attributes, guid and expid (localId)
+                console.log("ItemData: ", itemdata)
+                const bboxes = await fragments.getBBoxes(entryModelIdMap)
+                console.log("Bboxes:", bboxes)
+            }
         }
 
         //generic functions
@@ -735,10 +743,16 @@ export function UrbanViewer () {
             propertiesTable.preserveStructureOnFilter = true;
             propertiesTable.indentationInText = false;
             highlighter.events.select.onHighlight.add((modelIdMap) => {
+                const newModelIdMap: OBC.ModelIdMap = {}
+                for (const [model,entry] of Object.entries(modelIdMap)){
+                    if (model.includes('LOD') && !model.includes('DELTA')) continue
+                    newModelIdMap[model]=entry
+                }
+                console.log(newModelIdMap)
                 const count = Object.values(modelIdMap).reduce((sum, currentSet) => sum + currentSet.size, 0)
                 updateSelectedItemsCount({ count })
                 if (count < 6){
-                    updatePropertiesTable({ modelIdMap })
+                    updatePropertiesTable({ modelIdMap: newModelIdMap })
                 } else {
                     updatePropertiesTable({ modelIdMap: {} })
                 }
@@ -1119,6 +1133,20 @@ export function UrbanViewer () {
                         @click=${async ()=>{
                             await world.camera.controls.setLookAt(def_camera.x,def_camera.y,def_camera.z,def_target.x,def_target.y,def_target.z)
                             //world.camera.fitToItems()
+                        }}
+                    ></bim-button>
+                    <bim-button
+                        tooltip-title="Hide Markers"
+                        icon="mdi:map-marker-remove-outline"
+                        @click=${(e:Event)=>{
+                            marker.list.forEach((entry)=>{
+                                entry.forEach((marker) => {
+                                    marker.label.visible = marker.label.visible ? false : true
+                                })
+                            })
+                            const target = e.target as BUI.Button
+                            target.icon = target.icon=="mdi:map-marker-remove-outline" ? "mdi:map-marker-outline" : "mdi:map-marker-remove-outline"
+                            target.tooltipTitle = target.tooltipTitle=='Hide Markers' ? 'Show Markers' : 'Hide Markers'
                         }}
                     ></bim-button>
                     <bim-button

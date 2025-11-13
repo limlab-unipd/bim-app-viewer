@@ -11,10 +11,10 @@
   },
   "dependencies": {
     "@thatopen/components": "^3.2.5",
-    "@thatopen/components-front": "^3.2.4",
+    "@thatopen/components-front": "^3.2.0",
     "@thatopen/fragments": "^3.2.6",
     "@thatopen/ui": "^3.2.0",
-    "@thatopen/ui-obc": "^3.2.2",
+    "@thatopen/ui-obc": "^3.2.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.7.0",
