@@ -8,12 +8,10 @@ export async function readArrow(file:string='buildings') {
     const startTime = performance.now() // Start timer
     let resp
     
-    if (file=='suburbs'){
-        resp = await fetch('/ARROW/data_ACT suburbs_local_coordinates_sliced.arrow')
-    } else if (file=='suburbs-boundaries') {
-        resp = await fetch('/ARROW/data_ACT suburbs_global_coordinates_sliced.arrow')
+    if (file=='suburbs' || file=='boundaries'){
+        resp = await fetch('/ARROW/ACT_boundaries.arrow')
     } else {
-        resp = await fetch('/ARROW/data_local_coordinates_sliced.arrow')
+        resp = await fetch('/ARROW/ACT_materials.arrow')
     }
 
     if (!resp.ok) throw new Error(`Errore fetch: ${resp.status}`)
@@ -26,7 +24,7 @@ export async function readArrow(file:string='buildings') {
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
     console.log(`Arrow ${file} loaded in ${loadTime} seconds`)
 
-    addOverlay(BUI.html`Data correctly loaded!`)
+    addOverlay(BUI.html`Data correctly loaded in ${loadTime}s!`)
     
     return table
 }

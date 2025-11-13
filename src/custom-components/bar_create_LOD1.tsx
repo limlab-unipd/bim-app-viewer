@@ -7,7 +7,7 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
-import { barsBase, coordinatesScaleFactor, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 
 /**
  * Create bar according to values.
@@ -98,8 +98,8 @@ export async function bar_create_LOD1 (
         const rowTwo = Number(row[paramTwo])
         dataBySection[section].param_one ? dataBySection[section].param_one+=rowOne : dataBySection[section].param_one = rowOne
         dataBySection[section].param_two ? dataBySection[section].param_two+=rowTwo : dataBySection[section].param_two = rowTwo
-        dataBySection[section].centroid_x_local ? dataBySection[section].centroid_x_local.push(row.centroid_x_local) : dataBySection[section].centroid_x_local = [row.centroid_x_local]
-        dataBySection[section].centroid_y_local ? dataBySection[section].centroid_y_local.push(row.centroid_y_local) : dataBySection[section].centroid_y_local = [row.centroid_y_local]
+        dataBySection[section].centroid_x_local ? dataBySection[section].centroid_x_local.push(row.centroid_x - globalCentroid.x) : dataBySection[section].centroid_x_local = [row.centroid_x - globalCentroid.x]
+        dataBySection[section].centroid_y_local ? dataBySection[section].centroid_y_local.push(row.centroid_y - globalCentroid.y) : dataBySection[section].centroid_y_local = [row.centroid_y - globalCentroid.y]
     }
     //add the column with the normalization always, then it is choosed below the normalized or the not normalized one
     function normalizeParamOne(data: Record<string, any>): Record<string, any> {

@@ -7,7 +7,7 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
-import { barsBase, coordinatesScaleFactor, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 
 /**
  * Create bar according to values.
@@ -130,8 +130,10 @@ export async function bar_create_LOD2 (
         for (const [key,set] of Object.entries(dataForBars)) {
             const bar_base_dim2 = barsBase.lod2
             const bar_base_dim1 = barsBase.lod2
+            const centr_x = (parseFloat(set.centroid_x) - globalCentroid.x)/coordinatesScaleFactor
+            const centr_y = (parseFloat(set.centroid_y) - globalCentroid.y)/coordinatesScaleFactor
             const bar_height = normalizationCheckbox ? set.param_one_normalized*normalizationHeight.lod2 : Number(set[paramOne])/normalizationHeight.notNormalized
-            const bar_position = new THREE.Vector3(parseFloat(set.centroid_x_local)/coordinatesScaleFactor,0,parseFloat(set.centroid_y_local)/coordinatesScaleFactor)
+            const bar_position = new THREE.Vector3(centr_x,0,centr_y)
             const bar_name = Number(set.identfr).toString()
             
             buildings.push(

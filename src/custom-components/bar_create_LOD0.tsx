@@ -8,7 +8,7 @@ import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { readArrow } from './readArrow'
-import { barsBase, coordinatesScaleFactor, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 
 /**
  * Create bar according to values.
@@ -94,13 +94,13 @@ export async function bar_create_LOD0 (
     //console.log(dataForBars!)
     
     const arrowData_suburbsCentroids = await readArrow('suburbs')
-    const suburbsCentroids_colSuburbs = arrowData_suburbsCentroids.getChild(groupColumn.lod0)
-    const suburbsCentroids_centroid_x_local = arrowData_suburbsCentroids.getChild("centroid_x_local")
-    const suburbsCentroids_centroid_y_local = arrowData_suburbsCentroids.getChild("centroid_y_local")
+    const suburbsCentroids_colSuburbs = arrowData_suburbsCentroids.getChild(groupColumn.lod0_boundaries)
+    const suburbsCentroids_centroid_x = arrowData_suburbsCentroids.getChild("centroid_x")
+    const suburbsCentroids_centroid_y = arrowData_suburbsCentroids.getChild("centroid_y")
     for (let i = 0; i < arrowData_suburbsCentroids.numRows; i++) {
         const suburb = suburbsCentroids_colSuburbs!.get(i)
-        const centroid_x_local = suburbsCentroids_centroid_x_local?.get(i)
-        const centroid_y_local = suburbsCentroids_centroid_y_local?.get(i)
+        const centroid_x_local = (suburbsCentroids_centroid_x?.get(i) - globalCentroid.x) / coordinatesScaleFactor
+        const centroid_y_local = (suburbsCentroids_centroid_y?.get(i) - globalCentroid.y) / coordinatesScaleFactor
         dataSuburbsCentroid[suburb] = { centroid_x_local:centroid_x_local, centroid_y_local:centroid_y_local }
     }
     
@@ -136,7 +136,7 @@ export async function bar_create_LOD0 (
             const bar_name = set.suburb
             let bar_position
             try {
-                bar_position = new THREE.Vector3(dataSuburbsCentroid[bar_name].centroid_x_local/coordinatesScaleFactor,0,dataSuburbsCentroid[bar_name].centroid_y_local/coordinatesScaleFactor) //calcolare centroide
+                bar_position = new THREE.Vector3(dataSuburbsCentroid[bar_name].centroid_x_local,0,dataSuburbsCentroid[bar_name].centroid_y_local)
             } catch (error) {
                 continue
             }

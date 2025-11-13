@@ -76,6 +76,7 @@ export function UrbanViewer () {
         const grid = grids.create(world)
         grid.config.distance = 1000
         grid.config.color.set('rgba(28, 28, 28, 1)')
+        grid.visible = false
         
         world.renderer.postproduction.enabled = true
         world.dynamicAnchor = false
@@ -601,7 +602,7 @@ export function UrbanViewer () {
                     </bim-panel-section>
                     <bim-panel-section label='Grid'>
                         <bim-checkbox
-                            id="grid-visible" checked label="Visible"
+                            id="grid-visible" label="Visible"
                             @change="${({ target }: { target: BUI.Checkbox }) => {
                                 grid.visible = target.value
                             }}">
@@ -1120,6 +1121,15 @@ export function UrbanViewer () {
                             //world.camera.fitToItems()
                         }}
                     ></bim-button>
+                    <bim-button
+                        style="display:${devElementsVisibility}"
+                        tooltip-title="Print on console position and target of the camera"
+                        icon="streamline-flex:camera-tripod-remix"
+                        @click=${()=>{
+                            console.log('Camera position:', world.camera.controls.getPosition(new THREE.Vector3))
+                            console.log('Camera target', world.camera.controls.getTarget(new THREE.Vector3))
+                        }}
+                    ></bim-button>
                 </bim-toolbar-section>
                 <bim-toolbar-section label="Samples">
                     <bim-dropdown verical placeholder="Load...">
@@ -1129,7 +1139,7 @@ export function UrbanViewer () {
                                 label="Canberra (AU)"
                                 @click=${async () => {
                                         arrowData = await readArrow()
-                                        await suburbsBoundaries(world,components)
+                                        await suburbsBoundaries(world,components,arrowData)
                                         //loadFragmentFile("/FRAG/Sample_priceAnalysis.frag")
                                     }}>
                             </bim-button>
@@ -1182,12 +1192,7 @@ export function UrbanViewer () {
                         id="down"
                         icon="mynaui:panel-bottom-open"
                         tooltip-title="Open/Close bottom panel"
-                        @click=${ () => {
-                                onSetLayout
-                                console.log(world.camera.controls.getPosition(new THREE.Vector3))
-                                console.log(world.camera.controls.getTarget(new THREE.Vector3))
-                            }
-                        }>
+                        @click=${onSetLayout}>
                     </bim-button>
                     <bim-button
                         id="right"
@@ -1243,16 +1248,19 @@ export function UrbanViewer () {
                 <bim-toolbar-section id="test-section" label="TEST" style="display:${devElementsVisibility}">
                     <bim-button
                         label="Sample"
-                        tooltip-title="Load sample IFC models. Only for developers."
+                        tooltip-title="Load sample IFC models."
                         @click=${() => {
                             loadIfcFile("/assets/Sample_with costs.ifc")
                             loadIfcFile("/assets/SFH_with costs.ifc")
                             }}>
                     </bim-button>
                     <bim-button
-                        label='Test'
+                        label='Volume'
                         tooltip-title="Print volume of selected item"
-                        @click=${getVolume}
+                        @click=${() => {
+                                //getVolume
+                                console.log(highlighter.selection.select)
+                            }}
                     ></bim-button>
                 </bim-toolbar-section>
             </bim-toolbar>
@@ -1390,25 +1398,11 @@ export function UrbanViewer () {
         if (!viewerContainer) return
         viewerContainer.appendChild(floatingGrid) //append grid to the viewer container
         // #endregion
-        
-        //stats board
-        const stats = new Stats()
-        stats.showPanel(2)
-        document.body.append(stats.dom)
-        stats.dom.style.position = "fixed"
-        stats.dom.style.left = "0px"
-        stats.dom.style.bottom = "0px"
-        stats.dom.style.top = "unset"
-        stats.dom.style.right = "unset"
-        stats.dom.style.zIndex = "999" // z-index visibile sopra altri elementi, se necessario
-        stats.dom.style.display = devElementsVisibility
-        world.renderer.onBeforeUpdate.add(() => stats.begin())
-        world.renderer.onAfterUpdate.add(() => stats.end())
     }
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer() //set the viewer, devMode default = false
+        setViewer(true) //set the viewer, devMode default = false
         return () => {
             if (components) {
                 components.dispose()
