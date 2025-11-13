@@ -67,6 +67,9 @@ export function UrbanViewer () {
         world.camera.threeOrtho.far = 1000000 // distanza massima del clipping plane per vedere gli oggetti: per la camera ortografica
         world.camera.threePersp.far = 1000000 // distanza massima del clipping plane per vedere gli oggetti: per la camera prospettica (quella usata di default)
         world.camera.controls.minDistance = 2500 //serve per poter continuare a zoommare velocemente anche da distante, tuttavia modifica anche lo zoom quando si seleziona un elemento ma va bene lo stesso
+        //world.camera.controls.minDistance = 20000 //serve per poter continuare a zoommare velocemente anche da distante, tuttavia modifica anche lo zoom quando si seleziona un elemento ma va bene lo stesso
+        world.camera.controls.truckSpeed = 15
+        world.camera.controls.dollySpeed = 2
         // #endregion
 
         // #region COPONENTS GENERAL SETUP
@@ -523,20 +526,28 @@ export function UrbanViewer () {
                     label="World Visibility Settings"
                     style="background-color:rgba(0, 0, 0, 0.45);">
                     <bim-panel-section label='Camera Settings'>
-                        <bim-label style="display:flex; white-space:normal">Change the zoom speed and the default position of the camera according to UVL</bim-label>
+                        <bim-label style="display:flex; white-space:normal">Change the zoom speed, the pan speed and the default position of the camera according to UVL</bim-label>
                         <bim-dropdown label='UVL'
                             @change="${(e:Event) => {
                                 if (!e.target) return
                                 const target=e.target as BUI.Dropdown
                                 let uvlFactor = 1
                                 switch (target.value[0]) {
-                                    case 0: uvlFactor=1
+                                    case 0: 
+                                        uvlFactor=1
+                                        world.camera.controls.truckSpeed = 15
                                         break;
-                                    case 1: uvlFactor=2.5
+                                    case 1: 
+                                        world.camera.controls.truckSpeed = 10
+                                        uvlFactor=2.5
                                         break;
-                                    case 2: uvlFactor=25
+                                    case 2: 
+                                        world.camera.controls.truckSpeed = 5
+                                        uvlFactor=25
                                         break;
-                                    case 3: uvlFactor=1000
+                                    case 3: 
+                                        world.camera.controls.truckSpeed = 2
+                                        uvlFactor=1000
                                         break;
                                 }
                                 world.camera.controls.minDistance = 2500/uvlFactor
@@ -1351,7 +1362,7 @@ export function UrbanViewer () {
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer() //set the viewer, devMode default = false
+        setViewer(true) //set the viewer, devMode default = false
         return () => {
             if (components) {
                 components.dispose()
