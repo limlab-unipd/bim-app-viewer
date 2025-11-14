@@ -35,11 +35,11 @@ export async function colorBar (
 
     const fragments = components.get(OBC.FragmentsManager)
 
-    // sceglie solo il modello con -DELTA nel nome, che è quello con le geometrie
     let model: FRAGS.FragmentsModel
     let modelName: string
     for (const [mName,m] of fragments.list.entries()){
-        if (mName.includes(name.concat('-DELTA'))) {
+        if (mName.includes(name.concat('-DELTA'))) continue //skippa il modello delta
+        if (mName.includes(name)) {
             model = m
             modelName = mName
         }

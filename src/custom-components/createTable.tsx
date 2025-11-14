@@ -84,7 +84,7 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
     urbanTable.hiddenColumns = ['model', 'localId']
 
     for (const [modelName,model] of fragments.list.entries()){
-        if (!modelName.includes('-DELTA')) continue
+        if (modelName.includes('DELTA')) continue
         const items = await model.getItems()
         for (const [id,data] of items.entries()){
             let color: string = ''

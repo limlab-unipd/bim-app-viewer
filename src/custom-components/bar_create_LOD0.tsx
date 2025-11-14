@@ -188,6 +188,8 @@ export async function bar_create_LOD0 (
             });
         }
         await fragments.core.editor.createElements(newModel.modelId, elementsData);
+        await fragments.core.editor.applyChanges(newModel.modelId)
+        await fragments.core.editor.save(newModel.modelId)
         await fragments.core.update(true);
         processing = false;
     };

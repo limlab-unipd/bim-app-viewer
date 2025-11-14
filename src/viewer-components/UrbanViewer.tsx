@@ -738,7 +738,7 @@ export function UrbanViewer () {
             `
         })
         const modelsListPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
-            const [modelsList] = BUIC.tables.modelsList({
+            const [modelsList,updateModelsList] = BUIC.tables.modelsList({
                 components,
                 metaDataTags: ["schema"],
                 actions: { download: false },
@@ -782,16 +782,10 @@ export function UrbanViewer () {
             propertiesTable.preserveStructureOnFilter = true;
             propertiesTable.indentationInText = false;
             highlighter.events.select.onHighlight.add((modelIdMap) => {
-                const newModelIdMap: OBC.ModelIdMap = {}
-                for (const [model,entry] of Object.entries(modelIdMap)){
-                    if (model.includes('LOD') && !model.includes('DELTA')) continue
-                    newModelIdMap[model]=entry
-                }
-                console.log(newModelIdMap)
                 const count = Object.values(modelIdMap).reduce((sum, currentSet) => sum + currentSet.size, 0)
                 updateSelectedItemsCount({ count })
                 if (count < 6){
-                    updatePropertiesTable({ modelIdMap: newModelIdMap })
+                    updatePropertiesTable({ modelIdMap })
                 } else {
                     updatePropertiesTable({ modelIdMap: {} })
                 }
@@ -1097,9 +1091,11 @@ export function UrbanViewer () {
                             <bim-button
                                 icon="fluent:data-histogram-24-filled"
                                 label="Canberra (AU)"
-                                @click=${async () => {
+                                @click=${async ({target}:{target:BUI.Button}) => {
+                                        target.loading = true
                                         arrowData = await readArrow()
                                         await suburbsBoundaries(world,components,arrowData)
+                                        target.loading = false
                                         //loadFragmentFile("/FRAG/Sample_priceAnalysis.frag")
                                     }}>
                             </bim-button>
