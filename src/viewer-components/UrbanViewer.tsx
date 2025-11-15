@@ -15,6 +15,7 @@ import { addOverlay } from '../custom-components/addOverlay'
 import { createTable } from '../custom-components/createTable'
 import { bar_create_LOD1 } from '../custom-components/bar_create_LOD1'
 import { suburbsBoundaries } from '../custom-components/suburbsBoundaries'
+import { LOD3_loadBIM } from '../custom-components/LOD3_loadBIM'
 
 
 export function UrbanViewer () {
@@ -258,18 +259,20 @@ export function UrbanViewer () {
         }
 
         // handle fragment files
-        const loadFragmentFile = async (path:string) => {
+        const loadFragmentFile = async (path:string): Promise<FRAGS.FragmentsModel> => {
             const startTime = performance.now() // Start timer
             const modelId = path.split("/").pop()?.split(".").shift()
+            let model: FRAGS.FragmentsModel
             if (modelId) {
-            const file = await fetch(path)
-            const buffer = await file.arrayBuffer()
-            await fragments.core.load(buffer, { modelId: modelId })
+                const file = await fetch(path)
+                const buffer = await file.arrayBuffer()
+                model = await fragments.core.load(buffer, { modelId: modelId })
             }
             const endTime = performance.now() // End timer
             const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
             console.log(`Fragments loaded in ${loadTime} seconds`)
             addOverlay(BUI.html`<b><i>${modelId}</i></b> model loaded in <b>${loadTime}</b> seconds.`)
+            return model!
         }
         const onFragmentsExport = async () => {
             for (const [, model] of fragments.list) {
@@ -419,6 +422,31 @@ export function UrbanViewer () {
                 }
             }
         }
+        const onSetCameraUVL = (uvl:number) => {
+            let uvlFactor = 1
+            switch (uvl) {
+                case 0: 
+                    uvlFactor=1
+                    world.camera.controls.truckSpeed = 15
+                    break;
+                case 1: 
+                    world.camera.controls.truckSpeed = 10
+                    uvlFactor=2.5
+                    break;
+                case 2: 
+                    world.camera.controls.truckSpeed = 5
+                    uvlFactor=25
+                    break;
+                case 3: 
+                    world.camera.controls.truckSpeed = 2
+                    uvlFactor=1000
+                    break;
+            }
+            world.camera.controls.minDistance = 2500/uvlFactor
+            centerViewButton.addEventListener('click', async (e) => {
+                await world.camera.controls.setLookAt(def_camera.x/uvlFactor,def_camera.y/uvlFactor,def_camera.z/uvlFactor,def_target.x/uvlFactor,def_target.y/uvlFactor,def_target.z/uvlFactor)
+            })
+        }
         const onExpandTable = (e: Event, table:BUI.Table<any>) => {
             const button = e.target as BUI.Button;
             table.expanded = !table.expanded;
@@ -530,30 +558,9 @@ export function UrbanViewer () {
                         <bim-dropdown label='UVL'
                             @change="${(e:Event) => {
                                 if (!e.target) return
-                                const target=e.target as BUI.Dropdown
-                                let uvlFactor = 1
-                                switch (target.value[0]) {
-                                    case 0: 
-                                        uvlFactor=1
-                                        world.camera.controls.truckSpeed = 15
-                                        break;
-                                    case 1: 
-                                        world.camera.controls.truckSpeed = 10
-                                        uvlFactor=2.5
-                                        break;
-                                    case 2: 
-                                        world.camera.controls.truckSpeed = 5
-                                        uvlFactor=25
-                                        break;
-                                    case 3: 
-                                        world.camera.controls.truckSpeed = 2
-                                        uvlFactor=1000
-                                        break;
-                                }
-                                world.camera.controls.minDistance = 2500/uvlFactor
-                                centerViewButton.addEventListener('click', async (e) => {
-                                    await world.camera.controls.setLookAt(def_camera.x/uvlFactor,def_camera.y/uvlFactor,def_camera.z/uvlFactor,def_target.x/uvlFactor,def_target.y/uvlFactor,def_target.z/uvlFactor)
-                                })
+                                const target = e.target as BUI.Dropdown
+                                const uvl = target.value[0]
+                                onSetCameraUVL(uvl)
                             }}">
                             <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-0' value='0'></bim-option>
                             <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-1' value='1'></bim-option>
@@ -968,9 +975,10 @@ export function UrbanViewer () {
                     <div style='display:flex; flex-direction:row; gap:0.5rem'>
                         <bim-label style="display:flex; white-space:normal">Load:</bim-label>
 
-                        <bim-button label='0' tooltip='Load UVL-0' @click=${async (e:Event)=>{
+                        <bim-button label='0' tooltip='Load UVL-0' @click=${async ({target}:{target:BUI.Button})=>{
+                            target.loading = true
                             const result_0 = await bar_create_LOD0(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0],panelRight);
-                            //(e.target! as BUI.Button).disabled = true
+                            target.loading = false
                             if (result_0) {
                                 await createTable(panelDown,fragments,components,paramOneDropdown.value[0],paramTwoDropdown.value[0])
                                 if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
@@ -984,20 +992,29 @@ export function UrbanViewer () {
                         }}></bim-button>
                         <bim-label>></bim-label>
 
-                        <bim-button label='1' tootltip='Load UVL-1 and hide UVL-0' @click=${async ()=>{
+                        <bim-button label='1' tootltip='Load UVL-1 and hide UVL-0' @click=${async ({target}:{target:BUI.Button})=>{
+                            // target.loading = true
                             const result_1 = await bar_create_LOD1(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0],previousLoadedSuburbs)
                             result_1 ? await onSetTransparencyWithColors(0) : ''
+                            onSetCameraUVL(1)
+                            // target.loading = false
                         }}></bim-button>
                         <bim-label>></bim-label>
 
-                        <bim-button label='2' tootltip='Load UVL-2' @click=${async ()=>{
+                        <bim-button label='2' tootltip='Load UVL-2' @click=${async ({target}:{target:BUI.Button})=>{
+                            // target.loading = true
                             const result_2 = await bar_create_LOD2(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0],previousLoadedSuburbs)
                             result_2 ? await onSetTransparencyWithColors(1) : ''
+                            onSetCameraUVL(2)
+                            // target.loading = false
                         }}></bim-button>
                         <bim-label>></bim-label>
                         
-                        <bim-button label='3' tootltip='Load UVL-2' @click=${async ()=>{
-                            loadFragmentFile("/FRAG/Sample_one-story-house.frag")
+                        <bim-button label='3' tootltip='Load UVL-3' @click=${async ({target}:{target:BUI.Button})=>{
+                            target.loading = true
+                            await LOD3_loadBIM(components,loadFragmentFile,world)
+                            onSetCameraUVL(3)
+                            target.loading = false
                         }}></bim-button>
                         <bim-label>></bim-label>
 
@@ -1207,7 +1224,7 @@ export function UrbanViewer () {
                         tooltip-title="Load sample IFC models."
                         @click=${() => {
                             loadIfcFile("/assets/Sample_with costs.ifc")
-                            loadIfcFile("/assets/SFH_with costs.ifc")
+                            //loadIfcFile("/assets/SFH_with costs.ifc")
                             }}>
                     </bim-button>
                     <bim-button

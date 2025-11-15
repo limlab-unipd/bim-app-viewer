@@ -61,7 +61,7 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
 
     //CREATE THE TABLE
     type tableType = {
-        model:string,
+        modelId:string,
         localId:number,
         Suburb: string,
         Param1: number,
@@ -81,10 +81,10 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
     urbanTable.data = []
     urbanTable.preserveStructureOnFilter = true
     urbanTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
-    urbanTable.hiddenColumns = ['model', 'localId']
+    urbanTable.hiddenColumns = ['modelId', 'localId']
 
     for (const [modelName,model] of fragments.list.entries()){
-        if (modelName.includes('DELTA')) continue
+        if (modelName.includes('DELTA')) continue //non considera il modello DELTA
         const items = await model.getItems()
         for (const [id,data] of items.entries()){
             let color: string = ''
@@ -107,7 +107,7 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
             }
             urbanTable.data.push({
                 data: {
-                    model: modelName,
+                    modelId: modelName,
                     localId: id,
                     Suburb: data.data.Suburb.value,
                     Param1: Math.round(data.data[paramOne].value*1000)/1000,
@@ -118,11 +118,11 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
         }
     }
     urbanTable.dataTransform.Suburb = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-        const { model, localId } = rowData
+        const { modelId, localId } = rowData
         return BUI.html`
             <bim-label 
                 @click=${() => {
-                    highlighter.highlightByID("select", {[model as string]: new Set<number>([localId as number])}, false, true)
+                    highlighter.highlightByID("select", {[modelId as string]: new Set<number>([localId as number])}, false, true)
                     }}
                 @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
                 @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}

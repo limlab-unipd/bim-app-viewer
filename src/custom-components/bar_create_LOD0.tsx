@@ -112,6 +112,7 @@ export async function bar_create_LOD0 (
     let processing = false;
     const regenerateFragments = async () => {
         const elementsData: FRAGS.NewElementData[] = [];
+        const propertySets: FRAGS.RawItemData[] = [];
         await fragments.core.editor.reset(newModel.modelId)
         // Create base items
         const matId = fragments.core.editor.createMaterial(
@@ -166,16 +167,9 @@ export async function bar_create_LOD0 (
             //proprietà dell'oggetto appena creato (qui andranno inserite le eventuali proprietà IFC)
             elementsData.push({
                 attributes: {
-                    _category: {
-                        value: "IfcBar",
-                    },
+                    _category: { value: "IfcBar" },
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
-                    Suburb: { value: set[groupColumn.lod0] ? set[groupColumn.lod0] : bar_name },
-                    BarHeight: { value: paramOne },
-                    BarColor: { value: paramTwo },
-                    [paramOne]: { value: Math.round(set.param_one*1000)/1000 },
-                    [paramTwo]: { value: Math.round(set.param_two*1000)/1000 },
                 },
                 globalTransform: tempObject.matrix.clone(),
                 samples: [
@@ -185,9 +179,37 @@ export async function bar_create_LOD0 (
                         material: matId,
                     },
                 ],
-            });
+            })
+            //aggiunge il pset alla lista
+            propertySets.push({
+                category: "IFCPROPERTYSET",
+                guid: generateUUID(),
+                data: {
+                    Name: { value: "EnvironmentalAnalysisData" },
+                    BarHeight: { value: paramOne },
+                    BarColor: { value: paramTwo },
+                    [paramOne]: { value: Math.round(set.param_one*1000)/1000 },
+                    [paramTwo]: { value: Math.round(set.param_two*1000)/1000 },
+                }
+            })
         }
-        await fragments.core.editor.createElements(newModel.modelId, elementsData);
+        const createdBars = await fragments.core.editor.createElements(newModel.modelId, elementsData) //crea la geometria delle barre
+
+        if (createdBars){
+            // creazione item per pset nel modello
+            const createdPsetsIds: number[] = []
+            for (const pset of propertySets){
+                createdPsetsIds.push(Number(fragments.core.editor.createItem(newModel.modelId,pset))) //crea gli item per i pset nel modello
+            }
+
+            // crea la relazione tra barra e pset, entrambi sono array ordinati con gli elementi nella stessa posizione
+            let i = 0
+            for (const bar of createdBars){
+                await fragments.core.editor.relate(newModel.modelId, bar.localId, 'IsDefinedBy', [createdPsetsIds[i]])
+                i++
+            }
+        }
+
         await fragments.core.editor.applyChanges(newModel.modelId)
         await fragments.core.editor.save(newModel.modelId)
         await fragments.core.update(true);
