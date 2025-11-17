@@ -216,19 +216,19 @@ export async function bar_create_LOD2 (
         row.data.modelId = modelName
         switch (true) {
             case (map_color_ids['color_0_02'] as string[])?.includes(localId[0]):
-                row.data.Color = highlighter.styles.get('color_0_02')?.color.getStyle()!
+                row.data.Color = highlighter.styles.get('LOD_2_color_0_02')?.color.getStyle()!
                 break;
             case (map_color_ids['color_02_04'] as string[])?.includes(localId[0]):
-                row.data.Color = highlighter.styles.get('color_02_04')?.color.getStyle()!
+                row.data.Color = highlighter.styles.get('LOD_2_color_02_04')?.color.getStyle()!
                 break;
             case (map_color_ids['color_04_06'] as string[])?.includes(localId[0]):
-                row.data.Color = highlighter.styles.get('color_04_06')?.color.getStyle()!
+                row.data.Color = highlighter.styles.get('LOD_2_color_04_06')?.color.getStyle()!
                 break;
             case (map_color_ids['color_06_08'] as string[])?.includes(localId[0]):
-                row.data.Color = highlighter.styles.get('color_06_08')?.color.getStyle()!
+                row.data.Color = highlighter.styles.get('LOD_2_color_06_08')?.color.getStyle()!
                 break;
             case (map_color_ids['color_08_1'] as string[])?.includes(localId[0]):
-                row.data.Color = highlighter.styles.get('color_08_1')?.color.getStyle()!
+                row.data.Color = highlighter.styles.get('LOD_2_color_08_1')?.color.getStyle()!
                 break;
         }
     }

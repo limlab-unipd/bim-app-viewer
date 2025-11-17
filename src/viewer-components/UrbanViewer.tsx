@@ -16,6 +16,7 @@ import { createTable } from '../custom-components/createTable'
 import { bar_create_LOD1 } from '../custom-components/bar_create_LOD1'
 import { suburbsBoundaries } from '../custom-components/suburbsBoundaries'
 import { LOD3_loadBIM } from '../custom-components/LOD3_loadBIM'
+import { setHighlighterStyles } from '../custom-components/colors'
 
 
 export function UrbanViewer () {
@@ -349,7 +350,18 @@ export function UrbanViewer () {
             highlighter.highlightByID('transparent', modelIdMap, false, false)
         }
         const onSetTransparencyWithColors = async (LOD:number=0) => {
-            const frMap: OBC.ModelIdMap = {}
+            highlighter.selection.select = {} //pulisce la selezione
+            const opacity: {[lod:string]:number} = {
+                'LOD_0': 0.15,
+                'LOD_1': 0.25,
+                'LOD_2': 0.35,
+            }
+            highlighter.styles.get(`LOD_${LOD}_color_0_02`)!.opacity = opacity[`LOD_${LOD}`]
+            highlighter.styles.get(`LOD_${LOD}_color_02_04`)!.opacity = opacity[`LOD_${LOD}`]
+            highlighter.styles.get(`LOD_${LOD}_color_04_06`)!.opacity = opacity[`LOD_${LOD}`]
+            highlighter.styles.get(`LOD_${LOD}_color_06_08`)!.opacity = opacity[`LOD_${LOD}`]
+            highlighter.styles.get(`LOD_${LOD}_color_08_1`)!.opacity = opacity[`LOD_${LOD}`]
+            /*
             for (const [entry,entryfr] of fragments.list.entries()){
                 if (!entry.includes(`LOD_${LOD}`)) continue
                 const localids = await entryfr.getLocalIds()
@@ -368,7 +380,7 @@ export function UrbanViewer () {
                     //console.log(highlighter.selection)
                 })
             }
-            highlighter.selection.select = {} //pulisce la selezione
+            */
         }
         const onSetTransparencyToNotSelectedElements = async () => {
             const allItems = await getAllItems()
@@ -535,7 +547,7 @@ export function UrbanViewer () {
             <bim-panel
                 id="panel-right"
                 label="Right Panel"
-                style="background-color:rgba(0,0,0,0.85); z-index:200   ">
+                style="background-color:rgba(0,0,0,0.85); z-index:200">
             </bim-panel>
             `;
         })
@@ -552,10 +564,10 @@ export function UrbanViewer () {
             return BUI.html`
                 <bim-panel
                     label="World Visibility Settings"
-                    style="background-color:rgba(0, 0, 0, 0.45); z-index:200">
-                    <bim-panel-section label='Camera Settings'>
-                        <bim-label style="display:flex; white-space:normal">Change the zoom speed, the pan speed and the default position of the camera according to UVL</bim-label>
-                        <bim-dropdown label='UVL'
+                    style="background-color:rgba(0, 0, 0, 0.65); z-index:200">
+                    <bim-panel-section label='UVL Settings'>
+                        <bim-label style="display:flex; white-space:normal" icon='fluent:scan-camera-20-regular'>Change zoom and pan speeds, and default position of camera</bim-label>
+                        <bim-dropdown label='Camera UVL' style="padding-left:1.5rem"
                             @change="${(e:Event) => {
                                 if (!e.target) return
                                 const target = e.target as BUI.Dropdown
@@ -567,164 +579,243 @@ export function UrbanViewer () {
                             <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-2' value='2'></bim-option>
                             <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-3' value='3'></bim-option>
                         </bim-dropdown>
-                    </bim-panel-section>
-                    <bim-panel-section label='Ambient Preset Styles'>
-                        <bim-button label='Basic'
-                            @click="${async () => {
-                                const transparencyOpacity = document.getElementById('transparency-opacity') as BUI.NumberInput
-                                const transparencyColor = document.getElementById('transparency-color') as BUI.ColorInput
-                                const gridVisible = document.getElementById('grid-visible') as BUI.Checkbox
-                                const gridColor = document.getElementById('grid-color') as BUI.ColorInput
-                                const gridPrimarySize = document.getElementById('grid-primary-size') as BUI.NumberInput
-                                const gridSecondarySize = document.getElementById('grid-secondary-size') as BUI.NumberInput
-                                const ambientBackgroundColor = document.getElementById('ambient-background-color') as BUI.ColorInput
-                                const ambientDirectionalLightsIntensity = document.getElementById('ambient-directional-lights-intensity') as BUI.NumberInput
-                                const ambientAmbientLightsIntensity = document.getElementById('ambient-ambient-lights-intensity') as BUI.NumberInput
-                                const postproductionEnable = document.getElementById('postproduction-enable') as BUI.Checkbox
-                                const postproductionStyle = document.getElementById('postproduction-style') as BUI.Dropdown
-                                const postproductionAmbientOcclusionIntensity = document.getElementById('postproduction-ambient-occlusion-intensity') as BUI.NumberInput
-
-                                highlighter.styles.get('transparent')!.opacity = transparencyOpacity.value = 0.5
-                                transparencyColor.color = "#7b7b7b"
-                                highlighter.styles.get('transparent')!.color = new THREE.Color("#7b7b7b")
-                                await highlighter.updateColors()
-
-                                grid.visible = gridVisible.checked = true
-                                gridColor.color = "#c1c1c1"
-                                grid.config.color = new THREE.Color("#c1c1c1")
-                                grid.config.primarySize = gridPrimarySize.value = 1
-                                grid.config.secondarySize = gridSecondarySize.value = 10
-
-                                ambientBackgroundColor.color = "#3b3c4f"
-                                world.scene.config.backgroundColor = new THREE.Color("#3b3c4f")
-                                world.scene.config.directionalLight.intensity = ambientDirectionalLightsIntensity.value = 1.5
-                                world.scene.config.ambientLight.intensity = ambientAmbientLightsIntensity.value = 1
-
-                                world.renderer!.postproduction.enabled = postproductionEnable.checked = false
-                                postproductionStyle.value = ['Basic']
-                                world.renderer!.postproduction.style = OBCF.PostproductionAspect.COLOR
-                                
-                                postproductionAmbientOcclusionIntensity.value = 0.5
-                                setAmbientOcclusionParameters(0.5)
-                            }}"
-                        ></bim-button>
-                        <bim-button label='Ambient Occlusion with Transparency'
-                            @click="${async () => {
-                                const transparencyOpacity = document.getElementById('transparency-opacity') as BUI.NumberInput
-                                const transparencyColor = document.getElementById('transparency-color') as BUI.ColorInput
-                                const gridVisible = document.getElementById('grid-visible') as BUI.Checkbox
-                                const ambientDirectionalLightsIntensity = document.getElementById('ambient-directional-lights-intensity') as BUI.NumberInput
-                                const ambientAmbientLightsIntensity = document.getElementById('ambient-ambient-lights-intensity') as BUI.NumberInput
-                                const postproductionEnable = document.getElementById('postproduction-enable') as BUI.Checkbox
-                                const postproductionStyle = document.getElementById('postproduction-style') as BUI.Dropdown
-                                const postproductionAmbientOcclusionIntensity = document.getElementById('postproduction-ambient-occlusion-intensity') as BUI.NumberInput
-
-                                highlighter.styles.get('transparent')!.opacity = transparencyOpacity.value = 0.06
-                                transparencyColor.color = "#d6d6d6"
-                                highlighter.styles.get('transparent')!.color = new THREE.Color("#d6d6d6")
-                                await highlighter.updateColors()
-
-                                grid.visible = gridVisible.checked = false
-
-                                world.scene.config.directionalLight.intensity = ambientDirectionalLightsIntensity.value = 3.3
-                                world.scene.config.ambientLight.intensity = ambientAmbientLightsIntensity.value = 1.1
-
-                                world.renderer!.postproduction.enabled = postproductionEnable.checked = true
-                                postproductionStyle.value = ['Color Shadows']
-                                world.renderer!.postproduction.style = OBCF.PostproductionAspect.COLOR_SHADOWS
-                                
-                                postproductionAmbientOcclusionIntensity.value = 0.67
-                                setAmbientOcclusionParameters(0.67)
-                            }}"
-                        ></bim-button>
-                    </bim-panel-section>
-                    <bim-panel-section label='Transparency'>
+                        <bim-label style="display:flex; white-space:normal" icon='mdi:circle-opacity'>Change the opacity of each UVL</bim-label>
                         <bim-number-input 
-                            id='transparency-opacity' slider step="0.01" label="Opacity" value="0.5" min="0" max="1"
+                            id='transparency-opacity-uvl-0' slider step="0.05" label="UVL-0 opacity" value="0.15" min="0" max="1" style="padding-left:1.5rem"
                             @change="${async ({ target }: { target: BUI.NumberInput }) => {
-                                (highlighter.styles.get('transparent') as any).opacity = target.value
+                                const LOD = 0
+                                highlighter.styles.get(`LOD_${LOD}_color_0_02`)!.opacity = target.value
+                                highlighter.styles.get(`LOD_${LOD}_color_02_04`)!.opacity = target.value
+                                highlighter.styles.get(`LOD_${LOD}_color_04_06`)!.opacity = target.value
+                                highlighter.styles.get(`LOD_${LOD}_color_06_08`)!.opacity = target.value
+                                highlighter.styles.get(`LOD_${LOD}_color_08_1`)!.opacity = target.value
                                 await highlighter.updateColors()
                             }}">
                         </bim-number-input>
-                        <bim-color-input
-                            id="transparency-color" label="Color" color="#7b7b7b" 
-                            @input="${async ({ target }: { target: BUI.ColorInput }) => {
-                                (highlighter.styles.get('transparent') as any).color = new THREE.Color(target.color)
+                        <bim-number-input 
+                            id='transparency-opacity-uvl-1' slider step="0.05" label="UVL-1 opacity" value="0.25" min="0" max="1" style="padding-left:1.5rem"
+                            @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                                const LOD = 1
+                                highlighter.styles.get(`LOD_${LOD}_color_0_02`)!.opacity = target.value
+                                highlighter.styles.get(`LOD_${LOD}_color_02_04`)!.opacity = target.value
+                                highlighter.styles.get(`LOD_${LOD}_color_04_06`)!.opacity = target.value
+                                highlighter.styles.get(`LOD_${LOD}_color_06_08`)!.opacity = target.value
+                                highlighter.styles.get(`LOD_${LOD}_color_08_1`)!.opacity = target.value
                                 await highlighter.updateColors()
                             }}">
-                        </bim-color-input>
-                    </bim-panel-section>
-                    <bim-panel-section label='Grid'>
-                        <bim-checkbox
-                            id="grid-visible" label="Visible"
-                            @change="${({ target }: { target: BUI.Checkbox }) => {
-                                grid.visible = target.value
-                            }}">
-                        </bim-checkbox>
-                        <bim-color-input
-                            id="grid-color" label="Color" color="#c1c1c1"
-                            @input="${({ target }: { target: BUI.ColorInput }) => {
-                                grid.config.color = new THREE.Color(target.color);
-                            }}">
-                        </bim-color-input>
-                        <bim-number-input 
-                            id="grid-primary-size" slider step="0.5" label="Primary size" value="1" min="0.5" max="10" style='min-width:100px'
-                            @change="${({ target }: { target: BUI.NumberInput }) => {
-                                grid.config.primarySize = target.value
-                            }}">
                         </bim-number-input>
                         <bim-number-input 
-                            id="grid-secondary-size" slider step="1" label="Secondary size" value="10" min="1" max="50"
-                            @change="${({ target }: { target: BUI.NumberInput }) => {
-                                grid.config.primarySize = target.value
+                            id='transparency-opacity-uvl-2' slider step="0.05" label="UVL-2 opacity" value="0.35" min="0" max="1" style="padding-left:1.5rem"
+                            @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                                const LOD = 2
+                                highlighter.styles.get(`LOD_${LOD}_color_0_02`)!.opacity = target.value
+                                highlighter.styles.get(`LOD_${LOD}_color_02_04`)!.opacity = target.value
+                                highlighter.styles.get(`LOD_${LOD}_color_04_06`)!.opacity = target.value
+                                highlighter.styles.get(`LOD_${LOD}_color_06_08`)!.opacity = target.value
+                                highlighter.styles.get(`LOD_${LOD}_color_08_1`)!.opacity = target.value
+                                await highlighter.updateColors()
                             }}">
                         </bim-number-input>
-                    </bim-panel-section>
-                    <bim-panel-section label='Ambient'>
-                        <bim-color-input
-                            id="ambient-background-color" label="Background Color" color="#3b3c4f" 
-                            @input="${({ target }: { target: BUI.ColorInput }) => {
-                                world.scene.config.backgroundColor = new THREE.Color(target.color)
+                        <bim-label style="display:flex; white-space:normal" icon='ic:outline-color-lens'>Change the color scale of each UVL</bim-label>
+                        <bim-dropdown label='UVL-0 color scale' style="padding-left:1.5rem"
+                            @change="${async ({target}:{target:BUI.Dropdown}) => {
+                                const colorScale = target.value[0]
+                                setHighlighterStyles(components,colorScale,0)
+                                await highlighter.updateColors()
                             }}">
-                        </bim-color-input>
-                        <bim-number-input 
-                            id="ambient-directional-lights-intensity" slider step="0.1" label="Directional lights intensity" value="1.5" min="0.1" max="10"
-                            @change="${({ target }: { target: BUI.NumberInput }) => {
-                                world.scene.config.directionalLight.intensity = target.value;
-                            }}">
-                        </bim-number-input>
-                        <bim-number-input 
-                            id="ambient-ambient-lights-intensity" slider step="0.1" label="Ambient light intensity" value="1" min="0.1" max="5"
-                            @change="${({ target }: { target: BUI.NumberInput }) => {
-                                world.scene.config.ambientLight.intensity = target.value;
-                            }}">
-                        </bim-number-input>
-                    </bim-panel-section>
-                    <bim-panel-section label='Postproduction'>
-                        <bim-checkbox label="Enable"
-                            id="postproduction-enable" @change="${({ target }: { target: BUI.Checkbox }) => {
-                                world.renderer!.postproduction.enabled = target.value
-                            }}">
-                        </bim-checkbox>
-                        <bim-dropdown id="postproduction-style" required label="Style"
-                                @change="${({ target }: { target: BUI.Dropdown }) => {
-                                const result = target.value[0] as OBCF.PostproductionAspect;
-                                world.renderer!.postproduction.style = result;
-                            }}">
-                            <bim-option id="postproduction-style-basic" style="padding:0 0.5rem 0 0.5rem" checked label="Basic" value="${OBCF.PostproductionAspect.COLOR}"></bim-option>
-                            <bim-option id="postproduction-style-pen" style="padding:0 0.5rem 0 0.5rem" label="Pen" value="${OBCF.PostproductionAspect.PEN}"></bim-option>
-                            <bim-option id="postproduction-style-shadowed-pen" style="padding:0 0.5rem 0 0.5rem" label="Shadowed Pen" value="${OBCF.PostproductionAspect.PEN_SHADOWS}"></bim-option>
-                            <bim-option id="postproduction-style-color-pen" style="padding:0 0.5rem 0 0.5rem" label="Color Pen" value="${OBCF.PostproductionAspect.COLOR_PEN}"></bim-option>
-                            <bim-option id="postproduction-style-color-shadows" style="padding:0 0.5rem 0 0.5rem" label="Color Shadows" value="${OBCF.PostproductionAspect.COLOR_SHADOWS}"></bim-option>
-                            <bim-option id="postproduction-style-color-pen-shadows" style="padding:0 0.5rem 0 0.5rem" label="Color Pen Shadows" value="${OBCF.PostproductionAspect.COLOR_PEN_SHADOWS}"></bim-option>
+                            <bim-option label='Green-Yellow-Red' value='gnylrd' style="color:black; padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(26, 150, 65, 1),rgba(166, 217, 106, 1),rgba(255, 255, 0, 1),rgba(253, 174, 97, 1),rgba(215, 25, 28, 1))"></bim-option>
+                            <bim-option label='Yellow-Green-Blue' value='ylgnbu' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(255, 255, 204, 1), rgba(194, 230, 153, 1), rgba(120, 198, 121, 1), rgba(49, 163, 84, 1), rgba(0, 104, 55, 1))"></bim-option>
+                            <bim-option label='Orange-Red' value='orrd' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(254, 240, 217, 1), rgba(253, 212, 158, 1), rgba(253, 187, 132, 1), rgba(253, 141, 60, 1), rgba(217, 72, 1, 1))"></bim-option>
+                            <bim-option label='Blues' value='blues' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(239, 243, 255, 1), rgba(189, 215, 231, 1), rgba(107, 174, 214, 1), rgba(33, 113, 181, 1), rgba(8, 69, 148, 1))"></bim-option>
+                            <bim-option label='Viridis' value='viridis' style="padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(68, 1, 84, 1),rgba(59, 82, 139, 1),rgba(33, 144, 141, 1),rgba(94, 201, 98, 1),rgba(253, 231, 37, 1))"></bim-option>
+                            <bim-option label='Cividis' value='cividis' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(0, 32, 76, 1), rgba(55, 64, 129, 1), rgba(94, 109, 171, 1), rgba(145, 158, 203, 1), rgba(253, 231, 37, 1))"></bim-option>
                         </bim-dropdown>
-                        <bim-number-input
-                            id="postproduction-ambient-occlusion-intensity" slider step="0.01" label="Ambient occlusion intensity"
-                            value="0.5" min="0.1" max="1"
-                            @change="${({ target }: { target: BUI.NumberInput }) => {
-                                setAmbientOcclusionParameters(target.value)
-                        }}">
-                        </bim-number-input>
+                        <bim-dropdown label='UVL-1 color scale' style="padding-left:1.5rem"
+                            @change="${async ({target}:{target:BUI.Dropdown}) => {
+                                const colorScale = target.value[0]
+                                setHighlighterStyles(components,colorScale,1)
+                                await highlighter.updateColors()
+                            }}">
+                            <bim-option label='Green-Yellow-Red' value='gnylrd' style="color:black; padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(26, 150, 65, 1),rgba(166, 217, 106, 1),rgba(255, 255, 0, 1),rgba(253, 174, 97, 1),rgba(215, 25, 28, 1))"></bim-option>
+                            <bim-option label='Yellow-Green-Blue' value='ylgnbu' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(255, 255, 204, 1), rgba(194, 230, 153, 1), rgba(120, 198, 121, 1), rgba(49, 163, 84, 1), rgba(0, 104, 55, 1))"></bim-option>
+                            <bim-option label='Orange-Red' value='orrd' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(254, 240, 217, 1), rgba(253, 212, 158, 1), rgba(253, 187, 132, 1), rgba(253, 141, 60, 1), rgba(217, 72, 1, 1))"></bim-option>
+                            <bim-option label='Blues' value='blues' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(239, 243, 255, 1), rgba(189, 215, 231, 1), rgba(107, 174, 214, 1), rgba(33, 113, 181, 1), rgba(8, 69, 148, 1))"></bim-option>
+                            <bim-option label='Viridis' value='viridis' style="padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(68, 1, 84, 1),rgba(59, 82, 139, 1),rgba(33, 144, 141, 1),rgba(94, 201, 98, 1),rgba(253, 231, 37, 1))"></bim-option>
+                            <bim-option label='Cividis' value='cividis' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(0, 32, 76, 1), rgba(55, 64, 129, 1), rgba(94, 109, 171, 1), rgba(145, 158, 203, 1), rgba(253, 231, 37, 1))"></bim-option>
+                        </bim-dropdown>
+                        <bim-dropdown label='UVL-2 color scale' style="padding-left:1.5rem"
+                            @change="${async ({target}:{target:BUI.Dropdown}) => {
+                                const colorScale = target.value[0]
+                                setHighlighterStyles(components,colorScale,2)
+                                await highlighter.updateColors()
+                            }}">
+                            <bim-option label='Green-Yellow-Red' value='gnylrd' style="color:black; padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(26, 150, 65, 1),rgba(166, 217, 106, 1),rgba(255, 255, 0, 1),rgba(253, 174, 97, 1),rgba(215, 25, 28, 1))"></bim-option>
+                            <bim-option label='Yellow-Green-Blue' value='ylgnbu' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(255, 255, 204, 1), rgba(194, 230, 153, 1), rgba(120, 198, 121, 1), rgba(49, 163, 84, 1), rgba(0, 104, 55, 1))"></bim-option>
+                            <bim-option label='Orange-Red' value='orrd' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(254, 240, 217, 1), rgba(253, 212, 158, 1), rgba(253, 187, 132, 1), rgba(253, 141, 60, 1), rgba(217, 72, 1, 1))"></bim-option>
+                            <bim-option label='Blues' value='blues' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(239, 243, 255, 1), rgba(189, 215, 231, 1), rgba(107, 174, 214, 1), rgba(33, 113, 181, 1), rgba(8, 69, 148, 1))"></bim-option>
+                            <bim-option label='Viridis' value='viridis' style="padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(68, 1, 84, 1),rgba(59, 82, 139, 1),rgba(33, 144, 141, 1),rgba(94, 201, 98, 1),rgba(253, 231, 37, 1))"></bim-option>
+                            <bim-option label='Cividis' value='cividis' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(0, 32, 76, 1), rgba(55, 64, 129, 1), rgba(94, 109, 171, 1), rgba(145, 158, 203, 1), rgba(253, 231, 37, 1))"></bim-option>
+                        </bim-dropdown>
+                    </bim-panel-section>
+                    <bim-panel-section collapsed label='General Ambient Settings' style='padding:0'>
+                        <bim-panel-section label='Ambient Preset Styles'  style='padding:-1rem'>
+                            <bim-button label='Basic'
+                                @click="${async () => {
+                                    const transparencyOpacity = document.getElementById('transparency-opacity') as BUI.NumberInput
+                                    const transparencyColor = document.getElementById('transparency-color') as BUI.ColorInput
+                                    const gridVisible = document.getElementById('grid-visible') as BUI.Checkbox
+                                    const gridColor = document.getElementById('grid-color') as BUI.ColorInput
+                                    const gridPrimarySize = document.getElementById('grid-primary-size') as BUI.NumberInput
+                                    const gridSecondarySize = document.getElementById('grid-secondary-size') as BUI.NumberInput
+                                    const ambientBackgroundColor = document.getElementById('ambient-background-color') as BUI.ColorInput
+                                    const ambientDirectionalLightsIntensity = document.getElementById('ambient-directional-lights-intensity') as BUI.NumberInput
+                                    const ambientAmbientLightsIntensity = document.getElementById('ambient-ambient-lights-intensity') as BUI.NumberInput
+                                    const postproductionEnable = document.getElementById('postproduction-enable') as BUI.Checkbox
+                                    const postproductionStyle = document.getElementById('postproduction-style') as BUI.Dropdown
+                                    const postproductionAmbientOcclusionIntensity = document.getElementById('postproduction-ambient-occlusion-intensity') as BUI.NumberInput
+    
+                                    highlighter.styles.get('transparent')!.opacity = transparencyOpacity.value = 0.5
+                                    transparencyColor.color = "#7b7b7b"
+                                    highlighter.styles.get('transparent')!.color = new THREE.Color("#7b7b7b")
+                                    await highlighter.updateColors()
+    
+                                    grid.visible = gridVisible.checked = true
+                                    gridColor.color = "#c1c1c1"
+                                    grid.config.color = new THREE.Color("#c1c1c1")
+                                    grid.config.primarySize = gridPrimarySize.value = 1
+                                    grid.config.secondarySize = gridSecondarySize.value = 10
+    
+                                    ambientBackgroundColor.color = "#3b3c4f"
+                                    world.scene.config.backgroundColor = new THREE.Color("#3b3c4f")
+                                    world.scene.config.directionalLight.intensity = ambientDirectionalLightsIntensity.value = 1.5
+                                    world.scene.config.ambientLight.intensity = ambientAmbientLightsIntensity.value = 1
+    
+                                    world.renderer!.postproduction.enabled = postproductionEnable.checked = false
+                                    postproductionStyle.value = ['Basic']
+                                    world.renderer!.postproduction.style = OBCF.PostproductionAspect.COLOR
+                                    
+                                    postproductionAmbientOcclusionIntensity.value = 0.5
+                                    setAmbientOcclusionParameters(0.5)
+                                }}"
+                            ></bim-button>
+                            <bim-button label='Ambient Occlusion with Transparency'
+                                @click="${async () => {
+                                    const transparencyOpacity = document.getElementById('transparency-opacity') as BUI.NumberInput
+                                    const transparencyColor = document.getElementById('transparency-color') as BUI.ColorInput
+                                    const gridVisible = document.getElementById('grid-visible') as BUI.Checkbox
+                                    const ambientDirectionalLightsIntensity = document.getElementById('ambient-directional-lights-intensity') as BUI.NumberInput
+                                    const ambientAmbientLightsIntensity = document.getElementById('ambient-ambient-lights-intensity') as BUI.NumberInput
+                                    const postproductionEnable = document.getElementById('postproduction-enable') as BUI.Checkbox
+                                    const postproductionStyle = document.getElementById('postproduction-style') as BUI.Dropdown
+                                    const postproductionAmbientOcclusionIntensity = document.getElementById('postproduction-ambient-occlusion-intensity') as BUI.NumberInput
+    
+                                    highlighter.styles.get('transparent')!.opacity = transparencyOpacity.value = 0.06
+                                    transparencyColor.color = "#d6d6d6"
+                                    highlighter.styles.get('transparent')!.color = new THREE.Color("#d6d6d6")
+                                    await highlighter.updateColors()
+    
+                                    grid.visible = gridVisible.checked = false
+    
+                                    world.scene.config.directionalLight.intensity = ambientDirectionalLightsIntensity.value = 3.3
+                                    world.scene.config.ambientLight.intensity = ambientAmbientLightsIntensity.value = 1.1
+    
+                                    world.renderer!.postproduction.enabled = postproductionEnable.checked = true
+                                    postproductionStyle.value = ['Color Shadows']
+                                    world.renderer!.postproduction.style = OBCF.PostproductionAspect.COLOR_SHADOWS
+                                    
+                                    postproductionAmbientOcclusionIntensity.value = 0.67
+                                    setAmbientOcclusionParameters(0.67)
+                                }}"
+                            ></bim-button>
+                        </bim-panel-section>
+                        <bim-panel-section label='Transparency'>
+                            <bim-number-input 
+                                id='transparency-opacity' slider step="0.01" label="Opacity" value="0.5" min="0" max="1"
+                                @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                                    (highlighter.styles.get('transparent') as any).opacity = target.value
+                                    await highlighter.updateColors()
+                                }}">
+                            </bim-number-input>
+                            <bim-color-input
+                                id="transparency-color" label="Color" color="#7b7b7b" 
+                                @input="${async ({ target }: { target: BUI.ColorInput }) => {
+                                    (highlighter.styles.get('transparent') as any).color = new THREE.Color(target.color)
+                                    await highlighter.updateColors()
+                                }}">
+                            </bim-color-input>
+                        </bim-panel-section>
+                        <bim-panel-section label='Grid'>
+                            <bim-checkbox
+                                id="grid-visible" label="Visible"
+                                @change="${({ target }: { target: BUI.Checkbox }) => {
+                                    grid.visible = target.value
+                                }}">
+                            </bim-checkbox>
+                            <bim-color-input
+                                id="grid-color" label="Color" color="#c1c1c1"
+                                @input="${({ target }: { target: BUI.ColorInput }) => {
+                                    grid.config.color = new THREE.Color(target.color);
+                                }}">
+                            </bim-color-input>
+                            <bim-number-input 
+                                id="grid-primary-size" slider step="0.5" label="Primary size" value="1" min="0.5" max="10" style='min-width:100px'
+                                @change="${({ target }: { target: BUI.NumberInput }) => {
+                                    grid.config.primarySize = target.value
+                                }}">
+                            </bim-number-input>
+                            <bim-number-input 
+                                id="grid-secondary-size" slider step="1" label="Secondary size" value="10" min="1" max="50"
+                                @change="${({ target }: { target: BUI.NumberInput }) => {
+                                    grid.config.primarySize = target.value
+                                }}">
+                            </bim-number-input>
+                        </bim-panel-section>
+                        <bim-panel-section label='Ambient'>
+                            <bim-color-input
+                                id="ambient-background-color" label="Background Color" color="#3b3c4f" 
+                                @input="${({ target }: { target: BUI.ColorInput }) => {
+                                    world.scene.config.backgroundColor = new THREE.Color(target.color)
+                                }}">
+                            </bim-color-input>
+                            <bim-number-input 
+                                id="ambient-directional-lights-intensity" slider step="0.1" label="Directional lights intensity" value="1.5" min="0.1" max="10"
+                                @change="${({ target }: { target: BUI.NumberInput }) => {
+                                    world.scene.config.directionalLight.intensity = target.value;
+                                }}">
+                            </bim-number-input>
+                            <bim-number-input 
+                                id="ambient-ambient-lights-intensity" slider step="0.1" label="Ambient light intensity" value="1" min="0.1" max="5"
+                                @change="${({ target }: { target: BUI.NumberInput }) => {
+                                    world.scene.config.ambientLight.intensity = target.value;
+                                }}">
+                            </bim-number-input>
+                        </bim-panel-section>
+                        <bim-panel-section label='Postproduction'>
+                            <bim-checkbox label="Enable"
+                                id="postproduction-enable" @change="${({ target }: { target: BUI.Checkbox }) => {
+                                    world.renderer!.postproduction.enabled = target.value
+                                }}">
+                            </bim-checkbox>
+                            <bim-dropdown id="postproduction-style" required label="Style"
+                                    @change="${({ target }: { target: BUI.Dropdown }) => {
+                                    const result = target.value[0] as OBCF.PostproductionAspect;
+                                    world.renderer!.postproduction.style = result;
+                                }}">
+                                <bim-option id="postproduction-style-basic" style="padding:0 0.5rem 0 0.5rem" checked label="Basic" value="${OBCF.PostproductionAspect.COLOR}"></bim-option>
+                                <bim-option id="postproduction-style-pen" style="padding:0 0.5rem 0 0.5rem" label="Pen" value="${OBCF.PostproductionAspect.PEN}"></bim-option>
+                                <bim-option id="postproduction-style-shadowed-pen" style="padding:0 0.5rem 0 0.5rem" label="Shadowed Pen" value="${OBCF.PostproductionAspect.PEN_SHADOWS}"></bim-option>
+                                <bim-option id="postproduction-style-color-pen" style="padding:0 0.5rem 0 0.5rem" label="Color Pen" value="${OBCF.PostproductionAspect.COLOR_PEN}"></bim-option>
+                                <bim-option id="postproduction-style-color-shadows" style="padding:0 0.5rem 0 0.5rem" label="Color Shadows" value="${OBCF.PostproductionAspect.COLOR_SHADOWS}"></bim-option>
+                                <bim-option id="postproduction-style-color-pen-shadows" style="padding:0 0.5rem 0 0.5rem" label="Color Pen Shadows" value="${OBCF.PostproductionAspect.COLOR_PEN_SHADOWS}"></bim-option>
+                            </bim-dropdown>
+                            <bim-number-input
+                                id="postproduction-ambient-occlusion-intensity" slider step="0.01" label="Ambient occlusion intensity"
+                                value="0.5" min="0.1" max="1"
+                                @change="${({ target }: { target: BUI.NumberInput }) => {
+                                    setAmbientOcclusionParameters(target.value)
+                            }}">
+                            </bim-number-input>
+                        </bim-panel-section>
                     </bim-panel-section>
                 </bim-panel>
             `
@@ -1012,7 +1103,8 @@ export function UrbanViewer () {
                         
                         <bim-button label='3' tootltip='Load UVL-3' @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
-                            await LOD3_loadBIM(components,loadFragmentFile,world)
+                            const result_3 = await LOD3_loadBIM(components,loadFragmentFile,world)
+                            result_3 ? await onSetTransparencyWithColors(2) : ''
                             //onSetCameraUVL(3)
                             target.loading = false
                         }}></bim-button>

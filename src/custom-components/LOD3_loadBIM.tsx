@@ -13,7 +13,7 @@ export async function LOD3_loadBIM (
     components:OBC.Components,
     loadFragmentFile:(path: string) => Promise<FRAGS.FragmentsModel>,
     world:OBC.SimpleWorld<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBCF.PostproductionRenderer>
-) {
+): Promise<boolean> {
 
     const highlighter = components.get(OBCF.Highlighter)
     const fragments = components.get(OBC.FragmentsManager)
@@ -45,12 +45,14 @@ export async function LOD3_loadBIM (
         editedModels.forEach(async (modelId) => await fragments.core.editor.save(modelId))
     }
 
+    let result = false
     const selection = highlighter.selection.select
     for (const [modelId,entries] of Object.entries(selection)){
         if (!modelId.includes('LOD_2')) {
             addOverlay(BUI.html`Pleae select UVL-2 bar to load UVL-3`)
             continue
         }
+        result = true
         for (const localId of entries){
             const modelIdMap: OBC.ModelIdMap = {[modelId]:new Set<number>([localId])}
             const barData = await fragments.getData(modelIdMap)
@@ -59,4 +61,6 @@ export async function LOD3_loadBIM (
             await translateModel(loadedModel,{x:position.x,y:position.y,z:position.z})
         }
     }
+
+    return result
 }

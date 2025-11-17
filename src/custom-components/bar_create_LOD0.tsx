@@ -170,11 +170,11 @@ export async function bar_create_LOD0 (
                     _category: { value: "IfcBar" },
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
-                    Suburb: { value: bar_name },
-                    BarHeight: { value: paramOne },
-                    BarColor: { value: paramTwo },
-                    [paramOne]: { value: Math.round(set.param_one*1000)/1000 },
-                    [paramTwo]: { value: Math.round(set.param_two*1000)/1000 },
+                    //Suburb: { value: bar_name },
+                    //BarHeight: { value: paramOne },
+                    //BarColor: { value: paramTwo },
+                    //[paramOne]: { value: Math.round(set.param_one*1000)/1000 },
+                    //[paramTwo]: { value: Math.round(set.param_two*1000)/1000 },
                 },
                 globalTransform: tempObject.matrix.clone(),
                 samples: [
@@ -210,7 +210,8 @@ export async function bar_create_LOD0 (
             // crea la relazione tra barra e pset, entrambi sono array ordinati con gli elementi nella stessa posizione
             let i = 0
             for (const bar of createdBars){
-                await fragments.core.editor.relate(newModel.modelId, bar.localId, 'IsDefinedBy', [createdPsetsIds[i]])
+                // --------------------------------- A T T E N Z I O N E ---------------------------------
+                await fragments.core.editor.relate(newModel.modelId, bar.localId, 'IsDefinedBy', [createdPsetsIds[i]+1]) //ATTENZIONE: non so perche' sia necessario questo + 1 --> serve per aumentare di uno il localId del pset
                 i++
             }
         }

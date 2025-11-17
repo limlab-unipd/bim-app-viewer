@@ -1,6 +1,7 @@
 import * as OBC from '@thatopen/components'
 import * as BUI from '@thatopen/ui'
 import * as OBCF from '@thatopen/components-front'
+import type { Identifier, ItemAttribute, ItemData } from '@thatopen/fragments';
 
 
 const onSearch = (e: Event, table:BUI.Table<any>) => {
@@ -86,32 +87,50 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
     for (const [modelName,model] of fragments.list.entries()){
         if (modelName.includes('DELTA')) continue //non considera il modello DELTA
         const items = await model.getItems()
-        for (const [id,data] of items.entries()){
+        // get attributes and relations of bar
+        const barsData = await fragments.getData({[modelName]:new Set(items.keys())},{
+            attributesDefault: true,
+            relationsDefault: {
+                attributes: true,
+                relations: true //here is the only point where could be accepted because there are only few relations to load and they are in a closed loop
+            }
+        })
+        // get color of bar
+        for (const itemData of barsData[modelName]){
             let color: string = ''
             switch (true) {
-                case (highlighter.selection.color_0_02?.[modelName]?.has(id)): //optional chaining check needed because sometimes some ranges are empty
-                    color = highlighter.styles.get('color_0_02')?.color.getStyle()!
+                case (highlighter.selection.LOD_0_color_0_02?.[modelName]?.has((itemData._localId as ItemAttribute).value)): //optional chaining check needed because sometimes some ranges are empty
+                    color = highlighter.styles.get('LOD_0_color_0_02')?.color.getStyle()!
                     break;
-                case (highlighter.selection.color_02_04?.[modelName]?.has(id)):
-                    color = highlighter.styles.get('color_02_04')?.color.getStyle()!
+                case (highlighter.selection.LOD_0_color_02_04?.[modelName]?.has((itemData._localId as ItemAttribute).value)):
+                    color = highlighter.styles.get('LOD_0_color_02_04')?.color.getStyle()!
                     break;
-                case (highlighter.selection.color_04_06?.[modelName]?.has(id)):
-                    color = highlighter.styles.get('color_04_06')?.color.getStyle()!
+                case (highlighter.selection.LOD_0_color_04_06?.[modelName]?.has((itemData._localId as ItemAttribute).value)):
+                    color = highlighter.styles.get('LOD_0_color_04_06')?.color.getStyle()!
                     break;
-                case (highlighter.selection.color_06_08?.[modelName]?.has(id)):
-                    color = highlighter.styles.get('color_06_08')?.color.getStyle()!
+                case (highlighter.selection.LOD_0_color_06_08?.[modelName]?.has((itemData._localId as ItemAttribute).value)):
+                    color = highlighter.styles.get('LOD_0_color_06_08')?.color.getStyle()!
                     break;
-                case (highlighter.selection.color_08_1?.[modelName]?.has(id)):
-                    color = highlighter.styles.get('color_08_1')?.color.getStyle()!
+                case (highlighter.selection.LOD_0_color_08_1?.[modelName]?.has((itemData._localId as ItemAttribute).value)):
+                    color = highlighter.styles.get('LOD_0_color_08_1')?.color.getStyle()!
                     break;
-            }
+            };
+            // get all psets localids of bar
+            const pSetsLocalIds: Identifier[] = [];
+            (itemData.IsDefinedBy as ItemData[]).forEach((x:ItemData) => { //questo legge l'id del pset collegato dall'attributo IsDefinedBy della barra -> il ciclo serve se ci sono piu pset, restituisce tutti gli id
+                pSetsLocalIds.push((x._localId as ItemAttribute).value)
+            })
+            //get psets data of previous local ids
+            let pSets = await model.getItemsData(pSetsLocalIds)
+            pSets = pSets.filter(item => (item.Name as ItemAttribute).value == 'EnvironmentalAnalysisData') //mantiene solo i pset con quel nome
+            //aggiunge le righe nella tabella
             urbanTable.data.push({
                 data: {
                     modelId: modelName,
-                    localId: id,
-                    Suburb: data.data.Suburb.value,
-                    Param1: Math.round(data.data[paramOne].value*1000)/1000,
-                    Param2: Math.round(data.data[paramTwo].value*1000)/1000,
+                    localId: (itemData._localId as ItemAttribute).value,
+                    Suburb: (itemData.Name as ItemAttribute).value,
+                    Param1: Math.round((pSets[0][paramOne] as ItemAttribute).value*1000)/1000,
+                    Param2: Math.round((pSets[0][paramTwo] as ItemAttribute).value*1000)/1000,
                     Color: color,
                 }
             })

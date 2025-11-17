@@ -64,7 +64,7 @@ export async function colorBar (
 
     // colora tutti gli oggetti
     const colorScaleDropdown = document.getElementById('color-scale-dropdown') as BUI.Dropdown
-    const map_color_ids = urbanMapToColor(components, map_id_normValue, colorScaleDropdown.value[0], modelName!)
+    const map_color_ids = urbanMapToColor(components, map_id_normValue, colorScaleDropdown.value[0], modelName!, LOD)
 
     return [map_color_ids,map_id_identfr,modelName!]
 }

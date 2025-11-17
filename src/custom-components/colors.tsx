@@ -93,20 +93,31 @@ const colorScaleList: { [key: string]: [number, string][] } = {
     ],
 };
 
-const setHighlighterStyles = (components:OBC.Components, colorscale:string='gnylrd') => {
+export const setHighlighterStyles = (components:OBC.Components, colorscale:string='gnylrd', lod:number) => {
     const highlighter = components.get(OBCF.Highlighter)
-    
-    highlighter.styles.set('color_0_02', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
-    highlighter.styles.set('color_02_04', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.25)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
-    highlighter.styles.set('color_04_06', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.5)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
-    highlighter.styles.set('color_06_08', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.75)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
-    highlighter.styles.set('color_08_1', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 1)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
-
-    highlighter.styles.set('color_0_02_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
-    highlighter.styles.set('color_02_04_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.25)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
-    highlighter.styles.set('color_04_06_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.5)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
-    highlighter.styles.set('color_06_08_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.75)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
-    highlighter.styles.set('color_08_1_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 1)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
+    switch (lod) {
+        case 0:
+            highlighter.styles.set('LOD_0_color_0_02', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('LOD_0_color_02_04', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.25)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('LOD_0_color_04_06', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.5)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('LOD_0_color_06_08', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.75)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('LOD_0_color_08_1', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 1)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})            
+            break;
+        case 1:
+            highlighter.styles.set('LOD_1_color_0_02', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('LOD_1_color_02_04', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.25)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('LOD_1_color_04_06', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.5)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('LOD_1_color_06_08', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.75)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('LOD_1_color_08_1', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 1)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            break;
+        case 2:
+            highlighter.styles.set('LOD_2_color_0_02', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('LOD_2_color_02_04', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.25)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('LOD_2_color_04_06', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.5)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('LOD_2_color_06_08', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.75)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            highlighter.styles.set('LOD_2_color_08_1', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 1)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+            break;
+    }
 }
 
 
@@ -209,7 +220,7 @@ export function normalizeAndMapToColor (map: Record<string, number>, colorscale:
  * @param colorscale - Name of the color scale to use (default: 'gnylrd')
  * @returns Grouped data per model, with color ranges and lists of IDs
  */
-export function groupIdsByNormalizedValuePerModel(components:OBC.Components, normalizedData: Record<string, number>, perModelData: PerModelInput, colorscale:string='gnylrd'): PerModelGrouped {
+export function groupIdsByNormalizedValuePerModel(components:OBC.Components, normalizedData: Record<string, number>, perModelData: PerModelInput, colorscale:string='gnylrd'): PerModelGrouped { //for cost
     const result: PerModelGrouped = {}
     for (const [modelName, elements] of Object.entries(perModelData)) {
         const grouped: GroupedData = {
@@ -230,7 +241,7 @@ export function groupIdsByNormalizedValuePerModel(components:OBC.Components, nor
         }
         result[modelName] = grouped;
     }
-    setHighlighterStyles(components,colorscale)
+    setHighlighterStyles(components,colorscale,0)
     return result;
 }
 
@@ -243,7 +254,7 @@ export function groupIdsByNormalizedValuePerModel(components:OBC.Components, nor
  * @param model - The name of the model to highlight items
  * @returns Nothing
  */
-export function urbanMapToColor (components:OBC.Components, map:{[key:string]:number}, colorscale: string = 'gnylrd', model:string='') {
+export function urbanMapToColor (components:OBC.Components, map:{[key:string]:number}, colorscale: string = 'gnylrd', model:string='', lod:number=0) {
     const result: {[key:string]:string[]} = {};
     const highlighter = components.get(OBCF.Highlighter)
 
@@ -252,11 +263,12 @@ export function urbanMapToColor (components:OBC.Components, map:{[key:string]:nu
         const colorRange = colorForValue(normValue);
         result[colorRange] ? result[colorRange].push(localId) : result[colorRange]=[localId]
     }
-    setHighlighterStyles(components,colorscale)
+    setHighlighterStyles(components,colorscale,lod)
 
     for (const [color,ids] of Object.entries(result)) {
         const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
-        highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
+        const highlighterName = `LOD_${lod}_${color}`
+        highlighter.highlightByID(highlighterName,modelIdMap,false,false) //color elements using highlighter
     }
 
     return result
