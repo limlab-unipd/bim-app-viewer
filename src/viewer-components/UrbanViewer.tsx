@@ -62,14 +62,14 @@ export function UrbanViewer () {
         //world.renderer = new OBC.SimpleRenderer(components, container)
         //CAMERA
         world.camera = new OBC.OrthoPerspectiveCamera(components)
-        const def_camera = {x:-10000, y:17500, z:-24800}
-        const def_target = {x:-5200, y:0, z:-9300}
+        const def_camera = {x:13000, y:22200, z:22000}
+        const def_target = {x:9200, y:13200, z:15000}
         await world.camera.controls.setLookAt(def_camera.x,def_camera.y,def_camera.z,def_target.x,def_target.y,def_target.z) // convenient position for the model we will load: (cameraX,Y,Z,targetX,Y,Z)
         world.camera.threeOrtho.far = 1000000 // distanza massima del clipping plane per vedere gli oggetti: per la camera ortografica
         world.camera.threePersp.far = 1000000 // distanza massima del clipping plane per vedere gli oggetti: per la camera prospettica (quella usata di default)
         world.camera.controls.minDistance = 2500 //serve per poter continuare a zoommare velocemente anche da distante, tuttavia modifica anche lo zoom quando si seleziona un elemento ma va bene lo stesso
         //world.camera.controls.minDistance = 20000 //serve per poter continuare a zoommare velocemente anche da distante, tuttavia modifica anche lo zoom quando si seleziona un elemento ma va bene lo stesso
-        world.camera.controls.truckSpeed = 15
+        world.camera.controls.truckSpeed = 12
         world.camera.controls.dollySpeed = 2
         // #endregion
 
@@ -427,10 +427,10 @@ export function UrbanViewer () {
             switch (uvl) {
                 case 0: 
                     uvlFactor=1
-                    world.camera.controls.truckSpeed = 15
+                    world.camera.controls.truckSpeed = 10
                     break;
                 case 1: 
-                    world.camera.controls.truckSpeed = 10
+                    world.camera.controls.truckSpeed = 7
                     uvlFactor=2.5
                     break;
                 case 2: 
@@ -526,7 +526,7 @@ export function UrbanViewer () {
             <bim-panel
                 id='panel-left'
                 label="BIM PANEL"
-                style="background-color:rgba(0,0,0,0.85);">
+                style="background-color:rgba(0,0,0,0.85); z-index:200">
             </bim-panel>
             `;
         })
@@ -535,7 +535,7 @@ export function UrbanViewer () {
             <bim-panel
                 id="panel-right"
                 label="Right Panel"
-                style="background-color:rgba(0,0,0,0.85);">
+                style="background-color:rgba(0,0,0,0.85); z-index:200   ">
             </bim-panel>
             `;
         })
@@ -544,7 +544,7 @@ export function UrbanViewer () {
             <bim-panel
             id = "panel-down"
                 label="Down Panel"
-                style="background-color:rgba(0,0,0,0.85); display:flex">
+                style="background-color:rgba(0,0,0,0.85); display:flex; z-index:200">
             </bim-panel>
             `;
         })
@@ -552,7 +552,7 @@ export function UrbanViewer () {
             return BUI.html`
                 <bim-panel
                     label="World Visibility Settings"
-                    style="background-color:rgba(0, 0, 0, 0.45);">
+                    style="background-color:rgba(0, 0, 0, 0.45); z-index:200">
                     <bim-panel-section label='Camera Settings'>
                         <bim-label style="display:flex; white-space:normal">Change the zoom speed, the pan speed and the default position of the camera according to UVL</bim-label>
                         <bim-dropdown label='UVL'
@@ -993,27 +993,27 @@ export function UrbanViewer () {
                         <bim-label>></bim-label>
 
                         <bim-button label='1' tootltip='Load UVL-1 and hide UVL-0' @click=${async ({target}:{target:BUI.Button})=>{
-                            // target.loading = true
+                            target.loading = true
                             const result_1 = await bar_create_LOD1(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0],previousLoadedSuburbs)
                             result_1 ? await onSetTransparencyWithColors(0) : ''
-                            onSetCameraUVL(1)
-                            // target.loading = false
+                            //onSetCameraUVL(1)
+                            target.loading = false
                         }}></bim-button>
                         <bim-label>></bim-label>
 
                         <bim-button label='2' tootltip='Load UVL-2' @click=${async ({target}:{target:BUI.Button})=>{
-                            // target.loading = true
+                            target.loading = true
                             const result_2 = await bar_create_LOD2(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0],previousLoadedSuburbs)
                             result_2 ? await onSetTransparencyWithColors(1) : ''
-                            onSetCameraUVL(2)
-                            // target.loading = false
+                            //onSetCameraUVL(2)
+                            target.loading = false
                         }}></bim-button>
                         <bim-label>></bim-label>
                         
                         <bim-button label='3' tootltip='Load UVL-3' @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
                             await LOD3_loadBIM(components,loadFragmentFile,world)
-                            onSetCameraUVL(3)
+                            //onSetCameraUVL(3)
                             target.loading = false
                         }}></bim-button>
                         <bim-label>></bim-label>
@@ -1069,7 +1069,7 @@ export function UrbanViewer () {
         //TOOLBAR COMPONENT
         const toolbar = BUI.Component.create<BUI.Toolbar>(() => {
             return BUI.html`
-            <bim-toolbar style="justify-self: center">
+            <bim-toolbar style="justify-self: center; z-index:200">
                 <bim-toolbar-section label="Scene">
                     <bim-button
                         id='world'
@@ -1113,7 +1113,7 @@ export function UrbanViewer () {
                                         arrowData = await readArrow()
                                         await suburbsBoundaries(world,components,arrowData)
                                         target.loading = false
-                                        //loadFragmentFile("/FRAG/Sample_priceAnalysis.frag")
+                                        //loadFragmentFile("/FRAG/ACT/ACT_OSH")
                                     }}>
                             </bim-button>
                         </bim-option>

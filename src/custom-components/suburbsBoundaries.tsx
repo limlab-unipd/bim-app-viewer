@@ -45,6 +45,7 @@ export async function suburbsBoundaries(world:OBC.World, components:OBC.Componen
     // Fattore di scala per adattare le coordinate a Three.js
     const scale = 1/coordinatesScaleFactor
 
+    const group = new THREE.Group()
     // Ciclo su tutte le righe del file Arrow
     for (let i = 0; i < arrow.numRows; i++) {
         let lineColor = 'rgba(142, 142, 142, 1)'
@@ -72,7 +73,7 @@ export async function suburbsBoundaries(world:OBC.World, components:OBC.Componen
                 const shapePoints: THREE.Vector2[] = []
                 polygon.forEach(([x, y]) => {
                     const tx = (x - globalCentroid.x) * scale
-                    const tz = (y - globalCentroid.y) * scale
+                    const tz = - (y - globalCentroid.y) * scale
                     vertices.push(tx, 0, tz) // Y=0
                     shapePoints.push(new THREE.Vector2(tx, tz))
                 })
@@ -96,22 +97,31 @@ export async function suburbsBoundaries(world:OBC.World, components:OBC.Componen
                     // Crea geometria
                     const geometry = new THREE.BufferGeometry()
                     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
-                    // Se vuoi chiudere il poligono
-                    geometry.setIndex([...Array(polygon.length).keys(), 0])
-                    const material = new THREE.LineBasicMaterial({ color: lineColor })
-                    const line = new THREE.LineLoop(geometry, material)
-                    line.renderOrder = lineRenderOrder
-                    scene.three.add(line)
+                    try {
+                        geometry.computeBoundingSphere() //serve per controllare alcune geoemtrie che non vanno bene, in questo modo crea la sfera e se non ci riesce non aggiunge la geometria al gruppo da mettere nella scena
+                        // Se vuoi chiudere il poligono
+                        geometry.setIndex([...Array(polygon.length).keys(), 0])
+                        const material = new THREE.LineBasicMaterial({ color: lineColor })
+                        const line = new THREE.LineLoop(geometry, material)
+                        line.renderOrder = lineRenderOrder
+                        if (!Number.isNaN(line.geometry.boundingSphere?.center.x)){
+                            group.add(line)
+                        }
+                    } catch (error) {
+                        //console.warn(error)
+                    }
                 }
 
                 //MARKER PER IL NOME
                 const element = BUI.Component.create(
                     () => BUI.html`<bim-label style="font-size: 0.7rem; color:${lineColor}">${suburbName}</bim-label>`,
                 );
-                marker.create(world, element, new THREE.Vector3(row.centroid_x - globalCentroid.x, 0, row.centroid_y - globalCentroid.y));
+                marker.create(world, element, new THREE.Vector3(row.centroid_x - globalCentroid.x, 0, -(row.centroid_y - globalCentroid.y)));
             })
         } catch (err) {
             console.warn('Errore nella riga', row, err)
         }
     }
+    scene.three.add(group) //aggiunge tutte le linee alla scena, invece di aggiungerle una per volta
+    window.dispatchEvent(new Event('resize'))
 }

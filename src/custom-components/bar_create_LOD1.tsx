@@ -151,7 +151,7 @@ export async function bar_create_LOD1 (
             const bar_height = normalizationCheckbox ? set.param_one_normalized*normalizationHeight.lod1 : Number(set.param_one)/normalizationHeight.notNormalized
             const centr_x = (Math.max(...set.centroid_x_local)+Math.min(...set.centroid_x_local))/2
             const centr_y = (Math.max(...set.centroid_y_local)+Math.min(...set.centroid_y_local))/2
-            const bar_position = new THREE.Vector3(centr_x/coordinatesScaleFactor,0,centr_y/coordinatesScaleFactor)
+            const bar_position = new THREE.Vector3(centr_x/coordinatesScaleFactor,0,-centr_y/coordinatesScaleFactor)
             const bar_name = Number(set.section).toString()
 
             blocks.push(
@@ -228,7 +228,7 @@ export async function bar_create_LOD1 (
         const section = row.data.Suburb
         const localId = Object.keys(map_id_name).filter(k => map_id_name[k as keyof typeof map_id_name] === section)
         row.data.localId = Number(localId[0])
-        row.data.model = modelName
+        row.data.modelId = modelName
         switch (true) {
             case (map_color_ids['color_0_02'] as string[])?.includes(localId[0]):
                 row.data.Color = highlighter.styles.get('color_0_02')?.color.getStyle()!

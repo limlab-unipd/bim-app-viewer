@@ -55,7 +55,7 @@ export async function LOD3_loadBIM (
             const modelIdMap: OBC.ModelIdMap = {[modelId]:new Set<number>([localId])}
             const barData = await fragments.getData(modelIdMap)
             const [position] = await fragments.getPositions(modelIdMap)
-            const loadedModel = await loadFragmentFile("/FRAG/Sample_one-story-house.frag")
+            const loadedModel = await loadFragmentFile("/FRAG/ACT/ACT_OSH.frag")
             await translateModel(loadedModel,{x:position.x,y:position.y,z:position.z})
         }
     }

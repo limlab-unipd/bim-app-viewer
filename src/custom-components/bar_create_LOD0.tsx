@@ -137,7 +137,7 @@ export async function bar_create_LOD0 (
             const bar_name = set.suburb
             let bar_position
             try {
-                bar_position = new THREE.Vector3(dataSuburbsCentroid[bar_name].centroid_x_local,0,dataSuburbsCentroid[bar_name].centroid_y_local)
+                bar_position = new THREE.Vector3(dataSuburbsCentroid[bar_name].centroid_x_local,0,-dataSuburbsCentroid[bar_name].centroid_y_local)
             } catch (error) {
                 continue
             }
@@ -170,6 +170,11 @@ export async function bar_create_LOD0 (
                     _category: { value: "IfcBar" },
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
+                    Suburb: { value: bar_name },
+                    BarHeight: { value: paramOne },
+                    BarColor: { value: paramTwo },
+                    [paramOne]: { value: Math.round(set.param_one*1000)/1000 },
+                    [paramTwo]: { value: Math.round(set.param_two*1000)/1000 },
                 },
                 globalTransform: tempObject.matrix.clone(),
                 samples: [
