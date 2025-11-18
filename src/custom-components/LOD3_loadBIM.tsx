@@ -18,7 +18,7 @@ export async function LOD3_loadBIM (
     const highlighter = components.get(OBCF.Highlighter)
     const fragments = components.get(OBC.FragmentsManager)
 
-    async function translateModel (model:FRAGS.FragmentsModel,barPosition:{x:number,y:number,z:number}) {
+    async function translateModelSingleMeshes (model:FRAGS.FragmentsModel,barPosition:{x:number,y:number,z:number}) {
         const modelId = model?.modelId
         const editedModels = []
         if (!model) return
@@ -45,6 +45,29 @@ export async function LOD3_loadBIM (
         editedModels.forEach(async (modelId) => await fragments.core.editor.save(modelId))
     }
 
+    const editGlobalTransforms = async (model:FRAGS.FragmentsModel,newPosition:{x:number,y:number,z:number}) => {
+        // Define edit requests
+        const requests: FRAGS.EditRequest[] = []
+        // Get all global transforms
+        const gTransforms = await model.getGlobalTransforms()
+        // Edit all global transforms by multiplying it's y position by 5
+        for (const [localId, globalTransform] of gTransforms) {
+            globalTransform.position[0] += newPosition.x
+            globalTransform.position[1] += newPosition.y
+            globalTransform.position[2] += newPosition.z
+            requests.push({
+                type: FRAGS.EditRequestType.UPDATE_GLOBAL_TRANSFORM,
+                localId,
+                data: globalTransform,
+            });
+        }
+        // Apply the edit requests to the model
+        await fragments.core.editor.edit(model.modelId, requests);
+        // Update the model to see the changes
+        await fragments.core.update(true);
+        await fragments.core.editor.save(model.modelId)
+    }
+
     let result = false
     const selection = highlighter.selection.select
     for (const [modelId,entries] of Object.entries(selection)){
@@ -58,7 +81,7 @@ export async function LOD3_loadBIM (
             const barData = await fragments.getData(modelIdMap)
             const [position] = await fragments.getPositions(modelIdMap)
             const loadedModel = await loadFragmentFile("/FRAG/ACT/ACT_OSH.frag")
-            await translateModel(loadedModel,{x:position.x,y:position.y,z:position.z})
+            await editGlobalTransforms(loadedModel, {x:position.x,y:position.y,z:position.z})
         }
     }
 
