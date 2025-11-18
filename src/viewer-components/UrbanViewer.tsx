@@ -963,6 +963,15 @@ export function UrbanViewer () {
             </bim-panel-section>`;
         })
 
+        const collapsePanelSections = (() => {
+            const modelsListPanelSectionHeader = modelsListPanelSection.shadowRoot?.children[0].children[0] as HTMLDivElement
+            modelsListPanelSectionHeader.click()
+            const spatialTreePanelSectionHeader = spatialTreePanelSection.shadowRoot?.children[0].children[0] as HTMLDivElement
+            spatialTreePanelSectionHeader.click()
+            const selectElementByGuidPanelSectionHeader = selectElementByGuidPanelSection.shadowRoot?.children[0].children[0] as HTMLDivElement
+            selectElementByGuidPanelSectionHeader.click()
+        })
+
         const centerViewButton = BUI.Component.create<BUI.Button>(() => {
             return BUI.html`
                 <bim-button
@@ -991,6 +1000,9 @@ export function UrbanViewer () {
         const paramOneDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
             <bim-dropdown name="param_one" label='Parameter 1 (bar height)' icon='icon-park-outline:one-key'>
+                <bim-option label='Population/km² (ground)' value="Population/m² (ground)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Population/km² (building gfa)' value="Population/m² (building gfa)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Population' value="Population" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Gross floor area' value="grss_fl" style="padding:0 10px 0 10px"></bim-option>
@@ -1015,6 +1027,9 @@ export function UrbanViewer () {
         const paramTwoDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
             <bim-dropdown name="param_two" label='Parameter 2 (bar color)' icon='icon-park-outline:two-key'>
+                <bim-option label='Population/m² (ground)' value="Population/m² (ground)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Population/m² (building gfa)' value="Population/m² (building gfa)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Population' value="Population" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Gross floor area' value="grss_fl" style="padding:0 10px 0 10px"></bim-option>
@@ -1068,8 +1083,8 @@ export function UrbanViewer () {
 
                         <bim-button label='0' tooltip='Load UVL-0' @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
-                            const result_0 = await bar_create_LOD0(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0],panelRight);
-                            target.loading = false
+                            let result_0 = false
+                            result_0 = await bar_create_LOD0(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0],panelRight);
                             if (result_0) {
                                 await createTable(panelDown,fragments,components,paramOneDropdown.value[0],paramTwoDropdown.value[0])
                                 if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
@@ -1080,6 +1095,7 @@ export function UrbanViewer () {
                                     panelRight.label = 'History of UVLs loadings'
                                 }
                             }
+                            target.loading = false
                         }}></bim-button>
                         <bim-label>></bim-label>
 
@@ -1104,8 +1120,11 @@ export function UrbanViewer () {
                         <bim-button label='3' tootltip='Load UVL-3' @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
                             const result_3 = await LOD3_loadBIM(components,loadFragmentFile,world)
-                            result_3 ? await onSetTransparencyWithColors(2) : ''
-                            //onSetCameraUVL(3)
+                            result_3[0] ? await onSetTransparencyWithColors(2) : ''
+                            onSetCameraUVL(3)
+                            if (result_3[1]) {
+                                await world.camera.controls.setLookAt(result_3[1].x+100,result_3[1].y+100,result_3[1].z+100,result_3[1].x,result_3[1].y,result_3[1].z)
+                            }
                             target.loading = false
                         }}></bim-button>
                         <bim-label>></bim-label>
@@ -1201,11 +1220,12 @@ export function UrbanViewer () {
                                 icon="fluent:data-histogram-24-filled"
                                 label="Canberra (AU)"
                                 @click=${async ({target}:{target:BUI.Button}) => {
+                                        onSetLayout({target:'left'})
                                         target.loading = true
                                         arrowData = await readArrow()
                                         await suburbsBoundaries(world,components,arrowData)
+                                        collapsePanelSections()
                                         target.loading = false
-                                        //loadFragmentFile("/FRAG/ACT/ACT_OSH")
                                     }}>
                             </bim-button>
                         </bim-option>
@@ -1467,7 +1487,7 @@ export function UrbanViewer () {
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer(true) //set the viewer, devMode default = false
+        setViewer() //set the viewer, devMode default = false
         return () => {
             if (components) {
                 components.dispose()

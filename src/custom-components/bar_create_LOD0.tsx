@@ -36,13 +36,22 @@ export async function bar_create_LOD0 (
     
     //initialize variables
     const fragments = components.get(OBC.FragmentsManager)
+    const finder = components.get(OBC.ItemsFinder)
+
+    for (const [modelId,] of fragments.list){
+        if (modelId.includes('LOD_0')) {
+            addOverlay(BUI.html`UVL-0 model already exists. Please reload the browser page to do a new analysis.`,'warning')
+            return false
+        }
+    }
+
     const startTime = performance.now() // Start timer
     const lod: number = 0
     const name: string = 'CANBERRA'
     let dataForBars:{[key:string]:any}
     interface cityObject {
         suburb: string;
-        param_one: number;
+        param_one?: number;
         param_two?: number;
         centroid_x_local?:number;
         centroid_y_local?:number;
@@ -60,21 +69,77 @@ export async function bar_create_LOD0 (
     world.scene.three.add(newModel.object);
     await fragments.core.update(true);
 
-    //filter arrow data
+    //suburbs from materials arrow
     const colSuburbs = arrowData.getChild(groupColumn.lod0);
-    if (!colSuburbs) throw new Error(`${groupColumn.lod0} column not found`);
-    const colParamOne = arrowData.getChild(paramOne)
-    const colParamTwo = arrowData.getChild(paramTwo)
+    if (!colSuburbs) throw new Error(`${groupColumn.lod0} column not found`)
+    const suburbsUnique = new Set<string>(colSuburbs.toArray())
 
-    for (let i = 0; i < arrowData.numRows; i++) {
-        const suburb = colSuburbs.get(i)
-        //const row = arrowData.get(i)
-        //dataCity[suburb] ? dataCity[suburb].push(row) : dataCity[suburb] = [row]
-        const rowOne = Number(colParamOne?.get(i))
-        const rowTwo = Number(colParamTwo?.get(i))
-        dataCity[suburb] ? 
-            (dataCity[suburb].param_one+=rowOne,dataCity[suburb].param_two!+=rowTwo) : 
-            dataCity[suburb] = {suburb:suburb, param_one:rowOne, param_two:rowTwo}
+    //population arrow data
+    let populationArrowData
+    let colParamOne, colParamTwo
+    let popArrow_AREA_SQKM, popArrow_Person, popArrow_Suburb: any
+    let sumPerson:{[key:string]:number}={}, sumAreaSQKM:{[key:string]:number}={}
+    const paramOnePopCheck = paramOne.includes('Population')
+    const paramTwoPopCheck = paramTwo.includes('Population')
+
+    if (paramOnePopCheck || paramOnePopCheck){
+        populationArrowData = await readArrow('population')
+        popArrow_Person = populationArrowData.getChild('Person')
+        popArrow_AREA_SQKM = populationArrowData.getChild('AREA_SQKM')
+        popArrow_Suburb = populationArrowData.getChild(groupColumn.lod0_population)
+        for (let i = 0; i < popArrow_Suburb!.length; i++) {
+            const suburb = popArrow_Suburb.get(i)
+            if (!suburbsUnique.has(suburb)) continue
+            sumPerson[suburb] ? sumPerson[suburb]+= Number(popArrow_Person?.get(i)) : sumPerson[suburb]=Number(popArrow_Person?.get(i))
+            sumAreaSQKM[suburb] ? sumAreaSQKM[suburb]+= Number(popArrow_AREA_SQKM?.get(i)) : sumAreaSQKM[suburb]=Number(popArrow_AREA_SQKM?.get(i))
+        }
+    }
+
+    if (paramOne=="Population/m² (ground)" || paramTwo=="Population/m² (ground)"){
+        for (const suburb of Object.keys(sumPerson)){
+            if (!dataCity[suburb]) dataCity[suburb] = {suburb:suburb}
+            paramOne=="Population/m² (ground)" ? 
+                dataCity[suburb].param_one = sumPerson[suburb]/sumAreaSQKM[suburb] :
+                dataCity[suburb].param_two = sumPerson[suburb]/sumAreaSQKM[suburb]
+        }
+    }
+    if (paramOne=="Population" || paramTwo=="Population"){
+        for (const suburb of Object.keys(sumPerson)){
+            if (!dataCity[suburb]) dataCity[suburb] = {suburb:suburb}
+            paramOne=="Population" ? 
+                dataCity[suburb].param_one = sumPerson[suburb] :
+                dataCity[suburb].param_two = sumPerson[suburb]
+        }
+    }
+    if (paramOne=="Population/m² (building gfa)" || paramTwo=="Population/m² (building gfa)"){
+        const colGFA = arrowData.getChild('grss_fl')
+        const sumGFA: {[key:string]:number} = {}
+        for (let i = 0; i < arrowData.numRows; i++) {
+            const suburb = colSuburbs.get(i)
+            sumGFA[suburb] ? sumGFA[suburb]+= Number(colGFA?.get(i)) : sumGFA[suburb]=Number(colGFA?.get(i))
+        }
+        for (const suburb of Object.keys(sumPerson)){
+            if (!dataCity[suburb]) dataCity[suburb] = {suburb:suburb}
+            paramOne=="Population/m² (building gfa)" ? 
+                dataCity[suburb].param_one = sumPerson[suburb]/sumGFA[suburb]*1000 :
+                dataCity[suburb].param_two = sumPerson[suburb]/sumGFA[suburb]*1000
+        }
+    }
+    if (!paramOnePopCheck || !paramTwoPopCheck){ //all other parameters
+        const sumOne: {[key:string]:number} = {}
+        const sumTwo: {[key:string]:number} = {}
+        colParamOne = !paramOnePopCheck ? arrowData.getChild(paramOne) : null
+        colParamTwo = !paramTwoPopCheck ? arrowData.getChild(paramTwo) : null
+        for (let i = 0; i < arrowData.numRows; i++) {
+            const suburb = colSuburbs.get(i)
+            if (colParamOne) sumOne[suburb] ? sumOne[suburb]+= Number(colParamOne?.get(i)) : sumOne[suburb]=Number(colParamOne?.get(i))
+            if (colParamTwo) sumTwo[suburb] ? sumTwo[suburb]+= Number(colParamTwo?.get(i)) : sumTwo[suburb]=Number(colParamTwo?.get(i))
+        }
+        for (const suburb of suburbsUnique){
+            if (!dataCity[suburb]) dataCity[suburb] = {suburb:suburb}
+            if (!paramOnePopCheck) dataCity[suburb].param_one = sumOne[suburb]
+            if (!paramTwoPopCheck) dataCity[suburb].param_two = sumTwo[suburb]
+        }
     }
     function normalizeParamOne(data: Record<string, any>): Record<string, any> {
         const values = Object.values(data).map(d => d.param_one);
@@ -109,10 +174,11 @@ export async function bar_create_LOD0 (
     const normalizationCheckbox = document.getElementById('normalization-checkbox') as BUI.Checkbox
 
     // building generation logic
-    let processing = false;
     const regenerateFragments = async () => {
         const elementsData: FRAGS.NewElementData[] = [];
-        const propertySets: FRAGS.RawItemData[] = [];
+        //const propertySets: FRAGS.RawItemData[] = [];
+        const pSets: {[key:string]:FRAGS.RawItemData} = {}
+        const pSetsData: {[key:string]:FRAGS.RawItemData} = {}
         await fragments.core.editor.reset(newModel.modelId)
         // Create base items
         const matId = fragments.core.editor.createMaterial(
@@ -131,6 +197,7 @@ export async function bar_create_LOD0 (
         const tempObject = new THREE.Object3D();
         //creation of each bar
         for (const [key,set] of Object.entries(dataForBars)) {
+            console.log(set)
             const bar_base_dim1 = barsBase.lod0
             const bar_base_dim2 = barsBase.lod0
             const bar_height = normalizationCheckbox.checked ? set.param_one_normalized*normalizationHeight.lod0 : set.param_one/normalizationHeight.notNormalized
@@ -186,40 +253,90 @@ export async function bar_create_LOD0 (
                 ],
             })
             //aggiunge il pset alla lista
-            propertySets.push({
+            // propertySets.push({
+            //     category: "IFCPROPERTYSET",
+            //     guid: generateUUID(),
+            //     data: {
+            //         Name: { value: "EnvironmentalAnalysisData" },
+            //         BarHeight: { value: paramOne },
+            //         BarColor: { value: paramTwo },
+            //         Suburb: { value: bar_name },
+            //         [paramOne]: { value: Math.round(set.param_one*1000)/1000 },
+            //         [paramTwo]: { value: Math.round(set.param_two*1000)/1000 },
+            //     }
+            // })
+            pSets[bar_name] = { //object containing one pset per each suburb
                 category: "IFCPROPERTYSET",
                 guid: generateUUID(),
                 data: {
                     Name: { value: "EnvironmentalAnalysisData" },
                     BarHeight: { value: paramOne },
                     BarColor: { value: paramTwo },
+                    Suburb: { value: bar_name },
                     [paramOne]: { value: Math.round(set.param_one*1000)/1000 },
                     [paramTwo]: { value: Math.round(set.param_two*1000)/1000 },
                 }
-            })
+            }
+            pSetsData[bar_name] = {
+                category: "IFCPROPERTYSET",
+                guid: generateUUID(),
+                data: {
+                    Name: { value: "EnvironmentalData" },
+                    Suburb: { value: bar_name },
+                }
+            }
         }
         const createdBars = await fragments.core.editor.createElements(newModel.modelId, elementsData) //crea la geometria delle barre
-
-        if (createdBars){
-            // creazione item per pset nel modello
-            const createdPsetsIds: number[] = []
-            for (const pset of propertySets){
-                createdPsetsIds.push(Number(fragments.core.editor.createItem(newModel.modelId,pset))) //crea gli item per i pset nel modello
-            }
-
-            // crea la relazione tra barra e pset, entrambi sono array ordinati con gli elementi nella stessa posizione
-            let i = 0
-            for (const bar of createdBars){
-                // --------------------------------- A T T E N Z I O N E ---------------------------------
-                await fragments.core.editor.relate(newModel.modelId, bar.localId, 'IsDefinedBy', [createdPsetsIds[i]+1]) //ATTENZIONE: non so perche' sia necessario questo + 1 --> serve per aumentare di uno il localId del pset
-                i++
-            }
+        if (!createdBars) return false
+        for (const bar of createdBars){
+            const barData = await bar.getData()
+            const suburb = (barData.Name as FRAGS.ItemAttribute).value
+            const pSet = pSets[suburb]
+            const pSetData = pSetsData[suburb]
+            //--------------------------------- A T T E N Z I O N E ---------------------------------
+            const pSetId = Number(fragments.core.editor.createItem(newModel.modelId,pSet)) + 1 //ATTENZIONE: non so perche' sia necessario questo + 1 --> serve per aumentare di uno il localId del pset
+            const pSetDataId = Number(fragments.core.editor.createItem(newModel.modelId,pSetData)) + 1 //ATTENZIONE: non so perche' sia necessario questo + 1 --> serve per aumentare di uno il localId del pset
+            await fragments.core.editor.relate(newModel.modelId, bar.localId, 'IsDefinedBy', [pSetId,pSetDataId])
         }
 
         await fragments.core.editor.applyChanges(newModel.modelId)
         await fragments.core.editor.save(newModel.modelId)
-        await fragments.core.update(true);
-        processing = false;
+        await fragments.core.update(true)
+
+        // // creazione item per pset nel modello
+        // const createdPsetsIds: number[] = []
+        // for (const pset of propertySets){
+        //     createdPsetsIds.push(Number(fragments.core.editor.createItem(newModel.modelId,pset))) //crea gli item per i pset nel modello
+        // }
+        // await fragments.core.editor.applyChanges(newModel.modelId)
+        // await fragments.core.editor.save(newModel.modelId)
+        // await fragments.core.update(true);
+
+        // // crea la relazione tra barra e pset, entrambi sono array ordinati con gli elementi nella stessa posizione
+        // for (const bar of createdBars){
+        //     const barData = await bar.getData()
+        //     const suburb = (barData.Name as FRAGS.ItemAttribute).value
+        //     finder.create('pset', [
+        //         {
+        //             categories: [/PROPERTYSET/],
+        //             attributes: { queries: [
+        //                 { name: /Name/, value: /EnvironmentalAnalysisData/ },
+        //                 { name: /Suburb/, value: new RegExp(suburb.replace(/[.*+\-?^${}()|[\]\\]/g, "\\$&")) },
+        //             ] },
+        //         },
+        //     ])
+        //     const pset_id = await finder.list.get('pset')?.test()
+        //     console.log(pset_id)
+        //     if (!pset_id) continue
+        //     console.log([[...pset_id['LOD_0_CANBERRA']][0]])
+        //     // --------------------------------- A T T E N Z I O N E ---------------------------------
+        //     //await fragments.core.editor.relate(newModel.modelId, bar.localId, 'IsDefinedBy', [[...psets_ids['LOD_0_CANBERRA']][i]]) //ATTENZIONE: non so perche' sia necessario questo + 1 --> serve per aumentare di uno il localId del pset
+        //     await fragments.core.editor.relate(newModel.modelId, bar.localId, 'IsDefinedBy', [[...pset_id['LOD_0_CANBERRA']][0]])
+        // }
+
+        // await fragments.core.editor.applyChanges(newModel.modelId)
+        // await fragments.core.editor.save(newModel.modelId)
+        // await fragments.core.update(true);
     };
     
     await regenerateFragments();

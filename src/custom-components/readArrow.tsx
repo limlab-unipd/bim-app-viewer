@@ -10,6 +10,8 @@ export async function readArrow(file:string='buildings') {
     
     if (file=='suburbs' || file=='boundaries'){
         resp = await fetch('/ARROW/ACT_boundaries.arrow')
+    } else if (file=='population') {
+        resp = await fetch('/ARROW/ACT_population.arrow')
     } else {
         resp = await fetch('/ARROW/ACT_materials.arrow')
     }
