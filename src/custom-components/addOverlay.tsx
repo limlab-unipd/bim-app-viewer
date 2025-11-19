@@ -10,7 +10,7 @@ import * as BUI from '@thatopen/ui'
  */
 export const addOverlay = (sentence:BUI.TemplateResult=BUI.html`Overlay <b>example</b>`,urgency:string='normal', time:number=5000) => {
     const overlay = document.getElementById("overlay");
-    const color = urgency=='warning' ? 'rgba(255, 0, 0, 0.3)' : 'rgba(0,0,0,0.2)'
+    const color = urgency=='warning' ? 'rgba(198, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.3)'
     if (overlay) {
         const label = BUI.Component.create<HTMLDivElement>(() => {
             return BUI.html`

@@ -18,7 +18,7 @@ export async function LOD3_loadBIM (
     const selection = highlighter.selection.select
     for (const [modelId,entries] of Object.entries(selection)){
         if (!modelId.includes('LOD_2')) {
-            addOverlay(BUI.html`Pleae select UVL-2 bar to load UVL-3`)
+            addOverlay(BUI.html`<b>WARNING</b>: The selected bar can't be used to load UVL-3. Please select any UVL-2 bar to continue.`,'warning')
             continue
         }
         result = true

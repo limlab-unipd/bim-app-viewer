@@ -4,6 +4,7 @@ export const groupColumn = {
     lod0_population : 'SA2_NAME16', //the parameter is the same but with a different name
     lod0 : 'SA2_NAM', //DIVISION_N or SA2_NAME
     lod1 : 'SA1_MAI', //SA1_MAI or MB_CODE
+    lod1_population : 'SA1_MAIN16',
 }
 
 // scale factor to scale the map
@@ -11,9 +12,9 @@ export const coordinatesScaleFactor = 1 //it is a reducing factor, so it reduce 
 
 // height to use to normalize data per each lod
 export const normalizationHeight = {
-    notNormalized : 200, // this value only divide the not normalized value by this number, to not have bars too high
-    lod0 : 3000,
-    lod1 : 2000,
+    notNormalized : 1, // this value only divide the not normalized value by this number, to not have bars too high
+    lod0 : 5000,
+    lod1 : 3000,
     lod2 : 1000,
 }
 

@@ -31,7 +31,7 @@ export function UrbanViewer () {
     importedCategories.sort()
     const marker = components.get(OBCF.Marker)
     // #endregion
-    
+
     const setViewer = async (devMode:boolean=false) => {
         //SETTING DEV MODE
         const devElementsVisibility = devMode ? '' : 'none' 
@@ -191,6 +191,7 @@ export function UrbanViewer () {
         // #region LOGIC FUNCTIONS
         //read arrow file
         let arrowData
+        let populationArrowData
         //function to load the IFC file
         const loadIfcFile = async (path: string) => {
             const name = path.split('/').pop()?.split('.ifc')[0] || path.split('/').pop() || path
@@ -999,9 +1000,36 @@ export function UrbanViewer () {
         )
         const paramOneDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
-            <bim-dropdown name="param_one" label='Parameter 1 (bar height)' icon='icon-park-outline:one-key'>
-                <bim-option label='Population/km² (ground)' value="Population/m² (ground)" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Population/km² (building gfa)' value="Population/m² (building gfa)" style="padding:0 10px 0 10px"></bim-option>
+            <bim-dropdown name="param_one">
+                <bim-option label='1' value='1' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Population' value="Population" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Gross floor area' value="grss_fl" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Net floor area' value="usbl_fl" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Total tonnes' value="Tonnes" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Aluminium' value="Aluminm" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Bitumen' value="Bitumen" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Carpet' value="Carpet" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Ceramics' value="Ceramcs" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Concrete' value="Concret" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Copper' value="Copper" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Glass' value="Glass" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Insulation' value="Insultn" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Paint' value="Paint" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plasterboard' value="Plstrbr" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plastics' value="Plastcs" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Sand' value="Snd_nd_" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Steel' value="Steel" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
+        const paramOneBDropdown = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="param_one_b">
+                <bim-option checked label='1' value='1' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Population' value="Population" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
@@ -1026,9 +1054,36 @@ export function UrbanViewer () {
         )
         const paramTwoDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
-            <bim-dropdown name="param_two" label='Parameter 2 (bar color)' icon='icon-park-outline:two-key'>
-                <bim-option label='Population/m² (ground)' value="Population/m² (ground)" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Population/m² (building gfa)' value="Population/m² (building gfa)" style="padding:0 10px 0 10px"></bim-option>
+            <bim-dropdown name="param_two">
+                <bim-option label='1' value='1' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Population' value="Population" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Gross floor area' value="grss_fl" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Net floor area' value="usbl_fl" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Total tonnes' value="Tonnes" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Aluminium' value="Aluminm" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Bitumen' value="Bitumen" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Carpet' value="Carpet" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Ceramics' value="Ceramcs" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Concrete' value="Concret" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Copper' value="Copper" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Glass' value="Glass" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Insulation' value="Insultn" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Paint' value="Paint" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plasterboard' value="Plstrbr" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plastics' value="Plastcs" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Sand' value="Snd_nd_" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Steel' value="Steel" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
+        const paramTwoBDropdown = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="param_two_b">
+                <bim-option checked label='1' value='1' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Population' value="Population" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
@@ -1053,7 +1108,7 @@ export function UrbanViewer () {
         )
         const normalizationCheckbox = BUI.Component.create<BUI.Checkbox>(
             () => BUI.html`
-            <bim-checkbox label='Normalize bars height' icon='heroicons:chart-bar-16-solid' id='normalization-checkbox' style="border-bottom: 1px solid var(--bim-ui_bg-contrast-20); padding-bottom:0.5rem"
+            <bim-checkbox checked label='Normalize bars height' icon='heroicons:chart-bar-16-solid' id='normalization-checkbox' style="border-bottom: 1px solid var(--bim-ui_bg-contrast-20); padding-bottom:0.5rem"
                 @change="${(e:Event) => {
                     if (!e.target) return
                     const chekcbox = e.target as BUI.Checkbox   
@@ -1074,8 +1129,18 @@ export function UrbanViewer () {
                     <bim-label style="display:flex; white-space:normal">Select a bar, choose options below, then load its next UVL (example: select a UVL-1 bar then click button to load its UVL-2).</bim-label>
                     <bim-label style="display:flex; white-space:normal">Set:</bim-label>
                     ${colorScaleDropdown}
-                    ${paramOneDropdown}
-                    ${paramTwoDropdown}
+                    <bim-label icon='icon-park-outline:one-key' style='margin-right:1rem'>Parameter 1 (bar height)</bim-label>
+                    <div style='display:flex; flex-direction:row; gap:0.5rem; flex:0; align-items:center; margin-left:1.5rem'>
+                        ${paramOneDropdown}
+                        <bim-label style='font-size:1.5rem'>/</bim-label>
+                        ${paramOneBDropdown}
+                    </div>
+                    <bim-label icon='icon-park-outline:two-key' style='margin-right:1rem'>Parameter 2 (bar color)</bim-label>
+                    <div style='display:flex; flex-direction:row; gap:0.5rem; flex:0; align-items:center; margin-left:1.5rem'>
+                        ${paramTwoDropdown}
+                        <bim-label style='font-size:1.5rem'>/</bim-label>
+                        ${paramTwoBDropdown}
+                    </div>
                     ${normalizationCheckbox}
                     <bim-label icon='solar:city-bold-duotone'>Urban Visualization Level</bim-label>
                     <div style='display:flex; flex-direction:row; gap:0.5rem'>
@@ -1083,10 +1148,11 @@ export function UrbanViewer () {
 
                         <bim-button label='0' tooltip='Load UVL-0' @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
-                            let result_0 = false
-                            result_0 = await bar_create_LOD0(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0],panelRight);
+                            let result_0 = false;
+                            let paramOneFullName = '',paramTwoFullname = '';
+                            [result_0,paramOneFullName,paramTwoFullname] = await bar_create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,paramOneDropdown.value[0],paramOneBDropdown.value[0],paramTwoDropdown.value[0],paramTwoBDropdown.value[0],panelRight);
                             if (result_0) {
-                                await createTable(panelDown,fragments,components,paramOneDropdown.value[0],paramTwoDropdown.value[0])
+                                await createTable(panelDown,fragments,components,paramOneFullName,paramTwoFullname)
                                 if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                     onSetLayout({target:'down'})
                                 }
@@ -1101,7 +1167,7 @@ export function UrbanViewer () {
 
                         <bim-button label='1' tootltip='Load UVL-1 and hide UVL-0' @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
-                            const result_1 = await bar_create_LOD1(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0],previousLoadedSuburbs)
+                            const result_1 = await bar_create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,paramOneDropdown.value[0],paramOneBDropdown.value[0],paramTwoDropdown.value[0],paramTwoBDropdown.value[0],previousLoadedSuburbs)
                             result_1 ? await onSetTransparencyWithColors(0) : ''
                             //onSetCameraUVL(1)
                             target.loading = false
@@ -1110,7 +1176,7 @@ export function UrbanViewer () {
 
                         <bim-button label='2' tootltip='Load UVL-2' @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
-                            const result_2 = await bar_create_LOD2(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramTwoDropdown.value[0],previousLoadedSuburbs)
+                            const result_2 = await bar_create_LOD2(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramOneBDropdown.value[0],paramTwoDropdown.value[0],paramTwoBDropdown.value[0],previousLoadedSuburbs)
                             result_2 ? await onSetTransparencyWithColors(1) : ''
                             //onSetCameraUVL(2)
                             target.loading = false
@@ -1223,6 +1289,7 @@ export function UrbanViewer () {
                                         onSetLayout({target:'left'})
                                         target.loading = true
                                         arrowData = await readArrow()
+                                        populationArrowData = await readArrow('population')
                                         await suburbsBoundaries(world,components,arrowData)
                                         collapsePanelSections()
                                         target.loading = false

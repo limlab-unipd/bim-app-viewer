@@ -24,9 +24,24 @@ export async function bar_create_LOD2 (
         geometryEngine:FRAGS.GeometryEngine,
         arrowData:Table<any>,
         paramOne:string='Concret',
+        paramOneB:string='1',
         paramTwo:string='Glass',
+        paramTwoB:string='1',
         previousLoadedSuburbs:string[],
     ): Promise<boolean> {
+
+    paramOne = paramOne.toString()
+    paramOneB = paramOneB.toString()
+    paramTwo = paramTwo.toString()
+    paramTwoB = paramTwoB.toString()
+    if (paramOne.includes('Population')||paramOne.includes('Urban')||
+        paramOneB.includes('Population')||paramOneB.includes('Urban')||
+        paramTwo.includes('Population')||paramTwo.includes('Urban')||
+        paramTwoB.includes('Population')||paramTwoB.includes('Urban')) {
+        
+        addOverlay(BUI.html`<b>WARNING</b>: UVL-2 does not have any data about <b><i>Population</i></b> or <b><i>Urban Area (km²)</i></b>. Please select other parameters to continue!`,'warning')
+        return false
+    }
 
     //initialize variables
     const fragments = components.get(OBC.FragmentsManager)
@@ -42,14 +57,14 @@ export async function bar_create_LOD2 (
     //getting the selected bar name
     const selection = highlighter.selection.select
     if (Object.entries(selection).length == 0) {
-        addOverlay(BUI.html`<b>WARNING: Please select any UVL-1 bar to proceed.</b>`,'warning')
+        addOverlay(BUI.html`<b>WARNING</b>: Please select any UVL-1 bar to continue.`,'warning')
         return false
     }
     
     const item = await fragments.getData(selection)
     for (const [model,it] of Object.entries(item)){ 
         if (!model.includes('LOD_1')) {
-            addOverlay(BUI.html`<b>WARNING: The selected bar can't be used to load UVL-2. Please select any UVL-1 bar to proceed.</b>`,'warning')
+            addOverlay(BUI.html`<b>WARNING</b>: The selected bar can't be used to load UVL-2. Please select any UVL-1 bar to continue.`,'warning')
             return false
         }
         if (!(it[0]['_category'] as FRAGS.ItemAttribute).value) continue
@@ -57,7 +72,7 @@ export async function bar_create_LOD2 (
         suburb = (it[0]['Suburb'] as FRAGS.ItemAttribute).value
     }
     if (previousLoadedSuburbs.includes(name)) { 
-        addOverlay(BUI.html`<b>WARNING: UVL-2 of ${name} already loaded.</b>`,'warning')
+        addOverlay(BUI.html`<b>WARNING</b>: UVL-2 of ${name} already loaded.`,'warning')
         return false 
     } else {
         previousLoadedSuburbs.push(name) 

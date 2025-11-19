@@ -23,8 +23,11 @@ export async function bar_create_LOD1 (
         components:OBC.Components,
         geometryEngine:FRAGS.GeometryEngine,
         arrowData:Table<any>,
+        populationArrowData:Table<any>,
         paramOne:string='Concret',
+        paramOneB:string='1',
         paramTwo:string='Glass',
+        paramTwoB:string='1',
         previousLoadedSuburbs:string[],
     ): Promise<boolean> {
 
@@ -34,7 +37,8 @@ export async function bar_create_LOD1 (
     const startTime = performance.now() // Start timer
     const lod: number = 1
     let dataForBars:{[key:string]:any}
-    const dataBySuburb: {[key:string]:any} = {} //all buildings of single suburb
+    const dataOfSuburb: {[key:string]:any} = {} //all buildings of single suburb
+    const dataPopOfSuburb: {[key:string]:any} = {} //all buildings of single suburb
     interface sectionObject {
         suburb?: string;
         section?: string;
@@ -50,13 +54,13 @@ export async function bar_create_LOD1 (
     //getting the selected bar name
     const selection = highlighter.selection.select
     if (Object.entries(selection).length == 0) {
-        addOverlay(BUI.html`<b>WARNING: Please select any UVL-0 bar to proceed.</b>`,'warning')
+        addOverlay(BUI.html`<b>WARNING: Please select any UVL-0 bar to continue.</b>`,'warning')
         return false
     }
     const item = await fragments.getData(selection)
     for (const [model,it] of Object.entries(item)){
         if (!model.includes('LOD_0')) {
-            addOverlay(BUI.html`<b>WARNING: The selected bar can't be used to load UVL-1. Please select any UVL-0 bar to proceed.</b>`,'warning')
+            addOverlay(BUI.html`<b>WARNING: The selected bar can't be used to load UVL-1. Please select any UVL-0 bar to continue.</b>`,'warning')
             return false
         }
         if (!(it[0]['_category'] as FRAGS.ItemAttribute).value) continue
@@ -80,27 +84,100 @@ export async function bar_create_LOD1 (
     await fragments.core.update(true);
 
     //filter arrow data
-    const col = arrowData.getChild(groupColumn.lod0);
-    if (!col) throw new Error(`${groupColumn.lod0} column not found`);
+    const col = arrowData.getChild(groupColumn.lod0)
+    if (!col) throw new Error(`${groupColumn.lod0} column not found`)
     for (let i = 0; i < arrowData.numRows; i++) {
         if (col.get(i) === name) {
             const row = arrowData.get(i)
-            dataBySuburb[Number(row!.identfr).toString()] = row
+            dataOfSuburb[Number(row!.identfr).toString()] = row
         }
     }
-    for (const [identfr,row] of Object.entries(dataBySuburb)) {
-        const section = Number(row![groupColumn.lod1]).toString()
-        //dataBySection[section] ? dataBySection[section].push(row) : dataBySection[section] = [row]
+    const sum: { [key: string]: { sumOne:number; sumOneB:number; sumTwo:number; sumTwoB:number } } = {}
+    for (const [,row] of Object.entries(dataOfSuburb)) {
+        const section = row[groupColumn.lod1]
+        if (!sum[section]) {
+            sum[section] = { sumOne:0, sumOneB:0, sumTwo:0, sumTwoB:0 }
+        }
+        row[paramOne] ? sum[section].sumOne += Number(row[paramOne]) : null
+        row[paramOneB] ? sum[section].sumOneB += Number(row[paramOneB]) : null
+        row[paramTwo] ? sum[section].sumTwo += Number(row[paramTwo]) : null
+        row[paramTwoB] ? sum[section].sumTwoB += Number(row[paramTwoB]) : null
+
         dataBySection[section] ? '' : dataBySection[section] = {}
         dataBySection[section].suburb = name
         dataBySection[section].section = section
-        const rowOne = Number(row[paramOne])
-        const rowTwo = Number(row[paramTwo])
-        dataBySection[section].param_one ? dataBySection[section].param_one+=rowOne : dataBySection[section].param_one = rowOne
-        dataBySection[section].param_two ? dataBySection[section].param_two+=rowTwo : dataBySection[section].param_two = rowTwo
         dataBySection[section].centroid_x_local ? dataBySection[section].centroid_x_local.push(row.centroid_x - globalCentroid.x) : dataBySection[section].centroid_x_local = [row.centroid_x - globalCentroid.x]
         dataBySection[section].centroid_y_local ? dataBySection[section].centroid_y_local.push(row.centroid_y - globalCentroid.y) : dataBySection[section].centroid_y_local = [row.centroid_y - globalCentroid.y]
     }
+    const colPop = populationArrowData.getChild(groupColumn.lod0_population)
+    if (!colPop) throw new Error(`${groupColumn.lod0_population} column not found`)
+    for (let i = 0; i < populationArrowData.numRows; i++) {
+        if (colPop.get(i) === name) {
+            const row = populationArrowData.get(i)
+            dataPopOfSuburb[Number(row!.MB_CODE16).toString()] = row
+        }
+    }
+    const sumPop: { [key: string]: { sumPerson: number; sumAREASQKM: number; one: number } } = {}
+    for (const [,row] of Object.entries(dataPopOfSuburb)) {
+        const section = row[groupColumn.lod1_population]
+        if (!sumPop[section]) {
+            sumPop[section] = { sumPerson: 0, sumAREASQKM: 0, one: 1 }
+        }
+        sumPop[section].sumPerson += Number(row.Person)
+        sumPop[section].sumAREASQKM += Number(row.AREA_SQKM)
+    }
+
+    let sections = Object.keys(sum)
+    if (Object.keys(sum).length > Object.keys(sumPop).length){
+        sections = Object.keys(sumPop)
+    }
+
+    const final: {[key:string]: { 'One':any; 'OneB':any; 'Two':any; 'TwoB':any }} = {}
+    for (const section of sections) {
+        final[section] ? '' : final[section]={'One':'', 'OneB':'', 'Two':'', 'TwoB':''}
+        if (paramOne=='1'){
+            final[section].One = sumPop[section].one
+        } else if (paramOne.includes('Population')) {
+            final[section].One = sumPop[section].sumPerson
+        } else if (paramOne.includes('Urban')) {
+            final[section].One = sumPop[section].sumAREASQKM
+        } else {
+            final[section].One = sum[section].sumOne
+        }
+        if (paramOneB=='1'){
+            final[section].OneB = sumPop[section].one
+        } else if (paramOneB.includes('Population')) {
+            final[section].OneB = sumPop[section].sumPerson
+        } else if (paramOneB.includes('Urban')) {
+            final[section].OneB = sumPop[section].sumAREASQKM
+        } else {
+            final[section].OneB = sum[section].sumOneB
+        }
+        if (paramTwo=='1'){
+            final[section].Two = sumPop[section].one
+        } else if (paramTwo.includes('Population')) {
+            final[section].Two = sumPop[section].sumPerson
+        } else if (paramTwo.includes('Urban')) {
+            final[section].Two = sumPop[section].sumAREASQKM
+        } else {
+            final[section].Two = sum[section].sumTwo
+        }
+        if (paramTwoB=='1'){
+            final[section].TwoB = sumPop[section].one
+        } else if (paramTwoB.includes('Population')) {
+            final[section].TwoB = sumPop[section].sumPerson
+        } else if (paramTwoB.includes('Urban')) {
+            final[section].TwoB = sumPop[section].sumAREASQKM
+        } else {
+            final[section].TwoB = sum[section].sumTwoB
+        }
+    }
+
+    for (const section of Object.keys(final)){
+        dataBySection[section].param_one = final[section].One / final[section].OneB
+        dataBySection[section].param_two = final[section].Two / final[section].TwoB
+    }
+
     //add the column with the normalization always, then it is choosed below the normalized or the not normalized one
     function normalizeParamOne(data: Record<string, any>): Record<string, any> {
         const values = Object.values(data).map(d => d.param_one);

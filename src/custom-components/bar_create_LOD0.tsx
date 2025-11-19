@@ -24,14 +24,22 @@ export async function bar_create_LOD0 (
         components:OBC.Components,
         geometryEngine:FRAGS.GeometryEngine,
         arrowData:Table<any>,
+        populationArrowData:Table<any>,
         paramOne:string='Concret',
+        paramOneB:string='1',
         paramTwo:string='Glass',
+        paramTwoB:string='1',
         panelRight:BUI.Panel,
-    ): Promise<boolean> {
+    ): Promise<[boolean,string,string]> {
+
+    paramOne = paramOne.toString()
+    paramOneB = paramOneB.toString()
+    paramTwo = paramTwo.toString()
+    paramTwoB = paramTwoB.toString()
 
     if (!arrowData) {
         addOverlay(BUI.html`Please load any samples before.`,'warning')
-        return false
+        return [false,'','']
     }
     
     //initialize variables
@@ -41,7 +49,7 @@ export async function bar_create_LOD0 (
     for (const [modelId,] of fragments.list){
         if (modelId.includes('LOD_0')) {
             addOverlay(BUI.html`UVL-0 model already exists. Please reload the browser page to do a new analysis.`,'warning')
-            return false
+            return [false,'','']
         }
     }
 
@@ -75,15 +83,19 @@ export async function bar_create_LOD0 (
     const suburbsUnique = new Set<string>(colSuburbs.toArray())
 
     //population arrow data
-    let populationArrowData
-    let colParamOne, colParamTwo
     let popArrow_AREA_SQKM, popArrow_Person, popArrow_Suburb: any
     let sumPerson:{[key:string]:number}={}, sumAreaSQKM:{[key:string]:number}={}
+    let sumOne:{[key:string]:number}={}, sumOneB:{[key:string]:number}={}, sumTwo:{[key:string]:number}={}, sumTwoB:{[key:string]:number}={}
     const paramOnePopCheck = paramOne.includes('Population')
+    const paramOneBPopCheck = paramOneB.includes('Population')
     const paramTwoPopCheck = paramTwo.includes('Population')
+    const paramTwoBPopCheck = paramTwoB.includes('Population')
+    const paramOneUrbanCheck = paramOne.includes('Urban')
+    const paramOneBUrbanCheck = paramOneB.includes('Urban')
+    const paramTwoUrbanCheck = paramTwo.includes('Urban')
+    const paramTwoBUrbanCheck = paramTwoB.includes('Urban')
 
-    if (paramOnePopCheck || paramOnePopCheck){
-        populationArrowData = await readArrow('population')
+    if ([paramOnePopCheck,paramOnePopCheck,paramOneBPopCheck,paramTwoBPopCheck].includes(true) || [paramOneUrbanCheck,paramOneUrbanCheck,paramOneBUrbanCheck,paramTwoBUrbanCheck].includes(true)){
         popArrow_Person = populationArrowData.getChild('Person')
         popArrow_AREA_SQKM = populationArrowData.getChild('AREA_SQKM')
         popArrow_Suburb = populationArrowData.getChild(groupColumn.lod0_population)
@@ -95,52 +107,75 @@ export async function bar_create_LOD0 (
         }
     }
 
-    if (paramOne=="Population/m² (ground)" || paramTwo=="Population/m² (ground)"){
-        for (const suburb of Object.keys(sumPerson)){
-            if (!dataCity[suburb]) dataCity[suburb] = {suburb:suburb}
-            paramOne=="Population/m² (ground)" ? 
-                dataCity[suburb].param_one = sumPerson[suburb]/sumAreaSQKM[suburb] :
-                dataCity[suburb].param_two = sumPerson[suburb]/sumAreaSQKM[suburb]
-        }
-    }
-    if (paramOne=="Population" || paramTwo=="Population"){
-        for (const suburb of Object.keys(sumPerson)){
-            if (!dataCity[suburb]) dataCity[suburb] = {suburb:suburb}
-            paramOne=="Population" ? 
-                dataCity[suburb].param_one = sumPerson[suburb] :
-                dataCity[suburb].param_two = sumPerson[suburb]
-        }
-    }
-    if (paramOne=="Population/m² (building gfa)" || paramTwo=="Population/m² (building gfa)"){
-        const colGFA = arrowData.getChild('grss_fl')
-        const sumGFA: {[key:string]:number} = {}
-        for (let i = 0; i < arrowData.numRows; i++) {
-            const suburb = colSuburbs.get(i)
-            sumGFA[suburb] ? sumGFA[suburb]+= Number(colGFA?.get(i)) : sumGFA[suburb]=Number(colGFA?.get(i))
-        }
-        for (const suburb of Object.keys(sumPerson)){
-            if (!dataCity[suburb]) dataCity[suburb] = {suburb:suburb}
-            paramOne=="Population/m² (building gfa)" ? 
-                dataCity[suburb].param_one = sumPerson[suburb]/sumGFA[suburb]*1000 :
-                dataCity[suburb].param_two = sumPerson[suburb]/sumGFA[suburb]*1000
-        }
-    }
-    if (!paramOnePopCheck || !paramTwoPopCheck){ //all other parameters
-        const sumOne: {[key:string]:number} = {}
-        const sumTwo: {[key:string]:number} = {}
-        colParamOne = !paramOnePopCheck ? arrowData.getChild(paramOne) : null
-        colParamTwo = !paramTwoPopCheck ? arrowData.getChild(paramTwo) : null
-        for (let i = 0; i < arrowData.numRows; i++) {
-            const suburb = colSuburbs.get(i)
-            if (colParamOne) sumOne[suburb] ? sumOne[suburb]+= Number(colParamOne?.get(i)) : sumOne[suburb]=Number(colParamOne?.get(i))
-            if (colParamTwo) sumTwo[suburb] ? sumTwo[suburb]+= Number(colParamTwo?.get(i)) : sumTwo[suburb]=Number(colParamTwo?.get(i))
-        }
+    if (paramOne=='1'){
         for (const suburb of suburbsUnique){
-            if (!dataCity[suburb]) dataCity[suburb] = {suburb:suburb}
-            if (!paramOnePopCheck) dataCity[suburb].param_one = sumOne[suburb]
-            if (!paramTwoPopCheck) dataCity[suburb].param_two = sumTwo[suburb]
+            sumOne[suburb] = 1
+        }
+    } else if (paramOnePopCheck) {
+        sumOne = sumPerson
+    } else if (paramOneUrbanCheck) {
+        sumOne = sumAreaSQKM
+    } else {
+        const col = arrowData.getChild(paramOne)
+        for (let i = 0; i < arrowData.numRows; i++) {
+            const suburb = colSuburbs.get(i)
+            if (col) sumOne[suburb] ? sumOne[suburb]+= Number(col?.get(i)) : sumOne[suburb]=Number(col?.get(i))
         }
     }
+    if (paramOneB=='1'){
+        for (const suburb of suburbsUnique){
+            sumOneB[suburb] = 1
+        }
+    } else if (paramOneBPopCheck) {
+        sumOneB = sumPerson
+    } else if (paramOneBUrbanCheck) {
+        sumOneB = sumAreaSQKM
+    } else {
+        const col = arrowData.getChild(paramOneB)
+        for (let i = 0; i < arrowData.numRows; i++) {
+            const suburb = colSuburbs.get(i)
+            if (col) sumOneB[suburb] ? sumOneB[suburb]+= Number(col?.get(i)) : sumOneB[suburb]=Number(col?.get(i))
+        }
+    }
+    if (paramTwo=='1'){
+        for (const suburb of suburbsUnique){
+            sumTwo[suburb] = 1
+        }
+    } else if (paramTwoPopCheck) {
+        sumTwo = sumPerson
+    } else if (paramTwoUrbanCheck) {
+        sumTwo = sumAreaSQKM
+    } else {
+        const col = arrowData.getChild(paramTwo)
+        for (let i = 0; i < arrowData.numRows; i++) {
+            const suburb = colSuburbs.get(i)
+            if (col) sumTwo[suburb] ? sumTwo[suburb]+= Number(col?.get(i)) : sumTwo[suburb]=Number(col?.get(i))
+        }
+    }
+    if (paramTwoB=='1'){
+        for (const suburb of suburbsUnique){
+            sumTwoB[suburb] = 1
+        }
+    } else if (paramTwoBUrbanCheck) {
+        sumTwoB = sumPerson
+    } else if (paramTwoB.includes('Urban')) {
+        sumTwoB = sumAreaSQKM
+    } else {
+        const col = arrowData.getChild(paramTwoB)
+        for (let i = 0; i < arrowData.numRows; i++) {
+            const suburb = colSuburbs.get(i)
+            if (col) sumTwoB[suburb] ? sumTwoB[suburb]+= Number(col?.get(i)) : sumTwoB[suburb]=Number(col?.get(i))
+        }
+    }
+
+    for (const suburb of suburbsUnique){
+        if (!dataCity[suburb]) dataCity[suburb] = {suburb:suburb}
+        dataCity[suburb].param_one = sumOne[suburb] / sumOneB[suburb]
+        dataCity[suburb].param_two = sumTwo[suburb] / sumTwoB[suburb]
+    }
+    const paramOneFullName = `${paramOne}${paramOneB=='1'?'':`/${paramOneB}`}`
+    const paramTwoFullName = `${paramTwo}${paramTwoB=='1'?'':`/${paramTwoB}`}`
+
     function normalizeParamOne(data: Record<string, any>): Record<string, any> {
         const values = Object.values(data).map(d => d.param_one);
         const min = Math.min(...values);
@@ -197,7 +232,6 @@ export async function bar_create_LOD0 (
         const tempObject = new THREE.Object3D();
         //creation of each bar
         for (const [key,set] of Object.entries(dataForBars)) {
-            console.log(set)
             const bar_base_dim1 = barsBase.lod0
             const bar_base_dim2 = barsBase.lod0
             const bar_height = normalizationCheckbox.checked ? set.param_one_normalized*normalizationHeight.lod0 : set.param_one/normalizationHeight.notNormalized
@@ -238,10 +272,10 @@ export async function bar_create_LOD0 (
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
                     //Suburb: { value: bar_name },
-                    //BarHeight: { value: paramOne },
-                    //BarColor: { value: paramTwo },
-                    //[paramOne]: { value: Math.round(set.param_one*1000)/1000 },
-                    //[paramTwo]: { value: Math.round(set.param_two*1000)/1000 },
+                    //BarHeight: { value: paramOneFullName },
+                    //BarColor: { value: paramTwoFullName },
+                    //[paramOneFullName]: { value: Math.round(set.param_one*1000)/1000 },
+                    //[paramTwoFullName]: { value: Math.round(set.param_two*1000)/1000 },
                 },
                 globalTransform: tempObject.matrix.clone(),
                 samples: [
@@ -258,11 +292,11 @@ export async function bar_create_LOD0 (
             //     guid: generateUUID(),
             //     data: {
             //         Name: { value: "EnvironmentalAnalysisData" },
-            //         BarHeight: { value: paramOne },
-            //         BarColor: { value: paramTwo },
+            //         BarHeight: { value: paramOneFullName },
+            //         BarColor: { value: paramTwoFullName },
             //         Suburb: { value: bar_name },
-            //         [paramOne]: { value: Math.round(set.param_one*1000)/1000 },
-            //         [paramTwo]: { value: Math.round(set.param_two*1000)/1000 },
+            //         [paramOneFullName]: { value: Math.round(set.param_one*1000)/1000 },
+            //         [paramTwoFullName]: { value: Math.round(set.param_two*1000)/1000 },
             //     }
             // })
             pSets[bar_name] = { //object containing one pset per each suburb
@@ -270,11 +304,11 @@ export async function bar_create_LOD0 (
                 guid: generateUUID(),
                 data: {
                     Name: { value: "EnvironmentalAnalysisData" },
-                    BarHeight: { value: paramOne },
-                    BarColor: { value: paramTwo },
+                    BarHeight: { value: paramOneFullName },
+                    BarColor: { value: paramTwoFullName },
                     Suburb: { value: bar_name },
-                    [paramOne]: { value: Math.round(set.param_one*1000)/1000 },
-                    [paramTwo]: { value: Math.round(set.param_two*1000)/1000 },
+                    [paramOneFullName]: { value: Math.round(set.param_one*1000)/1000 },
+                    [paramTwoFullName]: { value: Math.round(set.param_two*1000)/1000 },
                 }
             }
             pSetsData[bar_name] = {
@@ -341,7 +375,7 @@ export async function bar_create_LOD0 (
     
     await regenerateFragments();
 
-    await colorBar(components,dataForBars!,lod,name,paramTwo)
+    await colorBar(components,dataForBars!,lod,name,paramTwoFullName)
 
     const endTime = performance.now() // End timer
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
@@ -365,16 +399,25 @@ export async function bar_create_LOD0 (
         data: {
             UVL: lod,
             Suburb: name,
-            Param1: paramOne,
-            Param2: paramTwo,
+            Param1: paramOneFullName,
+            Param2: paramTwoFullName,
             ColorScale: colorScaleDropdown.value[0] ? colorScaleDropdown.value[0] : 'gnylrd',
             Normalization: normalizationCheckbox.checked,
         }
     }]
+    //const columns: (keyof historyTableType | BUI.ColumnData)[] = [
+    //    { name:'UVL', width:'3rem'},
+    //    { name:'Suburb', width:'3rem'},
+    //    { name:'Param1', width:'3rem'},
+    //    { name:'Param2', width:'3rem'},
+    //    { name:'ColorScale', width:'3rem'},
+    //    { name:'Normalization', width:'3rem'},
+    //]
+    //historyTable.columns = columns;
     historyTable.preserveStructureOnFilter = true
     //historyTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
     historyTable.hiddenColumns = []
     panelRight?.appendChild(historyTable)
     
-    return true
+    return [true,paramOneFullName,paramTwoFullName]
 }
