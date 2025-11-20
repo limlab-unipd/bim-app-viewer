@@ -24,11 +24,15 @@ export async function bar_create_LOD1 (
         geometryEngine:FRAGS.GeometryEngine,
         arrowData:Table<any>,
         populationArrowData:Table<any>,
+        environmentalArrowData:Table<any>,
         paramOne:string='Concret',
         paramOneB:string='1',
         paramTwo:string='Glass',
         paramTwoB:string='1',
+        paramEnv:string,
         previousLoadedSuburbs:string[],
+        paramOneFullNameLabel:string,
+        paramTwoFullNameLabel:string,
     ): Promise<boolean> {
 
     //initialize variables
@@ -337,8 +341,8 @@ export async function bar_create_LOD1 (
         data: {
             UVL: lod,
             Suburb: name,
-            Param1: paramOne,
-            Param2: paramTwo,
+            Param1: paramOneFullNameLabel,
+            Param2: paramTwoFullNameLabel,
             ColorScale: colorScaleDropdown.value[0] ? colorScaleDropdown.value[0] : 'gnylrd',
             Normalization: normalizationCheckbox.checked,
         }

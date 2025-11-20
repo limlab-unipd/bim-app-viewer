@@ -2,18 +2,25 @@ import { tableFromIPC } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import * as BUI from '@thatopen/ui'
 
-export async function readArrow(file:string='buildings') {
+type ArrowFile = 'materials' | 'boundaries' | 'population' | 'environmental'
+
+export async function readArrow(file: ArrowFile = 'materials') {
     addOverlay(BUI.html`Loading data ...`)
 
     const startTime = performance.now() // Start timer
     let resp
     
-    if (file=='suburbs' || file=='boundaries'){
+    if (file=='boundaries'){
         resp = await fetch('/ARROW/ACT_boundaries.arrow')
     } else if (file=='population') {
         resp = await fetch('/ARROW/ACT_population.arrow')
-    } else {
+    } else if (file=='environmental') {
+        resp = await fetch('/ARROW/ACT_environmental.arrow')
+    } else if (file=='materials') {
         resp = await fetch('/ARROW/ACT_materials.arrow')
+    } else {
+        console.warn('Arrow file not found')
+        return
     }
 
     if (!resp.ok) throw new Error(`Errore fetch: ${resp.status}`)

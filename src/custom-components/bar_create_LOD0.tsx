@@ -25,12 +25,16 @@ export async function bar_create_LOD0 (
         geometryEngine:FRAGS.GeometryEngine,
         arrowData:Table<any>,
         populationArrowData:Table<any>,
+        environmentalArrowData:Table<any>,
         paramOne:string='Concret',
         paramOneB:string='1',
         paramTwo:string='Glass',
         paramTwoB:string='1',
+        paramEnv:string,
         panelRight:BUI.Panel,
-    ): Promise<[boolean,string,string]> {
+        paramOneFullNameLabel:string,
+        paramTwoFullNameLabel:string,
+    ): Promise<boolean> {
 
     paramOne = paramOne.toString()
     paramOneB = paramOneB.toString()
@@ -39,17 +43,16 @@ export async function bar_create_LOD0 (
 
     if (!arrowData) {
         addOverlay(BUI.html`Please load any samples before.`,'warning')
-        return [false,'','']
+        return false
     }
     
     //initialize variables
     const fragments = components.get(OBC.FragmentsManager)
-    const finder = components.get(OBC.ItemsFinder)
 
     for (const [modelId,] of fragments.list){
         if (modelId.includes('LOD_0')) {
             addOverlay(BUI.html`UVL-0 model already exists. Please reload the browser page to do a new analysis.`,'warning')
-            return [false,'','']
+            return false
         }
     }
 
@@ -86,6 +89,7 @@ export async function bar_create_LOD0 (
     let popArrow_AREA_SQKM, popArrow_Person, popArrow_Suburb: any
     let sumPerson:{[key:string]:number}={}, sumAreaSQKM:{[key:string]:number}={}
     let sumOne:{[key:string]:number}={}, sumOneB:{[key:string]:number}={}, sumTwo:{[key:string]:number}={}, sumTwoB:{[key:string]:number}={}
+    let impact:string='None'
     const paramOnePopCheck = paramOne.includes('Population')
     const paramOneBPopCheck = paramOneB.includes('Population')
     const paramTwoPopCheck = paramTwo.includes('Population')
@@ -107,6 +111,19 @@ export async function bar_create_LOD0 (
         }
     }
 
+    const getArrowLineValue = ((arrowFile:Table<any>, columnToGetValue:string, ColumnForFilter:string, valueForFilter:string): typeof result => {
+        const col = arrowFile.getChild(columnToGetValue)
+        const colFilter = arrowFile.getChild(ColumnForFilter)
+        if (!col || !colFilter) return
+        let result: number|string|undefined = undefined
+        for (let i = 0; i < colFilter.length; i++) {
+            if (colFilter.get(i) === valueForFilter) {
+                result = col.get(i); // otteniamo il valore corrispondente
+                return result
+            }
+        }
+    })
+
     if (paramOne=='1'){
         for (const suburb of suburbsUnique){
             sumOne[suburb] = 1
@@ -117,9 +134,16 @@ export async function bar_create_LOD0 (
         sumOne = sumAreaSQKM
     } else {
         const col = arrowData.getChild(paramOne)
+        let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOne)
+        if (!coeff || paramEnv=='weight'){
+            coeff = 1
+        } else {
+            impact = paramEnv
+        }
         for (let i = 0; i < arrowData.numRows; i++) {
             const suburb = colSuburbs.get(i)
-            if (col) sumOne[suburb] ? sumOne[suburb]+= Number(col?.get(i)) : sumOne[suburb]=Number(col?.get(i))
+            const value = Number(col?.get(i)) * Number(coeff)
+            if (col) sumOne[suburb] ? sumOne[suburb]+=value : sumOne[suburb]=value
         }
     }
     if (paramOneB=='1'){
@@ -132,9 +156,16 @@ export async function bar_create_LOD0 (
         sumOneB = sumAreaSQKM
     } else {
         const col = arrowData.getChild(paramOneB)
+        let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOneB)
+        if (!coeff || paramEnv=='weight'){
+            coeff = 1
+        } else {
+            impact = paramEnv
+        }
         for (let i = 0; i < arrowData.numRows; i++) {
             const suburb = colSuburbs.get(i)
-            if (col) sumOneB[suburb] ? sumOneB[suburb]+= Number(col?.get(i)) : sumOneB[suburb]=Number(col?.get(i))
+            const value = Number(col?.get(i)) * Number(coeff)
+            if (col) sumOneB[suburb] ? sumOneB[suburb]+=value : sumOneB[suburb]=value
         }
     }
     if (paramTwo=='1'){
@@ -147,9 +178,16 @@ export async function bar_create_LOD0 (
         sumTwo = sumAreaSQKM
     } else {
         const col = arrowData.getChild(paramTwo)
+        let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwo)
+        if (!coeff || paramEnv=='weight'){
+            coeff = 1
+        } else {
+            impact = paramEnv
+        }
         for (let i = 0; i < arrowData.numRows; i++) {
             const suburb = colSuburbs.get(i)
-            if (col) sumTwo[suburb] ? sumTwo[suburb]+= Number(col?.get(i)) : sumTwo[suburb]=Number(col?.get(i))
+            const value = Number(col?.get(i)) * Number(coeff)
+            if (col) sumTwo[suburb] ? sumTwo[suburb]+=value : sumTwo[suburb]=value
         }
     }
     if (paramTwoB=='1'){
@@ -162,9 +200,16 @@ export async function bar_create_LOD0 (
         sumTwoB = sumAreaSQKM
     } else {
         const col = arrowData.getChild(paramTwoB)
+        let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwoB)
+        if (!coeff || paramEnv=='weight'){
+            coeff = 1
+        } else {
+            impact = paramEnv
+        }
         for (let i = 0; i < arrowData.numRows; i++) {
             const suburb = colSuburbs.get(i)
-            if (col) sumTwoB[suburb] ? sumTwoB[suburb]+= Number(col?.get(i)) : sumTwoB[suburb]=Number(col?.get(i))
+            const value = Number(col?.get(i)) * Number(coeff)
+            if (col) sumTwoB[suburb] ? sumTwoB[suburb]+=value : sumTwoB[suburb]=value
         }
     }
 
@@ -173,8 +218,6 @@ export async function bar_create_LOD0 (
         dataCity[suburb].param_one = sumOne[suburb] / sumOneB[suburb]
         dataCity[suburb].param_two = sumTwo[suburb] / sumTwoB[suburb]
     }
-    const paramOneFullName = `${paramOne}${paramOneB=='1'?'':`/${paramOneB}`}`
-    const paramTwoFullName = `${paramTwo}${paramTwoB=='1'?'':`/${paramTwoB}`}`
 
     function normalizeParamOne(data: Record<string, any>): Record<string, any> {
         const values = Object.values(data).map(d => d.param_one);
@@ -193,7 +236,8 @@ export async function bar_create_LOD0 (
     dataForBars = normalizeParamOne(dataCity)
     //console.log(dataForBars!)
     
-    const arrowData_suburbsCentroids = await readArrow('suburbs')
+    const arrowData_suburbsCentroids = await readArrow('boundaries')
+    if (!arrowData_suburbsCentroids) return false
     const suburbsCentroids_colSuburbs = arrowData_suburbsCentroids.getChild(groupColumn.lod0_boundaries)
     const suburbsCentroids_centroid_x = arrowData_suburbsCentroids.getChild("centroid_x")
     const suburbsCentroids_centroid_y = arrowData_suburbsCentroids.getChild("centroid_y")
@@ -272,10 +316,10 @@ export async function bar_create_LOD0 (
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
                     //Suburb: { value: bar_name },
-                    //BarHeight: { value: paramOneFullName },
-                    //BarColor: { value: paramTwoFullName },
-                    //[paramOneFullName]: { value: Math.round(set.param_one*1000)/1000 },
-                    //[paramTwoFullName]: { value: Math.round(set.param_two*1000)/1000 },
+                    //BarHeight: { value: paramOneFullNameLabel },
+                    //BarColor: { value: paramTwoFullNameLabel },
+                    //[paramOneFullNameLabel]: { value: Math.round(set.param_one*1000)/1000 },
+                    //[paramTwoFullNameLabel]: { value: Math.round(set.param_two*1000)/1000 },
                 },
                 globalTransform: tempObject.matrix.clone(),
                 samples: [
@@ -292,11 +336,11 @@ export async function bar_create_LOD0 (
             //     guid: generateUUID(),
             //     data: {
             //         Name: { value: "EnvironmentalAnalysisData" },
-            //         BarHeight: { value: paramOneFullName },
-            //         BarColor: { value: paramTwoFullName },
+            //         BarHeight: { value: paramOneFullNameLabel },
+            //         BarColor: { value: paramTwoFullNameLabel },
             //         Suburb: { value: bar_name },
-            //         [paramOneFullName]: { value: Math.round(set.param_one*1000)/1000 },
-            //         [paramTwoFullName]: { value: Math.round(set.param_two*1000)/1000 },
+            //         [paramOneFullNameLabel]: { value: Math.round(set.param_one*1000)/1000 },
+            //         [paramTwoFullNameLabel]: { value: Math.round(set.param_two*1000)/1000 },
             //     }
             // })
             pSets[bar_name] = { //object containing one pset per each suburb
@@ -304,11 +348,11 @@ export async function bar_create_LOD0 (
                 guid: generateUUID(),
                 data: {
                     Name: { value: "EnvironmentalAnalysisData" },
-                    BarHeight: { value: paramOneFullName },
-                    BarColor: { value: paramTwoFullName },
+                    BarHeight: { value: paramOneFullNameLabel },
+                    BarColor: { value: paramTwoFullNameLabel },
                     Suburb: { value: bar_name },
-                    [paramOneFullName]: { value: Math.round(set.param_one*1000)/1000 },
-                    [paramTwoFullName]: { value: Math.round(set.param_two*1000)/1000 },
+                    [paramOneFullNameLabel]: { value: Math.round(set.param_one*1000)/1000 },
+                    [paramTwoFullNameLabel]: { value: Math.round(set.param_two*1000)/1000 },
                 }
             }
             pSetsData[bar_name] = {
@@ -375,7 +419,7 @@ export async function bar_create_LOD0 (
     
     await regenerateFragments();
 
-    await colorBar(components,dataForBars!,lod,name,paramTwoFullName)
+    await colorBar(components,dataForBars!,lod,name,paramTwoFullNameLabel)
 
     const endTime = performance.now() // End timer
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
@@ -390,6 +434,7 @@ export async function bar_create_LOD0 (
         Suburb: string,
         Param1: string,
         Param2: string,
+        Impact: string,
         ColorScale:any,
         Normalization:boolean,
     }
@@ -399,25 +444,27 @@ export async function bar_create_LOD0 (
         data: {
             UVL: lod,
             Suburb: name,
-            Param1: paramOneFullName,
-            Param2: paramTwoFullName,
+            Param1: paramOneFullNameLabel,
+            Param2: paramTwoFullNameLabel,
+            Impact: impact,
             ColorScale: colorScaleDropdown.value[0] ? colorScaleDropdown.value[0] : 'gnylrd',
             Normalization: normalizationCheckbox.checked,
         }
     }]
-    //const columns: (keyof historyTableType | BUI.ColumnData)[] = [
-    //    { name:'UVL', width:'3rem'},
-    //    { name:'Suburb', width:'3rem'},
-    //    { name:'Param1', width:'3rem'},
-    //    { name:'Param2', width:'3rem'},
-    //    { name:'ColorScale', width:'3rem'},
-    //    { name:'Normalization', width:'3rem'},
-    //]
-    //historyTable.columns = columns;
+    const columns: (keyof historyTableType | BUI.ColumnData)[] = [
+        { name:'UVL', width:'3rem'},
+        { name:'Suburb', width:'5rem'},
+        { name:'Param1', width:'5rem'},
+        { name:'Param2', width:'5rem'},
+        { name:'Impact', width:'5rem'},
+        { name:'ColorScale', width:'5rem'},
+        { name:'Normalization', width:'5rem'},
+    ]
+    historyTable.columns = columns;
     historyTable.preserveStructureOnFilter = true
     //historyTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
     historyTable.hiddenColumns = []
     panelRight?.appendChild(historyTable)
     
-    return [true,paramOneFullName,paramTwoFullName]
+    return true
 }

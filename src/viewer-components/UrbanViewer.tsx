@@ -192,6 +192,7 @@ export function UrbanViewer () {
         //read arrow file
         let arrowData
         let populationArrowData
+        let environmentalArrowData
         //function to load the IFC file
         const loadIfcFile = async (path: string) => {
             const name = path.split('/').pop()?.split('.ifc')[0] || path.split('/').pop() || path
@@ -353,35 +354,17 @@ export function UrbanViewer () {
         const onSetTransparencyWithColors = async (LOD:number=0) => {
             highlighter.selection.select = {} //pulisce la selezione
             const opacity: {[lod:string]:number} = {
-                'LOD_0': 0.15,
-                'LOD_1': 0.25,
-                'LOD_2': 0.35,
+                'LOD_0': 0.05,
+                'LOD_1': 0.10,
+                'LOD_2': 0.15,
             }
             highlighter.styles.get(`LOD_${LOD}_color_0_02`)!.opacity = opacity[`LOD_${LOD}`]
             highlighter.styles.get(`LOD_${LOD}_color_02_04`)!.opacity = opacity[`LOD_${LOD}`]
             highlighter.styles.get(`LOD_${LOD}_color_04_06`)!.opacity = opacity[`LOD_${LOD}`]
             highlighter.styles.get(`LOD_${LOD}_color_06_08`)!.opacity = opacity[`LOD_${LOD}`]
             highlighter.styles.get(`LOD_${LOD}_color_08_1`)!.opacity = opacity[`LOD_${LOD}`]
-            /*
-            for (const [entry,entryfr] of fragments.list.entries()){
-                if (!entry.includes(`LOD_${LOD}`)) continue
-                const localids = await entryfr.getLocalIds()
-                localids.forEach((id) => {
-                    if (highlighter.selection.color_0_02[entry] && highlighter.selection.color_0_02[entry].has(id)){
-                        highlighter.highlightByID('color_0_02_transparent',{[entry] : new Set<number>([id])},false,false)
-                    } else if (highlighter.selection.color_02_04[entry] && highlighter.selection.color_02_04[entry].has(id)){
-                        highlighter.highlightByID('color_02_04_transparent',{[entry] : new Set<number>([id])},false,false)
-                    } else if (highlighter.selection.color_04_06[entry] && highlighter.selection.color_04_06[entry].has(id)){
-                        highlighter.highlightByID('color_04_06_transparent',{[entry] : new Set<number>([id])},false,false)
-                    } else if (highlighter.selection.color_06_08[entry] && highlighter.selection.color_06_08[entry].has(id)){
-                        highlighter.highlightByID('color_06_08_transparent',{[entry] : new Set<number>([id])},false,false)
-                    } else if (highlighter.selection.color_08_1[entry] && highlighter.selection.color_08_1[entry].has(id)){
-                        highlighter.highlightByID('color_08_1_transparent',{[entry] : new Set<number>([id])},false,false)
-                    }
-                    //console.log(highlighter.selection)
-                })
-            }
-            */
+            highlighter.selection.select = {}
+            highlighter.updateColors()
         }
         const onSetTransparencyToNotSelectedElements = async () => {
             const allItems = await getAllItems()
@@ -582,7 +565,7 @@ export function UrbanViewer () {
                         </bim-dropdown>
                         <bim-label style="display:flex; white-space:normal" icon='mdi:circle-opacity'>Change the opacity of each UVL</bim-label>
                         <bim-number-input 
-                            id='transparency-opacity-uvl-0' slider step="0.05" label="UVL-0 opacity" value="0.15" min="0" max="1" style="padding-left:1.5rem"
+                            id='transparency-opacity-uvl-0' slider step="0.05" label="UVL-0 opacity" value="0.05" min="0" max="1" style="padding-left:1.5rem"
                             @change="${async ({ target }: { target: BUI.NumberInput }) => {
                                 const LOD = 0
                                 highlighter.styles.get(`LOD_${LOD}_color_0_02`)!.opacity = target.value
@@ -594,7 +577,7 @@ export function UrbanViewer () {
                             }}">
                         </bim-number-input>
                         <bim-number-input 
-                            id='transparency-opacity-uvl-1' slider step="0.05" label="UVL-1 opacity" value="0.25" min="0" max="1" style="padding-left:1.5rem"
+                            id='transparency-opacity-uvl-1' slider step="0.05" label="UVL-1 opacity" value="0.10" min="0" max="1" style="padding-left:1.5rem"
                             @change="${async ({ target }: { target: BUI.NumberInput }) => {
                                 const LOD = 1
                                 highlighter.styles.get(`LOD_${LOD}_color_0_02`)!.opacity = target.value
@@ -606,7 +589,7 @@ export function UrbanViewer () {
                             }}">
                         </bim-number-input>
                         <bim-number-input 
-                            id='transparency-opacity-uvl-2' slider step="0.05" label="UVL-2 opacity" value="0.35" min="0" max="1" style="padding-left:1.5rem"
+                            id='transparency-opacity-uvl-2' slider step="0.05" label="UVL-2 opacity" value="0.15" min="0" max="1" style="padding-left:1.5rem"
                             @change="${async ({ target }: { target: BUI.NumberInput }) => {
                                 const LOD = 2
                                 highlighter.styles.get(`LOD_${LOD}_color_0_02`)!.opacity = target.value
@@ -1003,24 +986,24 @@ export function UrbanViewer () {
             <bim-dropdown name="param_one">
                 <bim-option label='1' value='1' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Population' value="Population" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Gross floor area' value="grss_fl" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Net floor area' value="usbl_fl" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Total tonnes' value="Tonnes" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Aluminium' value="Aluminm" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Population (number)' value="Population (number)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building height (m)' value="Building height (m)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building gross floor area (m²)' value="Building gross floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building net floor area (m²)' value="Building net floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building weight (tonnes)' value="Building weight (tonnes)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Aluminium' value="Aluminium" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Bitumen' value="Bitumen" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Carpet' value="Carpet" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Ceramics' value="Ceramcs" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Concrete' value="Concret" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Ceramics' value="Ceramics" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Concrete' value="Concrete" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Copper' value="Copper" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Glass' value="Glass" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Insulation' value="Insultn" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Insulation' value="Insulation" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Paint' value="Paint" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Plasterboard' value="Plstrbr" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Plastics' value="Plastcs" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Sand' value="Snd_nd_" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plasterboard' value="Plasterboard" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plastics' value="Plastics" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Sand' value="Sand" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Steel' value="Steel" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
@@ -1030,24 +1013,24 @@ export function UrbanViewer () {
             <bim-dropdown name="param_one_b">
                 <bim-option checked label='1' value='1' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Population' value="Population" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Gross floor area' value="grss_fl" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Net floor area' value="usbl_fl" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Total tonnes' value="Tonnes" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Aluminium' value="Aluminm" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Population (number)' value="Population (number)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building height (m)' value="Building height (m)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building gross floor area (m²)' value="Building gross floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building net floor area (m²)' value="Building net floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building weight (tonnes)' value="Building weight (tonnes)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Aluminium' value="Aluminium" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Bitumen' value="Bitumen" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Carpet' value="Carpet" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Ceramics' value="Ceramcs" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Concrete' value="Concret" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Ceramics' value="Ceramics" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Concrete' value="Concrete" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Copper' value="Copper" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Glass' value="Glass" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Insulation' value="Insultn" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Insulation' value="Insulation" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Paint' value="Paint" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Plasterboard' value="Plstrbr" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Plastics' value="Plastcs" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Sand' value="Snd_nd_" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plasterboard' value="Plasterboard" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plastics' value="Plastics" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Sand' value="Sand" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Steel' value="Steel" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
@@ -1057,24 +1040,24 @@ export function UrbanViewer () {
             <bim-dropdown name="param_two">
                 <bim-option label='1' value='1' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Population' value="Population" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Gross floor area' value="grss_fl" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Net floor area' value="usbl_fl" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Total tonnes' value="Tonnes" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Aluminium' value="Aluminm" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Population (number)' value="Population (number)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building height (m)' value="Building height (m)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building gross floor area (m²)' value="Building gross floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building net floor area (m²)' value="Building net floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building weight (tonnes)' value="Building weight (tonnes)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Aluminium' value="Aluminium" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Bitumen' value="Bitumen" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Carpet' value="Carpet" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Ceramics' value="Ceramcs" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Concrete' value="Concret" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Ceramics' value="Ceramics" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Concrete' value="Concrete" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Copper' value="Copper" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Glass' value="Glass" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Insulation' value="Insultn" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Insulation' value="Insulation" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Paint' value="Paint" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Plasterboard' value="Plstrbr" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Plastics' value="Plastcs" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Sand' value="Snd_nd_" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plasterboard' value="Plasterboard" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plastics' value="Plastics" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Sand' value="Sand" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Steel' value="Steel" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
@@ -1084,37 +1067,98 @@ export function UrbanViewer () {
             <bim-dropdown name="param_two_b">
                 <bim-option checked label='1' value='1' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Population' value="Population" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Building height' value="BLDGHEI" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Footprint area' value="grnd_fl" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Gross floor area' value="grss_fl" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Net floor area' value="usbl_fl" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Total tonnes' value="Tonnes" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Aluminium' value="Aluminm" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Population (number)' value="Population (number)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building height (m)' value="Building height (m)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building gross floor area (m²)' value="Building gross floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building net floor area (m²)' value="Building net floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building weight (tonnes)' value="Building weight (tonnes)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Aluminium' value="Aluminium" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Bitumen' value="Bitumen" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Carpet' value="Carpet" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Ceramics' value="Ceramcs" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Concrete' value="Concret" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Ceramics' value="Ceramics" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Concrete' value="Concrete" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Copper' value="Copper" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Glass' value="Glass" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Insulation' value="Insultn" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Insulation' value="Insulation" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Paint' value="Paint" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Plasterboard' value="Plstrbr" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Plastics' value="Plastcs" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Sand' value="Snd_nd_" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plasterboard' value="Plasterboard" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Plastics' value="Plastics" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Sand' value="Sand" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Steel' value="Steel" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
         )
+        const paramLabelToValue = ((value:string|undefined) => {
+            const paramConversionMap: Record<string, string> = {
+                '1': '1',
+                'Urban area (km²)': 'Urban area (km²)',
+                'Population (number)': 'Population',
+                'Building height (m)': 'BLDGHEI',
+                'Building footprint area (m²)': 'grnd_fl',
+                'Building gross floor area (m²)': 'grss_fl',
+                'Building net floor area (m²)': 'usbl_fl',
+                'Building weight (tonnes)': 'Tonnes',
+                'Aluminium': 'Aluminm',
+                'Bitumen': 'Bitumen',
+                'Carpet': 'Carpet',
+                'Ceramics': 'Ceramcs',
+                'Concrete': 'Concret',
+                'Copper': 'Copper',
+                'Glass': 'Glass',
+                'Insulation': 'Insultn',
+                'Paint': 'Paint',
+                'Plasterboard': 'Plstrbr',
+                'Plastics': 'Plastcs',
+                'Sand': 'Snd_nd_',
+                'Steel': 'Steel',
+                'Timber': 'Timber',
+                'Weight (tonnes)': 'weight',
+                'Global Warming Potential (kg CO₂ eq)': 'Global warming (GWP100a) tonn',
+                'Abiotic Depletion - elem., econ. reserve (kg SB eq)': 'Abiotic depletion (elem., econ. reserve)',
+                'Abiotic depletion - fossil fuels (MJ NCV)': 'Abiotic depletion (Fossil fuels)',
+                'Ozone Layer Depletion (kg CFC-11 eq)': 'Ozone layer depletion (ODP)',
+                'Photochemical Oxidation (kg C2H4 eq)': 'Photochemical oxidation',
+                'Acidification (kg SO2 eq)': 'Acidification',
+                'Eutrophication (kg PO4--- eq)': 'Eutrophication',
+                'Particulate Matter (kg PM2.5)': 'Particulate matter',
+                'Human toxicity - cancer (CTUh)': 'Human toxicity, cancer',
+                'Human toxicit - non-cancer (CTUh)': 'Human toxicity, non-cancer',
+                'Freshwater Ecotoxicity (CTUe)': 'Freshwater ecotoxicity',
+                'Ionizing Radiation H (kBq U235 eq)': 'Ionizing radiation HH',
+                'Water Scarcity (m3 eq)': 'Water Scarcity',
+            }
+            return value ? paramConversionMap[value] : undefined
+        })
+
         const normalizationCheckbox = BUI.Component.create<BUI.Checkbox>(
             () => BUI.html`
-            <bim-checkbox checked label='Normalize bars height' icon='heroicons:chart-bar-16-solid' id='normalization-checkbox' style="border-bottom: 1px solid var(--bim-ui_bg-contrast-20); padding-bottom:0.5rem"
+            <bim-checkbox checked label='Normalize bars height' icon='fluent:column-triple-20-filled' id='normalization-checkbox' style="border-bottom: 1px solid var(--bim-ui_bg-contrast-20); padding-bottom:0.5rem"
                 @change="${(e:Event) => {
                     if (!e.target) return
                     const chekcbox = e.target as BUI.Checkbox   
                     chekcbox.icon = chekcbox.checked ? 'fluent:column-triple-20-filled' : 'heroicons:chart-bar-16-solid'
                 }}">
             </bim-checkbox>`
+        )
+        const materialsImpactsDropdown = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="materials-impacts" icon='mdi:recycle' label='Materials Impacts'>
+                <bim-option label='Weight (tonnes)' value='Weight (tonnes)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked label='Global Warming Potential (kg CO₂ eq)' value='Global Warming Potential (kg CO₂ eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Abiotic Depletion - elem., econ. reserve (kg SB eq)' value='Abiotic Depletion - elem., econ. reserve (kg SB eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Abiotic depletion - fossil fuels (MJ NCV)' value='Abiotic depletion - fossil fuels (MJ NCV)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Ozone Layer Depletion (kg CFC-11 eq)' value='Ozone Layer Depletion (kg CFC-11 eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Photochemical Oxidation (kg C2H4 eq)' value='Photochemical Oxidation (kg C2H4 eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Acidification (kg SO2 eq)' value='Acidification (kg SO2 eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Eutrophication (kg PO4--- eq)' value='Eutrophication (kg PO4--- eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Particulate Matter (kg PM2.5)' value='Particulate Matter (kg PM2.5)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Human toxicity - cancer (CTUh)' value='Human toxicity - cancer (CTUh)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Human toxicit - non-cancer (CTUh)' value='Human toxicit - non-cancer (CTUh)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Freshwater Ecotoxicity (CTUe)' value='Freshwater Ecotoxicity (CTUe)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Ionizing Radiation H (kBq U235 eq)' value='Ionizing Radiation H (kBq U235 eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Water Scarcity (m3 eq)' value='Water Scarcity (m3 eq)' style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
         )
         // #endregion
 
@@ -1141,6 +1185,7 @@ export function UrbanViewer () {
                         <bim-label style='font-size:1.5rem'>/</bim-label>
                         ${paramTwoBDropdown}
                     </div>
+                    ${materialsImpactsDropdown}
                     ${normalizationCheckbox}
                     <bim-label icon='solar:city-bold-duotone'>Urban Visualization Level</bim-label>
                     <div style='display:flex; flex-direction:row; gap:0.5rem'>
@@ -1149,10 +1194,16 @@ export function UrbanViewer () {
                         <bim-button label='0' tooltip='Load UVL-0' @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
                             let result_0 = false;
-                            let paramOneFullName = '',paramTwoFullname = '';
-                            [result_0,paramOneFullName,paramTwoFullname] = await bar_create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,paramOneDropdown.value[0],paramOneBDropdown.value[0],paramTwoDropdown.value[0],paramTwoBDropdown.value[0],panelRight);
+                            const paramOne = paramLabelToValue(paramOneDropdown.value[0]);
+                            const paramOneB = paramLabelToValue(paramOneBDropdown.value[0]);
+                            const paramTwo = paramLabelToValue(paramTwoDropdown.value[0]);
+                            const paramTwoB = paramLabelToValue(paramTwoBDropdown.value[0]);
+                            const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
+                            const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
+                            const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
+                            result_0 = await bar_create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,panelRight,paramOneFullNameLabel,paramTwoFullNameLabel);
                             if (result_0) {
-                                await createTable(panelDown,fragments,components,paramOneFullName,paramTwoFullname)
+                                await createTable(panelDown,fragments,components,paramOneFullNameLabel,paramTwoFullNameLabel)
                                 if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                     onSetLayout({target:'down'})
                                 }
@@ -1167,7 +1218,14 @@ export function UrbanViewer () {
 
                         <bim-button label='1' tootltip='Load UVL-1 and hide UVL-0' @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
-                            const result_1 = await bar_create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,paramOneDropdown.value[0],paramOneBDropdown.value[0],paramTwoDropdown.value[0],paramTwoBDropdown.value[0],previousLoadedSuburbs)
+                            const paramOne = paramLabelToValue(paramOneDropdown.value[0]);
+                            const paramOneB = paramLabelToValue(paramOneBDropdown.value[0]);
+                            const paramTwo = paramLabelToValue(paramTwoDropdown.value[0]);
+                            const paramTwoB = paramLabelToValue(paramTwoBDropdown.value[0]);
+                            const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
+                            const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
+                            const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
+                            const result_1 = await bar_create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel)
                             result_1 ? await onSetTransparencyWithColors(0) : ''
                             //onSetCameraUVL(1)
                             target.loading = false
@@ -1176,7 +1234,14 @@ export function UrbanViewer () {
 
                         <bim-button label='2' tootltip='Load UVL-2' @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
-                            const result_2 = await bar_create_LOD2(world,components,geometryEngine,arrowData!,paramOneDropdown.value[0],paramOneBDropdown.value[0],paramTwoDropdown.value[0],paramTwoBDropdown.value[0],previousLoadedSuburbs)
+                            const paramOne = paramLabelToValue(paramOneDropdown.value[0]);
+                            const paramOneB = paramLabelToValue(paramOneBDropdown.value[0]);
+                            const paramTwo = paramLabelToValue(paramTwoDropdown.value[0]);
+                            const paramTwoB = paramLabelToValue(paramTwoBDropdown.value[0]);
+                            const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
+                            const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
+                            const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
+                            const result_2 = await bar_create_LOD2(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel)
                             result_2 ? await onSetTransparencyWithColors(1) : ''
                             //onSetCameraUVL(2)
                             target.loading = false
@@ -1288,9 +1353,10 @@ export function UrbanViewer () {
                                 @click=${async ({target}:{target:BUI.Button}) => {
                                         onSetLayout({target:'left'})
                                         target.loading = true
-                                        arrowData = await readArrow()
+                                        arrowData = await readArrow('materials')
                                         populationArrowData = await readArrow('population')
-                                        await suburbsBoundaries(world,components,arrowData)
+                                        environmentalArrowData = await readArrow('environmental')
+                                        await suburbsBoundaries(world,components,arrowData!)
                                         collapsePanelSections()
                                         target.loading = false
                                     }}>

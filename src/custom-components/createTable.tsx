@@ -12,7 +12,7 @@ const onClearPanel = async (panel: BUI.Panel, title:string='Void Panel') => {
     panel.innerHTML = ''
     panel.label = title
 }
-const onSortTable = (table:BUI.Table<any>, field:string, ascending:boolean=true) => {
+const onSortTable = (table:BUI.Table<any>, field:string, ascending:boolean=false) => {
     const direction = ascending ? 1 : -1
     table.data.sort((a, b) => {
         const valA = a.data[field]

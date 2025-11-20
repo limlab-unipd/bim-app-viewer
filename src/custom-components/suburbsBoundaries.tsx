@@ -38,6 +38,7 @@ function parseWKTPolygon(wkt: string): number[][][] {
 export async function suburbsBoundaries(world:OBC.World, components:OBC.Components, arrowData:Table<any>) {
     const scene = world.scene
     const arrow = await readArrow('boundaries')
+    if (!arrow) return
     const marker = components.get(OBCF.Marker)
     marker.threshold = 1;
     const data_suburbs_names = arrowData.getChild(groupColumn.lod0)
