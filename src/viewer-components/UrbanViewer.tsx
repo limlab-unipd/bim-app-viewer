@@ -1260,7 +1260,10 @@ export function UrbanViewer () {
                         }}></bim-button>
                         <bim-label>></bim-label>
 
-                        <bim-button label='4'></bim-button>
+                        <bim-button label='4' @click=${async ({target}:{target:BUI.Button})=>{
+                            target.loading = true
+                            target.loading = false
+                        }}></bim-button>
                     </div>
                     <div style='display:none; flex-direction:row; gap:1rem'>
                         <bim-button label='Log selection' @click=${()=>{

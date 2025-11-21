@@ -99,13 +99,14 @@ export async function suburbsBoundaries(world:OBC.World, components:OBC.Componen
                     const geometry = new THREE.BufferGeometry()
                     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
                     try {
-                        geometry.computeBoundingSphere() //serve per controllare alcune geoemtrie che non vanno bene, in questo modo crea la sfera e se non ci riesce non aggiunge la geometria al gruppo da mettere nella scena
+                        geometry.computeBoundingSphere() //serve per controllare alcune geometrie che non vanno bene, in questo modo crea la sfera e se non ci riesce non aggiunge la geometria al gruppo da mettere nella scena
+                        // se quello sopra non funziona si interrompe qui
                         // Se vuoi chiudere il poligono
                         geometry.setIndex([...Array(polygon.length).keys(), 0])
                         const material = new THREE.LineBasicMaterial({ color: lineColor })
                         const line = new THREE.LineLoop(geometry, material)
                         line.renderOrder = lineRenderOrder
-                        if (!Number.isNaN(line.geometry.boundingSphere?.center.x)){
+                        if (!Number.isNaN(line.geometry.boundingSphere?.radius)){
                             group.add(line)
                         }
                     } catch (error) {
@@ -125,4 +126,4 @@ export async function suburbsBoundaries(world:OBC.World, components:OBC.Componen
     }
     scene.three.add(group) //aggiunge tutte le linee alla scena, invece di aggiungerle una per volta
     window.dispatchEvent(new Event('resize'))
-}
+} 
