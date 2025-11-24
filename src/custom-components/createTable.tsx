@@ -25,9 +25,9 @@ const onSortTable = (table:BUI.Table<any>, field:string, ascending:boolean=false
         return valA.toString().localeCompare(valB.toString()) * direction
     })
 
-    for (const suburb of table.data){
-        if (!suburb.children) continue;
-        (suburb.children as BUI.TableGroupData<any>[]).sort((a, b) => {
+    for (const name of table.data){
+        if (!name.children) continue;
+        (name.children as BUI.TableGroupData<any>[]).sort((a, b) => {
             const valA = a.data[field]
             const valB = b.data[field]
             // Se entrambi sono numeri
@@ -37,7 +37,7 @@ const onSortTable = (table:BUI.Table<any>, field:string, ascending:boolean=false
             // Ordinamento alfabetico
             return valA.toString().localeCompare(valB.toString()) * direction
         })
-        for (const block of suburb.children){
+        for (const block of name.children){
             if (!block.children) continue
             (block.children as BUI.TableGroupData<any>[]).sort((a, b) => {
                 const valA = a.data[field]
@@ -64,7 +64,7 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
     type tableType = {
         modelId:string,
         localId:number,
-        Suburb: string,
+        Name: string,
         Param1: number,
         Param2: number,
         Color:any,
@@ -73,7 +73,7 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
     urbanTable.id = 'urban-table'
     urbanTable.data = [{
         data: {
-            Suburb: '',
+            Name: '',
             Param1: 1,
             Param2: 1,
             Color: '',
@@ -128,7 +128,7 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
                 data: {
                     modelId: modelName,
                     localId: (itemData._localId as ItemAttribute).value,
-                    Suburb: (itemData.Name as ItemAttribute).value,
+                    Name: (itemData.Name as ItemAttribute).value,
                     Param1: Math.round((pSets[0][paramOne] as ItemAttribute).value*1000)/1000,
                     Param2: Math.round((pSets[0][paramTwo] as ItemAttribute).value*1000)/1000,
                     Color: color,
@@ -136,7 +136,7 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
             })
         }
     }
-    urbanTable.dataTransform.Suburb = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+    urbanTable.dataTransform.Name = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
         const { modelId, localId } = rowData
         return BUI.html`
             <bim-label 
@@ -160,7 +160,7 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
                     if (!e.target) return
                     const ascending = sortByDirection.icon=='meteor-icons:arrow-up' ? false : true
                     onSortTable(urbanTable, (e.target as any).value[0]), ascending}}">
-                <bim-option style="padding:0 0.5rem 0 0.5rem" label="Suburb" value="Suburb" icon='lets-icons:map-light'></bim-option>
+                <bim-option style="padding:0 0.5rem 0 0.5rem" label="Name" value="Name" icon='lets-icons:map-light'></bim-option>
                 <bim-option style="padding:0 0.5rem 0 0.5rem" label=${paramOne} value='Param1' icon='icon-park-outline:one-key'></bim-option>
                 <bim-option style="padding:0 0.5rem 0 0.5rem" label=${paramTwo} value='Param2' icon='icon-park-outline:two-key'></bim-option>
             </bim-dropdown>`,

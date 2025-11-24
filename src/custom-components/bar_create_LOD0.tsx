@@ -416,7 +416,7 @@ export async function bar_create_LOD0 (
     const colorScaleDropdown = document.getElementById('color-scale-dropdown') as BUI.Dropdown
     type historyTableType = {
         UVL: number,
-        Suburb: string,
+        Name: string,
         Param1: string,
         Param2: string,
         Impact: string,
@@ -428,7 +428,7 @@ export async function bar_create_LOD0 (
     historyTable.data = [{
         data: {
             UVL: lod,
-            Suburb: name,
+            Name: name,
             Param1: paramOneFullNameLabel,
             Param2: paramTwoFullNameLabel,
             Impact: impact,
@@ -438,7 +438,7 @@ export async function bar_create_LOD0 (
     }]
     const columns: (keyof historyTableType | BUI.ColumnData)[] = [
         { name:'UVL', width:'3rem'},
-        { name:'Suburb', width:'5rem'},
+        { name:'Name', width:'5rem'},
         { name:'Param1', width:'5rem'},
         { name:'Param2', width:'5rem'},
         { name:'Impact', width:'5rem'},

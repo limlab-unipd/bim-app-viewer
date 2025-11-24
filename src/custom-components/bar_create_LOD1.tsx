@@ -354,7 +354,7 @@ export async function bar_create_LOD1 (
     addOverlay(BUI.html`Bars for <b><i>${name}</i></b> suburb created in <b>${loadTime}</b> seconds.`)
 
     for (const row of blocks){
-        const section = row.data.Suburb
+        const section = row.data.Name
         const localId = Object.keys(map_id_name).filter(k => map_id_name[k as keyof typeof map_id_name] === section)
         row.data.localId = Number(localId[0])
         row.data.modelId = modelName
@@ -378,7 +378,7 @@ export async function bar_create_LOD1 (
     }
 
     for (const [,data] of Object.entries(urbanTable.data)){
-        if (data.data.Suburb != name) continue
+        if (data.data.Name != name) continue
         data.children = blocks
     }
     urbanTable.requestUpdate()
@@ -387,7 +387,7 @@ export async function bar_create_LOD1 (
     historyTable?.data.push({
         data: {
             UVL: lod,
-            Suburb: name,
+            Name: name,
             Param1: paramOneFullNameLabel,
             Param2: paramTwoFullNameLabel,
             Impact: impact,

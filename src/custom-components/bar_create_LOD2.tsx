@@ -287,7 +287,7 @@ export async function bar_create_LOD2 (
     addOverlay(BUI.html`Bars for <b><i>${name}</i></b> suburb created in <b>${loadTime}</b> seconds.`)
 
     for (const row of buildings){
-        const block = row.data.Suburb
+        const block = row.data.Name
         const localId = Object.keys(map_id_name).filter(k => map_id_name[k as keyof typeof map_id_name] === block)
         row.data.localId = Number(localId[0])
         row.data.modelId = modelName
@@ -311,10 +311,10 @@ export async function bar_create_LOD2 (
     }
 
     for (const [,data] of Object.entries(urbanTable.data)){
-        if (data.data.Suburb != suburb) continue
+        if (data.data.Name != suburb) continue
         if (!data.children) continue
         for (const childrenData of data.children){
-            if (childrenData.data.Suburb != name) continue
+            if (childrenData.data.Name != name) continue
             childrenData.children = buildings
         }
     }
@@ -324,7 +324,7 @@ export async function bar_create_LOD2 (
     historyTable?.data.push({
         data: {
             UVL: lod,
-            Suburb: name,
+            Name: name,
             Param1: paramOneFullNameLabel,
             Param2: paramTwoFullNameLabel,
             ColorScale: colorScaleDropdown.value[0] ? colorScaleDropdown.value[0] : 'gnylrd',

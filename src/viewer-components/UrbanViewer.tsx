@@ -1259,7 +1259,9 @@ export function UrbanViewer () {
                             const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
                             const result_1 = await bar_create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
                             result_1 ? await onSetTransparencyWithColors(0) : ''
-                            onSetLayout({target:'down'})
+                            if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
+                                onSetLayout({target:'down'})
+                            }
                             //onSetCameraUVL(1)
                             target.loading = false
                         }}></bim-button>
@@ -1276,7 +1278,9 @@ export function UrbanViewer () {
                             const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
                             const result_2 = await bar_create_LOD2(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
                             result_2 ? await onSetTransparencyWithColors(1) : ''
-                            onSetLayout({target:'down'})
+                            if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
+                                onSetLayout({target:'down'})
+                            }
                             //onSetCameraUVL(2)
                             target.loading = false
                         }}></bim-button>
