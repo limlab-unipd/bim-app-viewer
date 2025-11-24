@@ -23,14 +23,16 @@ export async function colorBar (
         components:OBC.Components,
         dataForBars:any,
         LOD:number,
-        name:string
+        name:string,
+        paramChoice:'param_one'|'param_two'='param_two', //default param two for all uvl but you can choose for 2.1 or 3 and on
     ) {
 
     // array di righe (già filtrate)
     const rows: any = Object.values(dataForBars); // tuo array
 
+    
     // estrai valori "name"
-    const values = rows.map((r:any) => Number(r.param_two))
+    const values = rows.map((r:any) => Number(r[paramChoice]))
 
     // calcola min e max
     const min = Math.min(...values);

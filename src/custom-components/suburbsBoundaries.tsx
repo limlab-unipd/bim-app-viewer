@@ -5,34 +5,7 @@ import * as OBCF from '@thatopen/components-front'
 import * as BUI from '@thatopen/ui'
 import type { Table } from 'apache-arrow'
 import { coordinatesScaleFactor, globalCentroid, groupColumn } from './parametersForGrouping'
-
-// Funzione per parsing POLYGON da WKT
-function parseWKTPolygon(wkt: string): number[][][] {
-    const polygons: number[][][] = []
-
-    if (wkt.startsWith('POLYGON')) {
-        const match = wkt.match(/POLYGON\s*\(\((.+)\)\)/i)
-        if (!match) return []
-
-        const rings = match[1].split('),(')
-        const polygon: number[][] = rings.map(ringStr =>
-            ringStr.split(',').map(pt => pt.trim().split(/\s+/).map(Number))
-        ).flat()
-
-        polygons.push(polygon)
-    } else if (wkt.startsWith('MULTIPOLYGON')) {
-        // Estrapola ogni poligono
-        const multipolyMatch = wkt.match(/MULTIPOLYGON\s*\(\(\((.+)\)\)\)/i)
-        if (!multipolyMatch) return []
-
-        const polyStrings = multipolyMatch[1].split(')), ((')
-        polyStrings.forEach(polyStr => {
-            const polygon: number[][] = polyStr.split(',').map(pt => pt.trim().split(/\s+/).map(Number))
-            polygons.push(polygon)
-        })
-    }
-    return polygons
-}
+import { parseWKTPolygon } from './conversion'
 
 // Funzione principale
 export async function suburbsBoundaries(world:OBC.World, components:OBC.Components, arrowData:Table<any>) {

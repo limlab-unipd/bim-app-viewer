@@ -50,15 +50,52 @@ export function convertUnits (unitMeasure:string): string {
  * @returns The value found in the target column for the matching row, or
  *          undefined if no match is found or if the provided columns do not exist.
  */
-export function getArrowLineValue (arrowFile:Table<any>, columnToGetValue:string, ColumnForFilter:string, valueForFilter:string): typeof result {
+export function getArrowLineValue (arrowFile:Table<any>, columnToGetValue:string, ColumnForFilter:string, valueForFilter:string|number): typeof result {
     const col = arrowFile.getChild(columnToGetValue)
     const colFilter = arrowFile.getChild(ColumnForFilter)
     if (!col || !colFilter) return
     let result: number|string|undefined = undefined
-    for (let i = 0; i < colFilter.length; i++) {
-        if (colFilter.get(i) === valueForFilter) {
-            result = col.get(i); // otteniamo il valore corrispondente
-            return result
+    if (typeof valueForFilter == "string") {
+        for (let i = 0; i < colFilter.length; i++) {
+            if (colFilter.get(i) === valueForFilter) {
+                result = col.get(i); // otteniamo il valore corrispondente
+                return result
+            }
+        }
+    } else {
+        for (let i = 0; i < colFilter.length; i++) {
+            if (Number(colFilter.get(i)) === valueForFilter) {
+                result = col.get(i); // otteniamo il valore corrispondente
+                return result
+            }
         }
     }
+}
+
+// Funzione per parsing POLYGON da WKT
+export function parseWKTPolygon(wkt: string): number[][][] {
+    const polygons: number[][][] = []
+
+    if (wkt.startsWith('POLYGON')) {
+        const match = wkt.match(/POLYGON\s*\(\((.+)\)\)/i)
+        if (!match) return []
+
+        const rings = match[1].split('),(')
+        const polygon: number[][] = rings.map(ringStr =>
+            ringStr.split(',').map(pt => pt.trim().split(/\s+/).map(Number))
+        ).flat()
+
+        polygons.push(polygon)
+    } else if (wkt.startsWith('MULTIPOLYGON')) {
+        // Estrapola ogni poligono
+        const multipolyMatch = wkt.match(/MULTIPOLYGON\s*\(\(\((.+)\)\)\)/i)
+        if (!multipolyMatch) return []
+
+        const polyStrings = multipolyMatch[1].split(')), ((')
+        polyStrings.forEach(polyStr => {
+            const polygon: number[][] = polyStr.split(',').map(pt => pt.trim().split(/\s+/).map(Number))
+            polygons.push(polygon)
+        })
+    }
+    return polygons
 }

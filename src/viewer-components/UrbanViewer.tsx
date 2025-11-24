@@ -17,6 +17,7 @@ import { create_LOD1 } from '../custom-components/create_LOD1'
 import { create_LOD20 } from '../custom-components/create_LOD20'
 import { create_LOD3 } from '../custom-components/create_LOD3'
 import Stats from 'stats.js'
+import { create_LOD21 } from '../custom-components/create_LOD21'
 
 
 export function UrbanViewer () {
@@ -555,7 +556,7 @@ export function UrbanViewer () {
         const panelDown = BUI.Component.create<BUI.Panel>(() => {
             return BUI.html`
             <bim-panel
-            id = "panel-down"
+                id = "panel-down"
                 label="Down Panel"
                 style="background-color:rgba(0,0,0,0.85); display:flex; z-index:200">
             </bim-panel>
@@ -1220,10 +1221,10 @@ export function UrbanViewer () {
                     ${materialsImpactsDropdown}
                     ${normalizationCheckbox}
                     <bim-label icon='solar:city-bold-duotone'>Urban Visualization Level</bim-label>
-                    <div style='display:flex; flex-direction:row; gap:0.5rem'>
+                    <div style='display:flex; flex-direction:row; gap:0.5rem; align-items:center'>
                         <bim-label style="display:flex; white-space:normal">Load:</bim-label>
 
-                        <bim-button label='0' tooltip='Load UVL-0' @click=${async ({target}:{target:BUI.Button})=>{
+                        <bim-button label='0' tooltip='Load UVL-0' style="flex:1" @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
                             let result_0 = false;
                             const paramOne = paramLabelToValue(paramOneDropdown.value[0]);
@@ -1248,7 +1249,7 @@ export function UrbanViewer () {
                         }}></bim-button>
                         <bim-label>></bim-label>
 
-                        <bim-button label='1' tootltip='Load UVL-1 and hide UVL-0' @click=${async ({target}:{target:BUI.Button})=>{
+                        <bim-button label='1' tootltip='Load UVL-1 and hide UVL-0' style="flex:1" @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
                             const paramOne = paramLabelToValue(paramOneDropdown.value[0]);
                             const paramOneB = paramLabelToValue(paramOneBDropdown.value[0]);
@@ -1267,26 +1268,75 @@ export function UrbanViewer () {
                         }}></bim-button>
                         <bim-label>></bim-label>
 
-                        <bim-button label='2' tootltip='Load UVL-2' @click=${async ({target}:{target:BUI.Button})=>{
-                            target.loading = true
-                            const paramOne = paramLabelToValue(paramOneDropdown.value[0]);
-                            const paramOneB = paramLabelToValue(paramOneBDropdown.value[0]);
-                            const paramTwo = paramLabelToValue(paramTwoDropdown.value[0]);
-                            const paramTwoB = paramLabelToValue(paramTwoBDropdown.value[0]);
-                            const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
-                            const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
-                            const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
-                            const result_2 = await create_LOD20(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
-                            result_2 ? await onSetTransparencyWithColors(1) : ''
-                            if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
-                                onSetLayout({target:'down'})
-                            }
-                            //onSetCameraUVL(2)
-                            target.loading = false
-                        }}></bim-button>
+                        <div style='display:flex; flex-direction: column; gap:0.5rem; flex:1'>
+                            <bim-button label='2.0' tootltip='Load UVL-2.0' @click=${async ({target}:{target:BUI.Button})=>{
+                                target.loading = true
+                                const paramOne = paramLabelToValue(paramOneDropdown.value[0]);
+                                const paramOneB = paramLabelToValue(paramOneBDropdown.value[0]);
+                                const paramTwo = paramLabelToValue(paramTwoDropdown.value[0]);
+                                const paramTwoB = paramLabelToValue(paramTwoBDropdown.value[0]);
+                                const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
+                                const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
+                                const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
+                                const result_2 = await create_LOD20(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
+                                result_2 ? await onSetTransparencyWithColors(1) : ''
+                                if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
+                                    onSetLayout({target:'down'})
+                                }
+                                //onSetCameraUVL(2)
+                                target.loading = false
+                            }}></bim-button>
+                            <bim-button label='2.1' tootltip='Load UVL-2.1' @click=${async ({target}:{target:BUI.Button})=>{
+                                const contextMenu = target.querySelector<BUI.ContextMenu>('bim-context-menu')
+                                if (!contextMenu) return
+                                contextMenu.visible = true
+                            }}>
+                                <bim-context-menu>
+                                    <div style='display:flex; gap:0.5rem; padding:0.5rem'>
+                                        <bim-label>Choose one parameter to continue: </bim-label>
+                                        <bim-button style='flex:0;' label="Param1" @click=${async ({target}:{target:BUI.Button})=>{
+                                            target.loading = true
+                                            const paramChoice = 'Param1'
+                                            const paramOne = paramLabelToValue(paramOneDropdown.value[0]);
+                                            const paramOneB = paramLabelToValue(paramOneBDropdown.value[0]);
+                                            const paramTwo = paramLabelToValue(paramTwoDropdown.value[0]);
+                                            const paramTwoB = paramLabelToValue(paramTwoBDropdown.value[0]);
+                                            const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
+                                            const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
+                                            const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
+                                            const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,paramChoice)
+                                            result_2 ? await onSetTransparencyWithColors(1) : ''
+                                            if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
+                                                onSetLayout({target:'down'})
+                                            }
+                                            onSetCameraUVL(2)
+                                            target.loading = false
+                                        }}></bim-button>
+                                        <bim-button style='flex:0' label="Param2" @click=${async ({target}:{target:BUI.Button})=>{
+                                            target.loading = true
+                                            const paramChoice = 'Param2'
+                                            const paramOne = paramLabelToValue(paramOneDropdown.value[0]);
+                                            const paramOneB = paramLabelToValue(paramOneBDropdown.value[0]);
+                                            const paramTwo = paramLabelToValue(paramTwoDropdown.value[0]);
+                                            const paramTwoB = paramLabelToValue(paramTwoBDropdown.value[0]);
+                                            const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
+                                            const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
+                                            const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
+                                            const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,paramChoice)
+                                            result_2 ? await onSetTransparencyWithColors(1) : ''
+                                            if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
+                                                onSetLayout({target:'down'})
+                                            }
+                                            onSetCameraUVL(2)
+                                            target.loading = false
+                                        }}></bim-button>
+                                    </div>
+                                </bim-context-menu>
+                            </bim-button>
+                        </div>
                         <bim-label>></bim-label>
                         
-                        <bim-button label='3' tootltip='Load UVL-3' @click=${async ({target}:{target:BUI.Button})=>{
+                        <bim-button label='3' tootltip='Load UVL-3' style="flex:1" @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
                             onSetLayout({target:'down'})
                             const result_3 = await create_LOD3(components,loadFragmentFile,world)
@@ -1299,7 +1349,7 @@ export function UrbanViewer () {
                         }}></bim-button>
                         <bim-label>></bim-label>
 
-                        <bim-button label='4' @click=${async ({target}:{target:BUI.Button})=>{
+                        <bim-button label='4' style="flex:1" @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
                             target.loading = false
                         }}></bim-button>

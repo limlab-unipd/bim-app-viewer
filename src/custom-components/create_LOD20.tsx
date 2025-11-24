@@ -216,9 +216,9 @@ export async function create_LOD20 (
             buildings.push(
                 {
                     data: {
-                        Suburb: bar_name,
-                        Param1: Math.round(set.param_one*1000)/1000,
-                        Param2: Math.round(set.param_two*1000)/1000,
+                        Name: bar_name,
+                        Param1: Math.round(set.param_one*10000)/10000,
+                        Param2: Math.round(set.param_two*10000)/10000,
                         Color: 'blue',
                     },
                 }

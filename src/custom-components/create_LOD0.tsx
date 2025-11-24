@@ -359,8 +359,8 @@ export async function create_LOD0 (
             //         BarHeight: { value: paramOneFullNameLabel },
             //         BarColor: { value: paramTwoFullNameLabel },
             //         Suburb: { value: bar_name },
-            //         [paramOneFullNameLabel]: { value: Math.round(set.param_one*1000)/1000 },
-            //         [paramTwoFullNameLabel]: { value: Math.round(set.param_two*1000)/1000 },
+            //         [paramOneFullNameLabel]: { value: Math.round(set.param_one*10000)/10000 },
+            //         [paramTwoFullNameLabel]: { value: Math.round(set.param_two*10000)/10000 },
             //     }
             // })
             pSets[bar_name] = { //object containing one pset per each suburb
@@ -371,8 +371,8 @@ export async function create_LOD0 (
                     BarHeight: { value: paramOneFullNameLabel },
                     BarColor: { value: paramTwoFullNameLabel },
                     Suburb: { value: bar_name },
-                    [paramOneFullNameLabel]: { value: Math.round(set.param_one*1000)/1000 },
-                    [paramTwoFullNameLabel]: { value: Math.round(set.param_two*1000)/1000 },
+                    [paramOneFullNameLabel]: { value: Math.round(set.param_one*10000)/10000 },
+                    [paramTwoFullNameLabel]: { value: Math.round(set.param_two*10000)/10000 },
                 }
             }
             pSetsData[bar_name] = {
