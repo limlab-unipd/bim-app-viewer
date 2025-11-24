@@ -8,15 +8,33 @@ import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { getArrowLineValue } from './conversion'
 
 /**
- * Create bar according to values.
- * @param world the world instance used to render the scene
- * @param fragments the FragmentsManager instance
- * @param geometryEngine the GeoemtryEngine instance
- * @param lod the lod you want to load
- * @param name the name of the bar to load the next lod
- * @returns if the function correctly found the bar and created the next lod or not
+ * Generates LOD-1 suburb bars from a selected LOD-0 bar.
+ * 
+ * The function filters and aggregates data from Arrow and population tables,
+ * applies environmental coefficients if needed, normalizes values, and creates
+ * 3D extruded bars with FRAGS. Colors are applied based on parameter ranges,
+ * and the urban table and history table are updated accordingly.
+ *
+ * @param world The SimpleWorld instance for rendering.
+ * @param components FRAGS components and managers.
+ * @param geometryEngine Geometry engine for extrusion.
+ * @param arrowData Arrow table with suburb data.
+ * @param populationArrowData Arrow table with population data.
+ * @param environmentalArrowData Arrow table with environmental coefficients.
+ * @param paramOne Primary parameter for bar height.
+ * @param paramOneB Normalization parameter for paramOne.
+ * @param paramTwo Secondary parameter.
+ * @param paramTwoB Normalization parameter for paramTwo.
+ * @param paramEnv Environmental category for coefficients.
+ * @param previousLoadedSuburbs Tracks already loaded suburbs to avoid duplicates.
+ * @param paramOneFullNameLabel Label for paramOne in the UI.
+ * @param paramTwoFullNameLabel Label for paramTwo in the UI.
+ * @param urbanTable The table used to store the data.
+ * @param historyTable The table used to store the history of analysis.
+ * @returns Promise resolving to true if bars are created successfully, false otherwise.
  */
 export async function bar_create_LOD1 (
         world:OBC.SimpleWorld<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBCF.PostproductionRenderer>,
@@ -33,6 +51,8 @@ export async function bar_create_LOD1 (
         previousLoadedSuburbs:string[],
         paramOneFullNameLabel:string,
         paramTwoFullNameLabel:string,
+        urbanTable:BUI.Table,
+        historyTable:BUI.Table<any>|null
     ): Promise<boolean> {
 
     //initialize variables
@@ -51,9 +71,9 @@ export async function bar_create_LOD1 (
         centroid_x_local?:number[];
         centroid_y_local?:number[];
     }
-    const dataBySection: {[key:string]:sectionObject} = {} //all buildings of single suburb
+    const dataSuburbBySection: {[key:string]:sectionObject} = {} //all buildings of single suburb
     let name = ''
-    const urbanTable = document.getElementById('urban-table') as BUI.Table
+    let impact: string = 'None'
 
     //getting the selected bar name
     const selection = highlighter.selection.select
@@ -107,11 +127,11 @@ export async function bar_create_LOD1 (
         row[paramTwo] ? sum[section].sumTwo += Number(row[paramTwo]) : null
         row[paramTwoB] ? sum[section].sumTwoB += Number(row[paramTwoB]) : null
 
-        dataBySection[section] ? '' : dataBySection[section] = {}
-        dataBySection[section].suburb = name
-        dataBySection[section].section = section
-        dataBySection[section].centroid_x_local ? dataBySection[section].centroid_x_local.push(row.centroid_x - globalCentroid.x) : dataBySection[section].centroid_x_local = [row.centroid_x - globalCentroid.x]
-        dataBySection[section].centroid_y_local ? dataBySection[section].centroid_y_local.push(row.centroid_y - globalCentroid.y) : dataBySection[section].centroid_y_local = [row.centroid_y - globalCentroid.y]
+        dataSuburbBySection[section] ? '' : dataSuburbBySection[section] = {}
+        dataSuburbBySection[section].suburb = name
+        dataSuburbBySection[section].section = section
+        dataSuburbBySection[section].centroid_x_local ? dataSuburbBySection[section].centroid_x_local.push(row.centroid_x - globalCentroid.x) : dataSuburbBySection[section].centroid_x_local = [row.centroid_x - globalCentroid.x]
+        dataSuburbBySection[section].centroid_y_local ? dataSuburbBySection[section].centroid_y_local.push(row.centroid_y - globalCentroid.y) : dataSuburbBySection[section].centroid_y_local = [row.centroid_y - globalCentroid.y]
     }
     const colPop = populationArrowData.getChild(groupColumn.lod0_population)
     if (!colPop) throw new Error(`${groupColumn.lod0_population} column not found`)
@@ -146,7 +166,14 @@ export async function bar_create_LOD1 (
         } else if (paramOne.includes('Urban')) {
             final[section].One = sumPop[section].sumAREASQKM
         } else {
-            final[section].One = sum[section].sumOne
+            let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOne)
+            if (!coeff) addOverlay(BUI.html`<b>${paramOne}</b> environmental impact coefficient not found.`, 'warning')
+            if (paramEnv=='weight'){
+                coeff = 1
+            } else {
+                impact = paramEnv
+            }
+            final[section].One = sum[section].sumOne * Number(coeff)
         }
         if (paramOneB=='1'){
             final[section].OneB = sumPop[section].one
@@ -155,7 +182,14 @@ export async function bar_create_LOD1 (
         } else if (paramOneB.includes('Urban')) {
             final[section].OneB = sumPop[section].sumAREASQKM
         } else {
-            final[section].OneB = sum[section].sumOneB
+            let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOneB)
+            if (!coeff) addOverlay(BUI.html`<b>${paramOneB}</b> environmental impact coefficient not found.`, 'warning')
+            if (paramEnv=='weight'){
+                coeff = 1
+            } else {
+                impact = paramEnv
+            }
+            final[section].OneB = sum[section].sumOneB * Number(coeff)
         }
         if (paramTwo=='1'){
             final[section].Two = sumPop[section].one
@@ -164,7 +198,14 @@ export async function bar_create_LOD1 (
         } else if (paramTwo.includes('Urban')) {
             final[section].Two = sumPop[section].sumAREASQKM
         } else {
-            final[section].Two = sum[section].sumTwo
+            let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwo)
+            if (!coeff) addOverlay(BUI.html`<b>${paramTwo}</b> environmental impact coefficient not found.`, 'warning')
+            if (paramEnv=='weight'){
+                coeff = 1
+            } else {
+                impact = paramEnv
+            }
+            final[section].Two = sum[section].sumTwo * Number(coeff)
         }
         if (paramTwoB=='1'){
             final[section].TwoB = sumPop[section].one
@@ -173,13 +214,20 @@ export async function bar_create_LOD1 (
         } else if (paramTwoB.includes('Urban')) {
             final[section].TwoB = sumPop[section].sumAREASQKM
         } else {
-            final[section].TwoB = sum[section].sumTwoB
+            let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwoB)
+            if (!coeff) addOverlay(BUI.html`<b>${paramTwoB}</b> environmental impact coefficient not found.`, 'warning')
+            if (paramEnv=='weight'){
+                coeff = 1
+            } else {
+                impact = paramEnv
+            }
+            final[section].TwoB = sum[section].sumTwoB * Number(coeff)
         }
     }
 
     for (const section of Object.keys(final)){
-        dataBySection[section].param_one = final[section].One / final[section].OneB
-        dataBySection[section].param_two = final[section].Two / final[section].TwoB
+        dataSuburbBySection[section].param_one = final[section].One / final[section].OneB
+        dataSuburbBySection[section].param_two = final[section].Two / final[section].TwoB
     }
 
     //add the column with the normalization always, then it is choosed below the normalized or the not normalized one
@@ -197,7 +245,7 @@ export async function bar_create_LOD1 (
             ])
         )
     }
-    dataForBars = normalizeParamOne(dataBySection)
+    dataForBars = normalizeParamOne(dataSuburbBySection)
     //console.log(dataForBars!)
     
     // Bar geometry
@@ -229,7 +277,7 @@ export async function bar_create_LOD1 (
         for (const [key,set] of Object.entries(dataForBars)) {
             const bar_base_dim2 = barsBase.lod1
             const bar_base_dim1 = barsBase.lod1
-            const bar_height = normalizationCheckbox ? set.param_one_normalized*normalizationHeight.lod1 : Number(set.param_one)/normalizationHeight.notNormalized
+            const bar_height = normalizationCheckbox ? set.param_one_normalized*normalizationHeight.lod1 : Number(set.param_one)
             const centr_x = (Math.max(...set.centroid_x_local)+Math.min(...set.centroid_x_local))/2
             const centr_y = (Math.max(...set.centroid_y_local)+Math.min(...set.centroid_y_local))/2
             const bar_position = new THREE.Vector3(centr_x/coordinatesScaleFactor,0,-centr_y/coordinatesScaleFactor)
@@ -298,7 +346,7 @@ export async function bar_create_LOD1 (
     
     await regenerateFragments();
 
-    const [map_color_ids,map_id_name,modelName]: any[] = await colorBar(components,dataForBars!,lod,name,paramTwo)
+    const [map_color_ids,map_id_name,modelName]: any[] = await colorBar(components,dataForBars!,lod,name)
 
     const endTime = performance.now() // End timer
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
@@ -336,18 +384,18 @@ export async function bar_create_LOD1 (
     urbanTable.requestUpdate()
 
     const colorScaleDropdown = document.getElementById('color-scale-dropdown') as BUI.Dropdown
-    const historyTable = document.getElementById('history-table') as BUI.Table
     historyTable?.data.push({
         data: {
             UVL: lod,
             Suburb: name,
             Param1: paramOneFullNameLabel,
             Param2: paramTwoFullNameLabel,
+            Impact: impact,
             ColorScale: colorScaleDropdown.value[0] ? colorScaleDropdown.value[0] : 'gnylrd',
             Normalization: normalizationCheckbox.checked,
         }
     })
-    historyTable.requestUpdate()
+    historyTable?.requestUpdate()
 
     return true
 }

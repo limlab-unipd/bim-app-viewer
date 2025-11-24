@@ -8,15 +8,32 @@ import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { getArrowLineValue } from './conversion'
 
 /**
- * Create bar according to values.
- * @param world the world instance used to render the scene
- * @param fragments the FragmentsManager instance
- * @param geometryEngine the GeoemtryEngine instance
- * @param lod the lod you want to load
- * @param name the name of the bar to load the next lod
- * @returns if the function correctly found the bar and created the next lod or not
+ * Generates LOD-2 building bars for a selected LOD-1 section.
+ * 
+ * The function filters and computes building-level parameters from Arrow tables,
+ * applies environmental coefficients if needed, normalizes values, and creates
+ * 3D extruded bars with FRAGS. Colors are applied based on parameter ranges,
+ * and the urban table and history table are updated accordingly.
+ *
+ * @param world The SimpleWorld instance for rendering.
+ * @param components FRAGS components and managers.
+ * @param geometryEngine Geometry engine for extrusion.
+ * @param arrowData Arrow table with building data.
+ * @param environmentalArrowData Arrow table with environmental coefficients.
+ * @param paramOne Primary parameter for bar height.
+ * @param paramOneB Normalization parameter for paramOne.
+ * @param paramTwo Secondary parameter.
+ * @param paramTwoB Normalization parameter for paramTwo.
+ * @param paramEnv Environmental category for coefficients.
+ * @param previousLoadedSuburbs Tracks already loaded suburbs to avoid duplicates.
+ * @param paramOneFullNameLabel Label for paramOne in the UI.
+ * @param paramTwoFullNameLabel Label for paramTwo in the UI.
+ * @param urbanTable The table used to store the data.
+ * @param historyTable The table used to store the history of analysis.
+ * @returns Promise resolving to true if bars are created successfully, false otherwise.
  */
 export async function bar_create_LOD2 (
         world:OBC.SimpleWorld<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBCF.PostproductionRenderer>,
@@ -32,6 +49,8 @@ export async function bar_create_LOD2 (
         previousLoadedSuburbs:string[],
         paramOneFullNameLabel:string,
         paramTwoFullNameLabel:string,
+        urbanTable:BUI.Table,
+        historyTable:BUI.Table<any>|null,
     ): Promise<boolean> {
 
     paramOne = paramOne.toString()
@@ -53,10 +72,8 @@ export async function bar_create_LOD2 (
     const startTime = performance.now() // Start timer
     const lod: number = 2
     let dataForBars:{[key:string]:any}
-    const dataBySection: {[key:string]:any} = {} //all buildings of single suburb
     let name = ''
     let suburb = ''
-    const urbanTable = document.getElementById('urban-table') as BUI.Table
 
     //getting the selected bar name
     const selection = highlighter.selection.select
@@ -92,17 +109,60 @@ export async function bar_create_LOD2 (
     world.scene.three.add(newModel.object);
     await fragments.core.update(true);
 
-    //filter arrow data
-    const col = arrowData.getChild(groupColumn.lod1);
-    if (!col) throw new Error(`${groupColumn.lod1} column not found`);
-    for (let i = 0; i < arrowData.numRows; i++) {
-        if (Number(col.get(i)).toString() === name) {
-            const row = arrowData.get(i)
-            dataBySection[Number(row!.identfr).toString()] = row
+    let coeffOne = 1,coeffOneB = 1,coeffTwo = 1,coeffTwoB = 1
+    const envMaterials = environmentalArrowData.getChild('Material category')
+    if (paramEnv != 'weight'){ //se i parametri sono dei materiali (non serve fare il check sulla popolazione perche' e' gia fatto in precedenza e neanche si entra in questo componente)
+        if (envMaterials?.includes(paramOne)){
+            coeffOne = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOne))
+            if (!coeffOne) addOverlay(BUI.html`<b>${paramOne}</b> environmental impact coefficient not found.`, 'warning')
+        }
+        if (envMaterials?.includes(paramOneB)){
+            coeffOneB = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOneB))
+            if (!coeffOneB) addOverlay(BUI.html`<b>${paramOneB}</b> environmental impact coefficient not found.`, 'warning')
+        }
+        if (envMaterials?.includes(paramTwo)){
+            coeffTwo = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwo))
+            if (!coeffTwo) addOverlay(BUI.html`<b>${paramTwo}</b> environmental impact coefficient not found.`, 'warning')
+        }
+        if (envMaterials?.includes(paramTwoB)){
+            coeffTwoB = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwoB))
+            if (!coeffTwoB) addOverlay(BUI.html`<b>${paramTwoB}</b> environmental impact coefficient not found.`, 'warning')
         }
     }
+
+    //filter arrow data
+    type buildingsDataType = {
+        suburb? : string,
+        section? : string,
+        identfr? : string,
+        centroid_x? : number,
+        centroid_y? : number,
+        param_one? : number,
+        param_one_normalized? : number,
+        param_two? : number,
+    }
+    const dataOfBuildings: {[key:string] : buildingsDataType} = {}
+    const col = arrowData.getChild(groupColumn.lod1);
+    if (!col) throw new Error(`${groupColumn.lod1} column not found`);
+    for (let i = 0; i < arrowData.numRows; i++) { //effettua la moltiplicazione per ogni riga
+        if (Number(col.get(i)).toString() === name) {
+            const row = arrowData.get(i)
+
+            if (!row) continue
+            const buildingIdentfr = Number(row.identfr).toString()
+            if (!dataOfBuildings[buildingIdentfr]) dataOfBuildings[buildingIdentfr] = {}
+            dataOfBuildings[buildingIdentfr].suburb = row[groupColumn.lod0]
+            dataOfBuildings[buildingIdentfr].section = Number(row[groupColumn.lod1]).toString()
+            dataOfBuildings[buildingIdentfr].identfr = buildingIdentfr
+            dataOfBuildings[buildingIdentfr].centroid_x = parseFloat(row.centroid_x)
+            dataOfBuildings[buildingIdentfr].centroid_y = parseFloat(row.centroid_y)
+            dataOfBuildings[buildingIdentfr].param_one = (paramOne=='1' ? 1 : Number(row[paramOne])) * coeffOne / (paramOneB=='1' ? 1 : Number(row[paramOneB])) * coeffOneB
+            dataOfBuildings[buildingIdentfr].param_two = (paramTwo=='1' ? 1 : Number(row[paramTwo])) * coeffTwo / (paramTwoB=='1' ? 1 : Number(row[paramTwoB])) * coeffTwoB
+        }
+    }
+
     function normalizeParamOne(data: Record<string, any>): Record<string, any> {
-        const values = Object.values(data).map(d => d[paramOne]);
+        const values = Object.values(data).map(d => d.param_one);
         const min = Math.min(...values);
         const max = Math.max(...values);
         return Object.fromEntries(
@@ -110,12 +170,12 @@ export async function bar_create_LOD2 (
             key,
             {
                 ...obj,
-                param_one_normalized: (obj[paramOne] - min) / (max - min),
+                param_one_normalized: (obj.param_one - min) / (max - min),
             },
             ])
         )
     }
-    dataForBars = normalizeParamOne(dataBySection)
+    dataForBars = normalizeParamOne(dataOfBuildings)
     //console.log(dataForBars!)
     
     // Bar geometry
@@ -144,14 +204,12 @@ export async function bar_create_LOD2 (
         // Bars
         const tempObject = new THREE.Object3D();
         //creation of each bar
-        let x=0
-        let y = 0
         for (const [key,set] of Object.entries(dataForBars)) {
-            const bar_base_dim2 = barsBase.lod2
+            //const bar_base_dim2 = barsBase.lod2
             const bar_base_dim1 = barsBase.lod2
-            const centr_x = (parseFloat(set.centroid_x) - globalCentroid.x)/coordinatesScaleFactor
-            const centr_y = (parseFloat(set.centroid_y) - globalCentroid.y)/coordinatesScaleFactor
-            const bar_height = normalizationCheckbox ? set.param_one_normalized*normalizationHeight.lod2 : Number(set[paramOne])/normalizationHeight.notNormalized
+            const centr_x = set.centroid_x - globalCentroid.x / coordinatesScaleFactor
+            const centr_y = set.centroid_y - globalCentroid.y / coordinatesScaleFactor
+            const bar_height = normalizationCheckbox ? set.param_one_normalized*normalizationHeight.lod2 : set.param_one
             const bar_position = new THREE.Vector3(centr_x,0,-centr_y)
             const bar_name = Number(set.identfr).toString()
             
@@ -159,8 +217,8 @@ export async function bar_create_LOD2 (
                 {
                     data: {
                         Suburb: bar_name,
-                        Param1: Math.round(Number(set[paramOne])*1000)/1000,
-                        Param2: Math.round(Number(set[paramTwo])*1000)/1000,
+                        Param1: Math.round(set.param_one*1000)/1000,
+                        Param2: Math.round(set.param_two*1000)/1000,
                         Color: 'blue',
                     },
                 }
@@ -196,11 +254,11 @@ export async function bar_create_LOD2 (
                     },
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
-                    Suburb: { value: set.DIVISION_N ? set.DIVISION_N : bar_name },
+                    Suburb: { value: set.suburb ? set.suburb : 'None' },
+                    Section: { value: set.section ? set.section : 'None' },
                     Height: { value: bar_height },
-                    Aluminium: { value: set.Aluminm ? set.Aluminm : 0 },
-                    Concrete: { value: set.Concret ? set.Concret : 0 },
-                    Steel: { value: set.Steel ? set.Steel : 0 },
+                    Aluminium: { value: getArrowLineValue(arrowData, 'Aluminm', 'identfr', set.identfr) },
+                    Concrete: { value: getArrowLineValue(arrowData, 'Concret', 'identfr', set.identfr) },
                 },
                 globalTransform: tempObject.matrix.clone(),
                 samples: [
@@ -221,7 +279,7 @@ export async function bar_create_LOD2 (
     
     await regenerateFragments();
 
-    const [map_color_ids,map_id_name,modelName]: any[] = await colorBar(components,dataForBars!,lod,name,paramTwo)
+    const [map_color_ids,map_id_name,modelName]: any[] = await colorBar(components,dataForBars!,lod,name)
     
     const endTime = performance.now() // End timer
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
@@ -263,7 +321,6 @@ export async function bar_create_LOD2 (
     urbanTable.requestUpdate()
 
     const colorScaleDropdown = document.getElementById('color-scale-dropdown') as BUI.Dropdown
-    const historyTable = document.getElementById('history-table') as BUI.Table
     historyTable?.data.push({
         data: {
             UVL: lod,
@@ -274,7 +331,7 @@ export async function bar_create_LOD2 (
             Normalization: normalizationCheckbox.checked,
         }
     })
-    historyTable.requestUpdate()
+    historyTable?.requestUpdate()
 
     return true
 }

@@ -11,13 +11,34 @@ import { readArrow } from './readArrow'
 import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 
 /**
- * Create bar according to values.
- * @param world the world instance used to render the scene
- * @param fragments the FragmentsManager instance
- * @param geometryEngine the GeoemtryEngine instance
- * @param LOD the LOD you want to load
- * @param name the name of the bar to load the next LOD
- * @returns if the function correctly found the bar and created the next LOD or not
+ * Generates a complete Level of Detail 0 (LOD0) model composed of extruded bar
+ * geometries representing aggregated environmental and demographic indicators
+ * at the suburb level.  
+ *
+ * The function loads Arrow datasets, aggregates parameters (materials,
+ * population, area), computes ratios between numerator and denominator
+ * parameters, normalizes the primary parameter, retrieves centroid coordinates,
+ * and generates a new fragment-based model in the scene. Each bar is extruded,
+ * positioned according to its suburb centroid, assigned properties (including
+ * IFC-style property sets), and finally color-mapped.  
+ *
+ * A history entry is appended to the UI summarizing the performed analysis.
+ *
+ * @param world Rendering world instance containing camera and scene.
+ * @param components OBC components registry giving access to fragments and utils.
+ * @param geometryEngine Engine used to extrude geometries for bar generation.
+ * @param arrowData Arrow table containing material-based data per suburb.
+ * @param populationArrowData Arrow table containing population and area data.
+ * @param environmentalArrowData Arrow table containing environmental coefficients.
+ * @param paramOne Main numerator parameter used to compute bar height.
+ * @param paramOneB Denominator parameter used for normalizing `paramOne`.
+ * @param paramTwo Secondary numerator parameter used for color mapping.
+ * @param paramTwoB Denominator parameter used for normalizing `paramTwo`.
+ * @param paramEnv Environmental category used to retrieve impact coefficients.
+ * @param panelRight UI panel where the analysis history table will be appended.
+ * @param paramOneFullNameLabel Full descriptive label of the first parameter.
+ * @param paramTwoFullNameLabel Full descriptive label of the second parameter.
+ * @returns A promise resolving to `true` if the model is created successfully, otherwise `false`.
  */
 export async function bar_create_LOD0 (
         world:OBC.SimpleWorld<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBCF.PostproductionRenderer>,
@@ -34,7 +55,7 @@ export async function bar_create_LOD0 (
         panelRight:BUI.Panel,
         paramOneFullNameLabel:string,
         paramTwoFullNameLabel:string,
-    ): Promise<boolean> {
+    ): Promise<[boolean,BUI.Table<any>|null]> {
 
     paramOne = paramOne.toString()
     paramOneB = paramOneB.toString()
@@ -43,7 +64,7 @@ export async function bar_create_LOD0 (
 
     if (!arrowData) {
         addOverlay(BUI.html`Please load any samples before.`,'warning')
-        return false
+        return [false,null]
     }
     
     //initialize variables
@@ -52,7 +73,7 @@ export async function bar_create_LOD0 (
     for (const [modelId,] of fragments.list){
         if (modelId.includes('LOD_0')) {
             addOverlay(BUI.html`UVL-0 model already exists. Please reload the browser page to do a new analysis.`,'warning')
-            return false
+            return [false,null]
         }
     }
 
@@ -67,7 +88,7 @@ export async function bar_create_LOD0 (
         centroid_x_local?:number;
         centroid_y_local?:number;
     }
-    const dataCity: {[key:string]:cityObject} = {}
+    const dataCityBySuburb: {[key:string]:cityObject} = {}
     const dataSuburbsCentroid: {[key:string]:{centroid_x_local:number,centroid_y_local:number}} = {}
 
     //create new base model for geometries
@@ -135,7 +156,8 @@ export async function bar_create_LOD0 (
     } else {
         const col = arrowData.getChild(paramOne)
         let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOne)
-        if (!coeff || paramEnv=='weight'){
+        if (!coeff) addOverlay(BUI.html`<b>${paramOne}</b> environmental impact coefficient not found.`, 'warning')
+        if (paramEnv=='weight'){
             coeff = 1
         } else {
             impact = paramEnv
@@ -157,7 +179,8 @@ export async function bar_create_LOD0 (
     } else {
         const col = arrowData.getChild(paramOneB)
         let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOneB)
-        if (!coeff || paramEnv=='weight'){
+        if (!coeff) addOverlay(BUI.html`<b>${paramOneB}</b> environmental impact coefficient not found.`, 'warning')
+        if (paramEnv=='weight'){
             coeff = 1
         } else {
             impact = paramEnv
@@ -179,7 +202,8 @@ export async function bar_create_LOD0 (
     } else {
         const col = arrowData.getChild(paramTwo)
         let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwo)
-        if (!coeff || paramEnv=='weight'){
+        if (!coeff) addOverlay(BUI.html`<b>${paramTwo}</b> environmental impact coefficient not found.`, 'warning')
+        if (paramEnv=='weight'){
             coeff = 1
         } else {
             impact = paramEnv
@@ -201,7 +225,8 @@ export async function bar_create_LOD0 (
     } else {
         const col = arrowData.getChild(paramTwoB)
         let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwoB)
-        if (!coeff || paramEnv=='weight'){
+        if (!coeff) addOverlay(BUI.html`<b>${paramTwoB}</b> environmental impact coefficient not found.`, 'warning')
+        if (paramEnv=='weight'){
             coeff = 1
         } else {
             impact = paramEnv
@@ -214,9 +239,9 @@ export async function bar_create_LOD0 (
     }
 
     for (const suburb of suburbsUnique){
-        if (!dataCity[suburb]) dataCity[suburb] = {suburb:suburb}
-        dataCity[suburb].param_one = sumOne[suburb] / sumOneB[suburb]
-        dataCity[suburb].param_two = sumTwo[suburb] / sumTwoB[suburb]
+        if (!dataCityBySuburb[suburb]) dataCityBySuburb[suburb] = {suburb:suburb}
+        dataCityBySuburb[suburb].param_one = sumOne[suburb] / sumOneB[suburb]
+        dataCityBySuburb[suburb].param_two = sumTwo[suburb] / sumTwoB[suburb]
     }
 
     function normalizeParamOne(data: Record<string, any>): Record<string, any> {
@@ -233,11 +258,11 @@ export async function bar_create_LOD0 (
             ])
         )
     }
-    dataForBars = normalizeParamOne(dataCity)
+    dataForBars = normalizeParamOne(dataCityBySuburb)
     //console.log(dataForBars!)
     
     const arrowData_suburbsCentroids = await readArrow('boundaries')
-    if (!arrowData_suburbsCentroids) return false
+    if (!arrowData_suburbsCentroids) return [false,null]
     const suburbsCentroids_colSuburbs = arrowData_suburbsCentroids.getChild(groupColumn.lod0_boundaries)
     const suburbsCentroids_centroid_x = arrowData_suburbsCentroids.getChild("centroid_x")
     const suburbsCentroids_centroid_y = arrowData_suburbsCentroids.getChild("centroid_y")
@@ -315,11 +340,6 @@ export async function bar_create_LOD0 (
                     _category: { value: "IfcBar" },
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
-                    //Suburb: { value: bar_name },
-                    //BarHeight: { value: paramOneFullNameLabel },
-                    //BarColor: { value: paramTwoFullNameLabel },
-                    //[paramOneFullNameLabel]: { value: Math.round(set.param_one*1000)/1000 },
-                    //[paramTwoFullNameLabel]: { value: Math.round(set.param_two*1000)/1000 },
                 },
                 globalTransform: tempObject.matrix.clone(),
                 samples: [
@@ -380,46 +400,11 @@ export async function bar_create_LOD0 (
         await fragments.core.editor.applyChanges(newModel.modelId)
         await fragments.core.editor.save(newModel.modelId)
         await fragments.core.update(true)
-
-        // // creazione item per pset nel modello
-        // const createdPsetsIds: number[] = []
-        // for (const pset of propertySets){
-        //     createdPsetsIds.push(Number(fragments.core.editor.createItem(newModel.modelId,pset))) //crea gli item per i pset nel modello
-        // }
-        // await fragments.core.editor.applyChanges(newModel.modelId)
-        // await fragments.core.editor.save(newModel.modelId)
-        // await fragments.core.update(true);
-
-        // // crea la relazione tra barra e pset, entrambi sono array ordinati con gli elementi nella stessa posizione
-        // for (const bar of createdBars){
-        //     const barData = await bar.getData()
-        //     const suburb = (barData.Name as FRAGS.ItemAttribute).value
-        //     finder.create('pset', [
-        //         {
-        //             categories: [/PROPERTYSET/],
-        //             attributes: { queries: [
-        //                 { name: /Name/, value: /EnvironmentalAnalysisData/ },
-        //                 { name: /Suburb/, value: new RegExp(suburb.replace(/[.*+\-?^${}()|[\]\\]/g, "\\$&")) },
-        //             ] },
-        //         },
-        //     ])
-        //     const pset_id = await finder.list.get('pset')?.test()
-        //     console.log(pset_id)
-        //     if (!pset_id) continue
-        //     console.log([[...pset_id['LOD_0_CANBERRA']][0]])
-        //     // --------------------------------- A T T E N Z I O N E ---------------------------------
-        //     //await fragments.core.editor.relate(newModel.modelId, bar.localId, 'IsDefinedBy', [[...psets_ids['LOD_0_CANBERRA']][i]]) //ATTENZIONE: non so perche' sia necessario questo + 1 --> serve per aumentare di uno il localId del pset
-        //     await fragments.core.editor.relate(newModel.modelId, bar.localId, 'IsDefinedBy', [[...pset_id['LOD_0_CANBERRA']][0]])
-        // }
-
-        // await fragments.core.editor.applyChanges(newModel.modelId)
-        // await fragments.core.editor.save(newModel.modelId)
-        // await fragments.core.update(true);
     };
     
     await regenerateFragments();
 
-    await colorBar(components,dataForBars!,lod,name,paramTwoFullNameLabel)
+    await colorBar(components,dataForBars!,lod,name)
 
     const endTime = performance.now() // End timer
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
@@ -466,5 +451,5 @@ export async function bar_create_LOD0 (
     historyTable.hiddenColumns = []
     panelRight?.appendChild(historyTable)
     
-    return true
+    return [true,historyTable]
 }

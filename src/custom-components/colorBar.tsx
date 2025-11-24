@@ -4,20 +4,33 @@ import * as OBCF from '@thatopen/components-front'
 import * as BUI from '@thatopen/ui'
 import { urbanMapToColor } from './colors'
 
-
+/**
+ * Computes and applies a color scale to all fragments of a selected model,
+ * based on normalized values derived from an external dataset. The function
+ * extracts the relevant numerical parameter, normalizes it, maps each model
+ * element (`identfr`) to its corresponding normalized value, identifies the
+ * correct fragment model by name, retrieves all its local IDs, and assigns a
+ * color to each object using the chosen color scale.  
+ *
+ * @param components The OBC.Components instance providing access to fragment utilities.
+ * @param dataForBars Dataset containing the parameters used for normalization and coloring.
+ * @param LOD Level of detail defining which key to use for association (suburb, section, identfr).
+ * @param name Base name of the model whose fragments should be colored.
+ * @returns An array containing the color map for IDs, the ID-to-identfr map,
+ *          and the resolved model name.
+ */
 export async function colorBar (
         components:OBC.Components,
         dataForBars:any,
         LOD:number,
-        name:string,
-        param:string,
+        name:string
     ) {
 
     // array di righe (già filtrate)
     const rows: any = Object.values(dataForBars); // tuo array
 
     // estrai valori "name"
-    const values = LOD==0||LOD==1 ? rows.map((r:any) => Number(r.param_two)) : rows.map((r:any) => Number(r[param]))
+    const values = rows.map((r:any) => Number(r.param_two))
 
     // calcola min e max
     const min = Math.min(...values);

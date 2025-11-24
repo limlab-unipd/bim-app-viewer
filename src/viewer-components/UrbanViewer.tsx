@@ -329,6 +329,23 @@ export function UrbanViewer () {
 
         //generic functions
         //Visibility
+        const onHideLodModels = async (target:BUI.Button, uvl:string) => {
+            if (!target) return
+            const visibility = target.icon == 'mdi:eye'
+            target.loading = true
+            for (const [modelName,model] of fragments.list.entries()) {
+                if (model.isDeltaModel) continue
+                if (modelName.includes(`LOD_${uvl}`)) {
+                    if (visibility) {
+                        await model.setVisible(undefined, false)
+                    } else {
+                        await model.setVisible(undefined, true)
+                    }
+                }
+            }
+            target.loading = false
+            visibility ? target.icon = 'mdi:eye-off' : target.icon = 'mdi:eye'
+        }
         const onHide = async () => {
             hider.set(false, highlighter.selection.select)
         }
@@ -544,6 +561,93 @@ export function UrbanViewer () {
             </bim-panel>
             `;
         })
+
+        //CREATE THE TABLE
+        type uvlVisualizationTableType = {
+            UVL: string,
+            Visibility: string,
+            Opacity: string,
+            ColorScale: string,
+        }
+        const uvlVisualizationTable = document.createElement("bim-table") as BUI.Table<uvlVisualizationTableType>
+        uvlVisualizationTable.id = 'uvl-visualization-table'
+        uvlVisualizationTable.data = [{
+            data: {
+                UVL: '0',
+                Visibility: '',
+                Opacity: '',
+                ColorScale: '',
+            }
+        },{
+            data: {
+                UVL: '1',
+                Visibility: '',
+                Opacity: '',
+                ColorScale: '',
+            }
+        },{
+            data: {
+                UVL: '2',
+                Visibility: '',
+                Opacity: '',
+                ColorScale: '',
+            }
+        },{
+            data: {
+                UVL: '3',
+                Visibility: '',
+                Opacity: '',
+                ColorScale: '',
+            }
+        }]
+        const columns: (keyof uvlVisualizationTableType | BUI.ColumnData)[] = [
+            { name:'UVL', width:'3rem'},
+            { name:'Visibility', width:'4rem'},
+            { name:'Opacity', width:'5rem'},
+        ]
+        uvlVisualizationTable.columns = columns;
+        uvlVisualizationTable.preserveStructureOnFilter = true
+        uvlVisualizationTable.dataTransform.Visibility = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+            const { UVL } = rowData
+            if (!UVL) return value
+            return BUI.html`
+                <bim-button icon='mdi:eye' @click=${async ({target}:{target:BUI.Button})=>{await onHideLodModels(target,UVL)}}></bim-button>`
+        }
+        uvlVisualizationTable.dataTransform.Opacity = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+            const { UVL } = rowData
+            if (!UVL) return value
+            return BUI.html`
+                <bim-number-input 
+                    id="transparency-opacity-uvl-${UVL}" slider step="0.05" value="0.05" min="0" max="1"
+                    @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                        highlighter.styles.get(`LOD_${UVL}_color_0_02`)!.opacity = target.value
+                        highlighter.styles.get(`LOD_${UVL}_color_02_04`)!.opacity = target.value
+                        highlighter.styles.get(`LOD_${UVL}_color_04_06`)!.opacity = target.value
+                        highlighter.styles.get(`LOD_${UVL}_color_06_08`)!.opacity = target.value
+                        highlighter.styles.get(`LOD_${UVL}_color_08_1`)!.opacity = target.value
+                        await highlighter.updateColors()
+                    }}">
+                </bim-number-input>`
+        }
+        uvlVisualizationTable.dataTransform.ColorScale = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+            const { UVL } = rowData
+            if (!UVL) return value
+            return BUI.html`
+                <bim-dropdown
+                    @change="${async ({target}:{target:BUI.Dropdown}) => {
+                        const colorScale = target.value[0]
+                        setHighlighterStyles(components,colorScale,Number(UVL))
+                        await highlighter.updateColors()
+                    }}">
+                    <bim-option label='Green-Yellow-Red' value='gnylrd' style="color:black; padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(26, 150, 65, 1),rgba(166, 217, 106, 1),rgba(255, 255, 0, 1),rgba(253, 174, 97, 1),rgba(215, 25, 28, 1))"></bim-option>
+                    <bim-option label='Yellow-Green-Blue' value='ylgnbu' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(255, 255, 204, 1), rgba(194, 230, 153, 1), rgba(120, 198, 121, 1), rgba(49, 163, 84, 1), rgba(0, 104, 55, 1))"></bim-option>
+                    <bim-option label='Orange-Red' value='orrd' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(254, 240, 217, 1), rgba(253, 212, 158, 1), rgba(253, 187, 132, 1), rgba(253, 141, 60, 1), rgba(217, 72, 1, 1))"></bim-option>
+                    <bim-option label='Blues' value='blues' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(239, 243, 255, 1), rgba(189, 215, 231, 1), rgba(107, 174, 214, 1), rgba(33, 113, 181, 1), rgba(8, 69, 148, 1))"></bim-option>
+                    <bim-option label='Viridis' value='viridis' style="padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(68, 1, 84, 1),rgba(59, 82, 139, 1),rgba(33, 144, 141, 1),rgba(94, 201, 98, 1),rgba(253, 231, 37, 1))"></bim-option>
+                    <bim-option label='Cividis' value='cividis' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(0, 32, 76, 1), rgba(55, 64, 129, 1), rgba(94, 109, 171, 1), rgba(145, 158, 203, 1), rgba(253, 231, 37, 1))"></bim-option>
+                </bim-dropdown>`
+        }
+
         const panelWorldSettings = BUI.Component.create<BUI.Panel>(() => {
             return BUI.html`
                 <bim-panel
@@ -563,83 +667,8 @@ export function UrbanViewer () {
                             <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-2' value='2'></bim-option>
                             <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-3' value='3'></bim-option>
                         </bim-dropdown>
-                        <bim-label style="display:flex; white-space:normal" icon='mdi:circle-opacity'>Change the opacity of each UVL</bim-label>
-                        <bim-number-input 
-                            id='transparency-opacity-uvl-0' slider step="0.05" label="UVL-0 opacity" value="0.05" min="0" max="1" style="padding-left:1.5rem"
-                            @change="${async ({ target }: { target: BUI.NumberInput }) => {
-                                const LOD = 0
-                                highlighter.styles.get(`LOD_${LOD}_color_0_02`)!.opacity = target.value
-                                highlighter.styles.get(`LOD_${LOD}_color_02_04`)!.opacity = target.value
-                                highlighter.styles.get(`LOD_${LOD}_color_04_06`)!.opacity = target.value
-                                highlighter.styles.get(`LOD_${LOD}_color_06_08`)!.opacity = target.value
-                                highlighter.styles.get(`LOD_${LOD}_color_08_1`)!.opacity = target.value
-                                await highlighter.updateColors()
-                            }}">
-                        </bim-number-input>
-                        <bim-number-input 
-                            id='transparency-opacity-uvl-1' slider step="0.05" label="UVL-1 opacity" value="0.10" min="0" max="1" style="padding-left:1.5rem"
-                            @change="${async ({ target }: { target: BUI.NumberInput }) => {
-                                const LOD = 1
-                                highlighter.styles.get(`LOD_${LOD}_color_0_02`)!.opacity = target.value
-                                highlighter.styles.get(`LOD_${LOD}_color_02_04`)!.opacity = target.value
-                                highlighter.styles.get(`LOD_${LOD}_color_04_06`)!.opacity = target.value
-                                highlighter.styles.get(`LOD_${LOD}_color_06_08`)!.opacity = target.value
-                                highlighter.styles.get(`LOD_${LOD}_color_08_1`)!.opacity = target.value
-                                await highlighter.updateColors()
-                            }}">
-                        </bim-number-input>
-                        <bim-number-input 
-                            id='transparency-opacity-uvl-2' slider step="0.05" label="UVL-2 opacity" value="0.15" min="0" max="1" style="padding-left:1.5rem"
-                            @change="${async ({ target }: { target: BUI.NumberInput }) => {
-                                const LOD = 2
-                                highlighter.styles.get(`LOD_${LOD}_color_0_02`)!.opacity = target.value
-                                highlighter.styles.get(`LOD_${LOD}_color_02_04`)!.opacity = target.value
-                                highlighter.styles.get(`LOD_${LOD}_color_04_06`)!.opacity = target.value
-                                highlighter.styles.get(`LOD_${LOD}_color_06_08`)!.opacity = target.value
-                                highlighter.styles.get(`LOD_${LOD}_color_08_1`)!.opacity = target.value
-                                await highlighter.updateColors()
-                            }}">
-                        </bim-number-input>
-                        <bim-label style="display:flex; white-space:normal" icon='ic:outline-color-lens'>Change the color scale of each UVL</bim-label>
-                        <bim-dropdown label='UVL-0 color scale' style="padding-left:1.5rem"
-                            @change="${async ({target}:{target:BUI.Dropdown}) => {
-                                const colorScale = target.value[0]
-                                setHighlighterStyles(components,colorScale,0)
-                                await highlighter.updateColors()
-                            }}">
-                            <bim-option label='Green-Yellow-Red' value='gnylrd' style="color:black; padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(26, 150, 65, 1),rgba(166, 217, 106, 1),rgba(255, 255, 0, 1),rgba(253, 174, 97, 1),rgba(215, 25, 28, 1))"></bim-option>
-                            <bim-option label='Yellow-Green-Blue' value='ylgnbu' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(255, 255, 204, 1), rgba(194, 230, 153, 1), rgba(120, 198, 121, 1), rgba(49, 163, 84, 1), rgba(0, 104, 55, 1))"></bim-option>
-                            <bim-option label='Orange-Red' value='orrd' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(254, 240, 217, 1), rgba(253, 212, 158, 1), rgba(253, 187, 132, 1), rgba(253, 141, 60, 1), rgba(217, 72, 1, 1))"></bim-option>
-                            <bim-option label='Blues' value='blues' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(239, 243, 255, 1), rgba(189, 215, 231, 1), rgba(107, 174, 214, 1), rgba(33, 113, 181, 1), rgba(8, 69, 148, 1))"></bim-option>
-                            <bim-option label='Viridis' value='viridis' style="padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(68, 1, 84, 1),rgba(59, 82, 139, 1),rgba(33, 144, 141, 1),rgba(94, 201, 98, 1),rgba(253, 231, 37, 1))"></bim-option>
-                            <bim-option label='Cividis' value='cividis' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(0, 32, 76, 1), rgba(55, 64, 129, 1), rgba(94, 109, 171, 1), rgba(145, 158, 203, 1), rgba(253, 231, 37, 1))"></bim-option>
-                        </bim-dropdown>
-                        <bim-dropdown label='UVL-1 color scale' style="padding-left:1.5rem"
-                            @change="${async ({target}:{target:BUI.Dropdown}) => {
-                                const colorScale = target.value[0]
-                                setHighlighterStyles(components,colorScale,1)
-                                await highlighter.updateColors()
-                            }}">
-                            <bim-option label='Green-Yellow-Red' value='gnylrd' style="color:black; padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(26, 150, 65, 1),rgba(166, 217, 106, 1),rgba(255, 255, 0, 1),rgba(253, 174, 97, 1),rgba(215, 25, 28, 1))"></bim-option>
-                            <bim-option label='Yellow-Green-Blue' value='ylgnbu' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(255, 255, 204, 1), rgba(194, 230, 153, 1), rgba(120, 198, 121, 1), rgba(49, 163, 84, 1), rgba(0, 104, 55, 1))"></bim-option>
-                            <bim-option label='Orange-Red' value='orrd' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(254, 240, 217, 1), rgba(253, 212, 158, 1), rgba(253, 187, 132, 1), rgba(253, 141, 60, 1), rgba(217, 72, 1, 1))"></bim-option>
-                            <bim-option label='Blues' value='blues' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(239, 243, 255, 1), rgba(189, 215, 231, 1), rgba(107, 174, 214, 1), rgba(33, 113, 181, 1), rgba(8, 69, 148, 1))"></bim-option>
-                            <bim-option label='Viridis' value='viridis' style="padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(68, 1, 84, 1),rgba(59, 82, 139, 1),rgba(33, 144, 141, 1),rgba(94, 201, 98, 1),rgba(253, 231, 37, 1))"></bim-option>
-                            <bim-option label='Cividis' value='cividis' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(0, 32, 76, 1), rgba(55, 64, 129, 1), rgba(94, 109, 171, 1), rgba(145, 158, 203, 1), rgba(253, 231, 37, 1))"></bim-option>
-                        </bim-dropdown>
-                        <bim-dropdown label='UVL-2 color scale' style="padding-left:1.5rem"
-                            @change="${async ({target}:{target:BUI.Dropdown}) => {
-                                const colorScale = target.value[0]
-                                setHighlighterStyles(components,colorScale,2)
-                                await highlighter.updateColors()
-                            }}">
-                            <bim-option label='Green-Yellow-Red' value='gnylrd' style="color:black; padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(26, 150, 65, 1),rgba(166, 217, 106, 1),rgba(255, 255, 0, 1),rgba(253, 174, 97, 1),rgba(215, 25, 28, 1))"></bim-option>
-                            <bim-option label='Yellow-Green-Blue' value='ylgnbu' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(255, 255, 204, 1), rgba(194, 230, 153, 1), rgba(120, 198, 121, 1), rgba(49, 163, 84, 1), rgba(0, 104, 55, 1))"></bim-option>
-                            <bim-option label='Orange-Red' value='orrd' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(254, 240, 217, 1), rgba(253, 212, 158, 1), rgba(253, 187, 132, 1), rgba(253, 141, 60, 1), rgba(217, 72, 1, 1))"></bim-option>
-                            <bim-option label='Blues' value='blues' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(239, 243, 255, 1), rgba(189, 215, 231, 1), rgba(107, 174, 214, 1), rgba(33, 113, 181, 1), rgba(8, 69, 148, 1))"></bim-option>
-                            <bim-option label='Viridis' value='viridis' style="padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(68, 1, 84, 1),rgba(59, 82, 139, 1),rgba(33, 144, 141, 1),rgba(94, 201, 98, 1),rgba(253, 231, 37, 1))"></bim-option>
-                            <bim-option label='Cividis' value='cividis' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(0, 32, 76, 1), rgba(55, 64, 129, 1), rgba(94, 109, 171, 1), rgba(145, 158, 203, 1), rgba(253, 231, 37, 1))"></bim-option>
-                        </bim-dropdown>
+                        <bim-label style="display:flex; white-space:normal" icon='mdi:circle-opacity'>Change visualization settings of each UVL</bim-label>
+                        ${uvlVisualizationTable}
                     </bim-panel-section>
                     <bim-panel-section collapsed label='General Ambient Settings' style='padding:0'>
                         <bim-panel-section label='Ambient Preset Styles'  style='padding:-1rem'>
@@ -1114,7 +1143,7 @@ export function UrbanViewer () {
                 'Steel': 'Steel',
                 'Timber': 'Timber',
                 'Weight (tonnes)': 'weight',
-                'Global Warming Potential (kg CO₂ eq)': 'Global warming (GWP100a) tonn',
+                'Global Warming Potential (kg CO₂ eq)': 'Global warming (GWP100a)',
                 'Abiotic Depletion - elem., econ. reserve (kg SB eq)': 'Abiotic depletion (elem., econ. reserve)',
                 'Abiotic depletion - fossil fuels (MJ NCV)': 'Abiotic depletion (Fossil fuels)',
                 'Ozone Layer Depletion (kg CFC-11 eq)': 'Ozone layer depletion (ODP)',
@@ -1165,6 +1194,9 @@ export function UrbanViewer () {
 
 
         const previousLoadedSuburbs: string[] = []
+        let urbanTable: BUI.Table
+        let historyTable: BUI.Table<any> | null
+
         const colorUrbanPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
             return BUI.html`
                 <bim-panel-section
@@ -1201,9 +1233,9 @@ export function UrbanViewer () {
                             const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
                             const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
                             const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
-                            result_0 = await bar_create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,panelRight,paramOneFullNameLabel,paramTwoFullNameLabel);
+                            [result_0,historyTable] = await bar_create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,panelRight,paramOneFullNameLabel,paramTwoFullNameLabel);
                             if (result_0) {
-                                await createTable(panelDown,fragments,components,paramOneFullNameLabel,paramTwoFullNameLabel)
+                                urbanTable = await createTable(panelDown,fragments,components,paramOneFullNameLabel,paramTwoFullNameLabel)
                                 if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                     onSetLayout({target:'down'})
                                 }
@@ -1225,8 +1257,9 @@ export function UrbanViewer () {
                             const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
                             const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
                             const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
-                            const result_1 = await bar_create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel)
+                            const result_1 = await bar_create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
                             result_1 ? await onSetTransparencyWithColors(0) : ''
+                            onSetLayout({target:'down'})
                             //onSetCameraUVL(1)
                             target.loading = false
                         }}></bim-button>
@@ -1241,8 +1274,9 @@ export function UrbanViewer () {
                             const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
                             const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
                             const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
-                            const result_2 = await bar_create_LOD2(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel)
+                            const result_2 = await bar_create_LOD2(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
                             result_2 ? await onSetTransparencyWithColors(1) : ''
+                            onSetLayout({target:'down'})
                             //onSetCameraUVL(2)
                             target.loading = false
                         }}></bim-button>
@@ -1250,6 +1284,7 @@ export function UrbanViewer () {
                         
                         <bim-button label='3' tootltip='Load UVL-3' @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
+                            onSetLayout({target:'down'})
                             const result_3 = await LOD3_loadBIM(components,loadFragmentFile,world)
                             result_3[0] ? await onSetTransparencyWithColors(2) : ''
                             onSetCameraUVL(3)

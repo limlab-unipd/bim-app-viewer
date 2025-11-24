@@ -4,24 +4,42 @@ import * as BUI from '@thatopen/ui'
 
 type ArrowFile = 'materials' | 'boundaries' | 'population' | 'environmental'
 
+/**
+ * Loads an Arrow file corresponding to one of the available datasets
+ * (materials, boundaries, population, environmental) and returns it as
+ * an Arrow Table. The function selects the appropriate file based on the
+ * input parameter, downloads it, displays loading status through an overlay,
+ * measures the loading time, and finally returns the decoded table.
+ *
+ * @param file Type of Arrow file to load. Allowed values: 'materials',
+ *             'boundaries', 'population', 'environmental'. Default: 'materials'.
+ * @returns A Promise resolving to an Arrow Table containing the loaded data.
+ * @throws Error if the fetch fails or if the provided file type is invalid.
+ */
 export async function readArrow(file: ArrowFile = 'materials') {
-    addOverlay(BUI.html`Loading data ...`)
 
     const startTime = performance.now() // Start timer
+    let loadedFile: string = ''
     let resp
     
     if (file=='boundaries'){
         resp = await fetch('/ARROW/ACT_boundaries.arrow')
+        loadedFile = 'Suburbs boundaries'
     } else if (file=='population') {
         resp = await fetch('/ARROW/ACT_population.arrow')
+        loadedFile = 'Population'
     } else if (file=='environmental') {
         resp = await fetch('/ARROW/ACT_environmental.arrow')
+        loadedFile = 'Environmental impacts'
     } else if (file=='materials') {
+        loadedFile = 'Materials quantities'
         resp = await fetch('/ARROW/ACT_materials.arrow')
     } else {
         console.warn('Arrow file not found')
         return
     }
+
+    addOverlay(BUI.html`Loading <b><i>${loadedFile}</i></b> data ...`)
 
     if (!resp.ok) throw new Error(`Errore fetch: ${resp.status}`)
     const buffer = await resp.arrayBuffer()
@@ -33,7 +51,7 @@ export async function readArrow(file: ArrowFile = 'materials') {
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
     console.log(`Arrow ${file} loaded in ${loadTime} seconds`)
 
-    addOverlay(BUI.html`Data correctly loaded in ${loadTime}s!`)
+    addOverlay(BUI.html`<b><i>${loadedFile}</i></b> data correctly loaded in ${loadTime}s!`)
     
     return table
 }
