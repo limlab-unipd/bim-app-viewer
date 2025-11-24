@@ -7,16 +7,16 @@ import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
 import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-converter'
-import Stats from 'stats.js'
 import { readArrow } from '../custom-components/readArrow'
-import { bar_create_LOD0 } from '../custom-components/bar_create_LOD0'
-import { bar_create_LOD2 } from '../custom-components/bar_create_LOD2'
 import { addOverlay } from '../custom-components/addOverlay'
 import { createTable } from '../custom-components/createTable'
-import { bar_create_LOD1 } from '../custom-components/bar_create_LOD1'
 import { suburbsBoundaries } from '../custom-components/suburbsBoundaries'
-import { LOD3_loadBIM } from '../custom-components/LOD3_loadBIM'
 import { setHighlighterStyles } from '../custom-components/colors'
+import { create_LOD0 } from '../custom-components/create_LOD0'
+import { create_LOD1 } from '../custom-components/create_LOD1'
+import { create_LOD20 } from '../custom-components/create_LOD20'
+import { create_LOD3 } from '../custom-components/create_LOD3'
+import Stats from 'stats.js'
 
 
 export function UrbanViewer () {
@@ -1233,7 +1233,7 @@ export function UrbanViewer () {
                             const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
                             const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
                             const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
-                            [result_0,historyTable] = await bar_create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,panelRight,paramOneFullNameLabel,paramTwoFullNameLabel);
+                            [result_0,historyTable] = await create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,panelRight,paramOneFullNameLabel,paramTwoFullNameLabel);
                             if (result_0) {
                                 urbanTable = await createTable(panelDown,fragments,components,paramOneFullNameLabel,paramTwoFullNameLabel)
                                 if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
@@ -1257,7 +1257,7 @@ export function UrbanViewer () {
                             const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
                             const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
                             const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
-                            const result_1 = await bar_create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
+                            const result_1 = await create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
                             result_1 ? await onSetTransparencyWithColors(0) : ''
                             if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                 onSetLayout({target:'down'})
@@ -1276,7 +1276,7 @@ export function UrbanViewer () {
                             const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
                             const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
                             const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
-                            const result_2 = await bar_create_LOD2(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
+                            const result_2 = await create_LOD20(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
                             result_2 ? await onSetTransparencyWithColors(1) : ''
                             if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                 onSetLayout({target:'down'})
@@ -1289,7 +1289,7 @@ export function UrbanViewer () {
                         <bim-button label='3' tootltip='Load UVL-3' @click=${async ({target}:{target:BUI.Button})=>{
                             target.loading = true
                             onSetLayout({target:'down'})
-                            const result_3 = await LOD3_loadBIM(components,loadFragmentFile,world)
+                            const result_3 = await create_LOD3(components,loadFragmentFile,world)
                             result_3[0] ? await onSetTransparencyWithColors(2) : ''
                             onSetCameraUVL(3)
                             if (result_3[1]) {

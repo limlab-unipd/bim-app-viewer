@@ -2,7 +2,7 @@ import { tableFromIPC } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import * as BUI from '@thatopen/ui'
 
-type ArrowFile = 'materials' | 'boundaries' | 'population' | 'environmental'
+type ArrowFile = 'materials' | 'boundaries' | 'population' | 'environmental' | 'buildings'
 
 /**
  * Loads an Arrow file corresponding to one of the available datasets
@@ -34,6 +34,9 @@ export async function readArrow(file: ArrowFile = 'materials') {
     } else if (file=='materials') {
         loadedFile = 'Materials quantities'
         resp = await fetch('/ARROW/ACT_materials.arrow')
+    } else if (file=='buildings') {
+        loadedFile = 'Buildings shape'
+        resp = await fetch('/ARROW/ACT_buildings.arrow')
     } else {
         console.warn('Arrow file not found')
         return
