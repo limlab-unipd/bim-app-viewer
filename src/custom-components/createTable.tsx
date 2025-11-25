@@ -2,6 +2,7 @@ import * as OBC from '@thatopen/components'
 import * as BUI from '@thatopen/ui'
 import * as OBCF from '@thatopen/components-front'
 import type { Identifier, ItemAttribute, ItemData } from '@thatopen/fragments';
+import { formatNumber } from './conversion';
 
 
 const onSearch = (e: Event, table:BUI.Table<any>) => {
@@ -12,50 +13,50 @@ const onClearPanel = async (panel: BUI.Panel, title:string='Void Panel') => {
     panel.innerHTML = ''
     panel.label = title
 }
-const onSortTable = (table:BUI.Table<any>, field:string, ascending:boolean=false) => {
-    const direction = ascending ? 1 : -1
-    table.data.sort((a, b) => {
-        const valA = a.data[field]
-        const valB = b.data[field]
-        // Se entrambi sono numeri
-        if (typeof valA === 'number' && typeof valB === 'number') {
-            return (valA - valB) * direction
+const onSortTable = (table: BUI.Table<any>, field: string, ascending: boolean = false) => {
+    // ordine ascendente o discendente
+    const direction = ascending ? 1 : -1;
+    // funzione per capire se il valore è un numero
+    const isNumeric = (v: any) =>
+        typeof v === 'number' ||
+        (typeof v === 'string' && !isNaN(Number(v)));
+    // funzione per comparare i valori
+    const compareValues = (valA: any, valB: any) => {
+        const numA = isNumeric(valA) ? Number(valA) : null;
+        const numB = isNumeric(valB) ? Number(valB) : null;
+        if (numA !== null && numB !== null) {
+            return (numA - numB) * direction;
         }
-        // Ordinamento alfabetico
-        return valA.toString().localeCompare(valB.toString()) * direction
-    })
-
-    for (const name of table.data){
+        return valA.toString().localeCompare(valB.toString()) * direction;
+    };
+    // ordinamento primo livello della tabella
+    table.data.sort((a, b) => compareValues(a.data[field], b.data[field]));
+    // ordinamento secondo livello
+    for (const name of table.data) {
         if (!name.children) continue;
-        (name.children as BUI.TableGroupData<any>[]).sort((a, b) => {
-            const valA = a.data[field]
-            const valB = b.data[field]
-            // Se entrambi sono numeri
-            if (typeof valA === 'number' && typeof valB === 'number') {
-                return (valA - valB) * direction
-            }
-            // Ordinamento alfabetico
-            return valA.toString().localeCompare(valB.toString()) * direction
-        })
-        for (const block of name.children){
-            if (!block.children) continue
-            (block.children as BUI.TableGroupData<any>[]).sort((a, b) => {
-                const valA = a.data[field]
-                const valB = b.data[field]
-                // Se entrambi sono numeri
-                if (typeof valA === 'number' && typeof valB === 'number') {
-                    return (valA - valB) * direction
-                }
-                // Ordinamento alfabetico
-                return valA.toString().localeCompare(valB.toString()) * direction
-            })
+        (name.children as BUI.TableGroupData<any>[]).sort((a, b) =>
+            compareValues(a.data[field], b.data[field])
+        );
+        //ordinamento terzo livello
+        for (const block of name.children) {
+            if (!block.children) continue;
+            (block.children as BUI.TableGroupData<any>[]).sort((a, b) =>
+                compareValues(a.data[field], b.data[field])
+            );
         }
     }
+    //update tabella
+    table.requestUpdate();
+};
 
-    table.requestUpdate()
-}
 
-export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsManager,components:OBC.Components,paramOne:string='Concret',paramTwo:string='Glass'): Promise<BUI.Table<any>> {
+export async function createTable (
+    panelDown:BUI.Panel,
+    fragments:OBC.FragmentsManager,
+    components:OBC.Components,
+    paramOne:string='Concret',
+    paramTwo:string='Glass'
+): Promise<BUI.Table<any>> {
 
     const highlighter = components.get(OBCF.Highlighter)
     await onClearPanel(panelDown)
@@ -65,8 +66,8 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
         modelId:string,
         localId:number,
         Name: string,
-        Param1: number,
-        Param2: number,
+        Param1: string,
+        Param2: string,
         Color:any,
     }
     const urbanTable = document.createElement("bim-table") as BUI.Table<tableType>
@@ -74,8 +75,8 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
     urbanTable.data = [{
         data: {
             Name: '',
-            Param1: 1,
-            Param2: 1,
+            Param1: '1',
+            Param2: '1',
             Color: '',
         }
     }]
@@ -129,8 +130,8 @@ export async function createTable (panelDown:BUI.Panel,fragments:OBC.FragmentsMa
                     modelId: modelName,
                     localId: (itemData._localId as ItemAttribute).value,
                     Name: (itemData.Name as ItemAttribute).value,
-                    Param1: Math.round((pSets[0][paramOne] as ItemAttribute).value*1000)/1000,
-                    Param2: Math.round((pSets[0][paramTwo] as ItemAttribute).value*1000)/1000,
+                    Param1: (pSets[0][paramOne] as ItemAttribute).value,
+                    Param2: (pSets[0][paramTwo] as ItemAttribute).value,
                     Color: color,
                 }
             })

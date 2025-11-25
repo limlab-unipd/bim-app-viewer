@@ -8,7 +8,7 @@ import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
-import { getArrowLineValue } from './conversion'
+import { formatNumber, getArrowLineValue } from './conversion'
 
 /**
  * Generates LOD-2 building bars for a selected LOD-1 section.
@@ -41,10 +41,10 @@ export async function create_LOD20 (
         geometryEngine:FRAGS.GeometryEngine,
         arrowData:Table<any>,
         environmentalArrowData:Table<any>,
-        paramOne:string='Concret',
-        paramOneB:string='1',
-        paramTwo:string='Glass',
-        paramTwoB:string='1',
+        paramOne:string|undefined,
+        paramOneB:string|undefined,
+        paramTwo:string|undefined,
+        paramTwoB:string|undefined,
         paramEnv:string,
         previousLoadedSuburbs:string[],
         paramOneFullNameLabel:string,
@@ -52,6 +52,12 @@ export async function create_LOD20 (
         urbanTable:BUI.Table,
         historyTable:BUI.Table<any>|null,
     ): Promise<boolean> {
+
+    
+    if (!paramOne || !paramOneB || !paramTwo || !paramTwoB) {
+        addOverlay(BUI.html`Please select all parameters`, 'warning')
+        return false
+    }
 
     paramOne = paramOne.toString()
     paramOneB = paramOneB.toString()
@@ -74,6 +80,7 @@ export async function create_LOD20 (
     let dataForBars:{[key:string]:any}
     let name = ''
     let suburb = ''
+    const impact = paramEnv!='weight' ? paramEnv : 'None'
 
     //getting the selected bar name
     const selection = highlighter.selection.select
@@ -129,6 +136,7 @@ export async function create_LOD20 (
             if (!coeffTwoB) addOverlay(BUI.html`<b>${paramTwoB}</b> environmental impact coefficient not found.`, 'warning')
         }
     }
+    console.log(coeffOne,coeffOneB,coeffTwo,coeffTwoB)
 
     //filter arrow data
     type buildingsDataType = {
@@ -140,6 +148,10 @@ export async function create_LOD20 (
         param_one? : number,
         param_one_normalized? : number,
         param_two? : number,
+        paramOne? : number,
+        paramOneB? : number,
+        paramTwo? : number,
+        paramTwoB? : number,
     }
     const dataOfBuildings: {[key:string] : buildingsDataType} = {}
     const col = arrowData.getChild(groupColumn.lod1);
@@ -147,7 +159,6 @@ export async function create_LOD20 (
     for (let i = 0; i < arrowData.numRows; i++) { //effettua la moltiplicazione per ogni riga
         if (Number(col.get(i)).toString() === name) {
             const row = arrowData.get(i)
-
             if (!row) continue
             const buildingIdentfr = Number(row.identfr).toString()
             if (!dataOfBuildings[buildingIdentfr]) dataOfBuildings[buildingIdentfr] = {}
@@ -156,8 +167,12 @@ export async function create_LOD20 (
             dataOfBuildings[buildingIdentfr].identfr = buildingIdentfr
             dataOfBuildings[buildingIdentfr].centroid_x = parseFloat(row.centroid_x)
             dataOfBuildings[buildingIdentfr].centroid_y = parseFloat(row.centroid_y)
-            dataOfBuildings[buildingIdentfr].param_one = (paramOne=='1' ? 1 : Number(row[paramOne])) * coeffOne / (paramOneB=='1' ? 1 : Number(row[paramOneB])) * coeffOneB
-            dataOfBuildings[buildingIdentfr].param_two = (paramTwo=='1' ? 1 : Number(row[paramTwo])) * coeffTwo / (paramTwoB=='1' ? 1 : Number(row[paramTwoB])) * coeffTwoB
+            dataOfBuildings[buildingIdentfr].paramOne = Number(row[paramOne])
+            dataOfBuildings[buildingIdentfr].paramOneB = Number(row[paramOneB])
+            dataOfBuildings[buildingIdentfr].paramTwo = Number(row[paramTwo])
+            dataOfBuildings[buildingIdentfr].paramTwoB = Number(row[paramTwoB])
+            dataOfBuildings[buildingIdentfr].param_one = ((paramOne=='1' ? 1 : Number(row[paramOne])) * coeffOne) / ((paramOneB=='1' ? 1 : Number(row[paramOneB])) * coeffOneB)
+            dataOfBuildings[buildingIdentfr].param_two = ((paramTwo=='1' ? 1 : Number(row[paramTwo])) * coeffTwo) / ((paramTwoB=='1' ? 1 : Number(row[paramTwoB])) * coeffTwoB)
         }
     }
 
@@ -176,7 +191,7 @@ export async function create_LOD20 (
         )
     }
     dataForBars = normalizeParamOne(dataOfBuildings)
-    //console.log(dataForBars!)
+    console.log(dataForBars!)
     
     // Bar geometry
     const barGeometry = new THREE.BufferGeometry();
@@ -217,8 +232,8 @@ export async function create_LOD20 (
                 {
                     data: {
                         Name: bar_name,
-                        Param1: Math.round(set.param_one*10000)/10000,
-                        Param2: Math.round(set.param_two*10000)/10000,
+                        Param1: formatNumber(set.param_one),
+                        Param2: formatNumber(set.param_two),
                         Color: 'blue',
                     },
                 }
@@ -327,6 +342,7 @@ export async function create_LOD20 (
             Name: name,
             Param1: paramOneFullNameLabel,
             Param2: paramTwoFullNameLabel,
+            Impact: impact,
             ColorScale: colorScaleDropdown.value[0] ? colorScaleDropdown.value[0] : 'gnylrd',
             Normalization: normalizationCheckbox.checked,
         }

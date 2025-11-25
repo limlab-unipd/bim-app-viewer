@@ -18,6 +18,7 @@ import { create_LOD20 } from '../custom-components/create_LOD20'
 import { create_LOD3 } from '../custom-components/create_LOD3'
 import Stats from 'stats.js'
 import { create_LOD21 } from '../custom-components/create_LOD21'
+import { normalizationHeight } from '../custom-components/parametersForGrouping'
 
 
 export function UrbanViewer () {
@@ -569,6 +570,7 @@ export function UrbanViewer () {
             Visibility: string,
             Opacity: string,
             ColorScale: string,
+            NormHeight: number | string,
         }
         const uvlVisualizationTable = document.createElement("bim-table") as BUI.Table<uvlVisualizationTableType>
         uvlVisualizationTable.id = 'uvl-visualization-table'
@@ -578,6 +580,7 @@ export function UrbanViewer () {
                 Visibility: '',
                 Opacity: '',
                 ColorScale: '',
+                NormHeight: 5000,
             }
         },{
             data: {
@@ -585,6 +588,7 @@ export function UrbanViewer () {
                 Visibility: '',
                 Opacity: '',
                 ColorScale: '',
+                NormHeight: 1000,
             }
         },{
             data: {
@@ -592,6 +596,7 @@ export function UrbanViewer () {
                 Visibility: '',
                 Opacity: '',
                 ColorScale: '',
+                NormHeight: 300,
             }
         },{
             data: {
@@ -599,6 +604,7 @@ export function UrbanViewer () {
                 Visibility: '',
                 Opacity: '',
                 ColorScale: '',
+                NormHeight: '',
             }
         }]
         const columns: (keyof uvlVisualizationTableType | BUI.ColumnData)[] = [
@@ -647,6 +653,39 @@ export function UrbanViewer () {
                     <bim-option label='Viridis' value='viridis' style="padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(68, 1, 84, 1),rgba(59, 82, 139, 1),rgba(33, 144, 141, 1),rgba(94, 201, 98, 1),rgba(253, 231, 37, 1))"></bim-option>
                     <bim-option label='Cividis' value='cividis' style="padding:0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(0, 32, 76, 1), rgba(55, 64, 129, 1), rgba(94, 109, 171, 1), rgba(145, 158, 203, 1), rgba(253, 231, 37, 1))"></bim-option>
                 </bim-dropdown>`
+        }
+        uvlVisualizationTable.dataTransform.NormHeight = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+            const { UVL } = rowData
+            if (!UVL) return value
+            if (UVL=='0') {
+                return BUI.html`
+                    <bim-number-input 
+                        id="normalization-height-uvl-${UVL}" slider step="200" value=${normalizationHeight.lod0} min="100" max="10000"
+                        @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                            normalizationHeight.lod0 = target.value
+                        }}">
+                    </bim-number-input>`
+            } else if (UVL=='1') {
+                return BUI.html`
+                    <bim-number-input 
+                        id="normalization-height-uvl-${UVL}" slider step="100" value=${normalizationHeight.lod1} min="50" max="5000"
+                        @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                            normalizationHeight.lod1 = target.value
+                        }}">
+                    </bim-number-input>`
+            } else if (UVL=='2') {
+                return BUI.html`
+                    <bim-number-input 
+                        id="normalization-height-uvl-${UVL}" slider step="40" value=${normalizationHeight.lod2} min="20" max="2000"
+                        @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                            normalizationHeight.lod2 = target.value
+                        }}">
+                    </bim-number-input>`
+            }
+            else {
+                return ''
+            }
+
         }
 
         const panelWorldSettings = BUI.Component.create<BUI.Panel>(() => {
@@ -1309,7 +1348,7 @@ export function UrbanViewer () {
                                             if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                                 onSetLayout({target:'down'})
                                             }
-                                            onSetCameraUVL(2)
+                                            //onSetCameraUVL(2)
                                             target.loading = false
                                         }}></bim-button>
                                         <bim-button style='flex:0' label="Param2" @click=${async ({target}:{target:BUI.Button})=>{
@@ -1327,7 +1366,7 @@ export function UrbanViewer () {
                                             if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                                 onSetLayout({target:'down'})
                                             }
-                                            onSetCameraUVL(2)
+                                            //onSetCameraUVL(2)
                                             target.loading = false
                                         }}></bim-button>
                                     </div>

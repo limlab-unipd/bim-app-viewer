@@ -9,6 +9,7 @@ import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { readArrow } from './readArrow'
 import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { formatNumber, getArrowLineValue } from './conversion'
 
 /**
  * Generates a complete Level of Detail 0 (LOD0) model composed of extruded bar
@@ -47,16 +48,21 @@ export async function create_LOD0 (
         arrowData:Table<any>,
         populationArrowData:Table<any>,
         environmentalArrowData:Table<any>,
-        paramOne:string='Concret',
-        paramOneB:string='1',
-        paramTwo:string='Glass',
-        paramTwoB:string='1',
+        paramOne:string|undefined,
+        paramOneB:string|undefined,
+        paramTwo:string|undefined,
+        paramTwoB:string|undefined,
         paramEnv:string,
         panelRight:BUI.Panel,
         paramOneFullNameLabel:string,
         paramTwoFullNameLabel:string,
     ): Promise<[boolean,BUI.Table<any>|null]> {
 
+    if (!paramOne || !paramOneB || !paramTwo || !paramTwoB) {
+        addOverlay(BUI.html`Please select all parameters`, 'warning')
+        return [false,null]
+    }
+    
     paramOne = paramOne.toString()
     paramOneB = paramOneB.toString()
     paramTwo = paramTwo.toString()
@@ -132,19 +138,8 @@ export async function create_LOD0 (
         }
     }
 
-    const getArrowLineValue = ((arrowFile:Table<any>, columnToGetValue:string, ColumnForFilter:string, valueForFilter:string): typeof result => {
-        const col = arrowFile.getChild(columnToGetValue)
-        const colFilter = arrowFile.getChild(ColumnForFilter)
-        if (!col || !colFilter) return
-        let result: number|string|undefined = undefined
-        for (let i = 0; i < colFilter.length; i++) {
-            if (colFilter.get(i) === valueForFilter) {
-                result = col.get(i); // otteniamo il valore corrispondente
-                return result
-            }
-        }
-    })
-
+    const envMaterials = environmentalArrowData.getChild('Material category')
+    //check paramOne
     if (paramOne=='1'){
         for (const suburb of suburbsUnique){
             sumOne[suburb] = 1
@@ -155,11 +150,10 @@ export async function create_LOD0 (
         sumOne = sumAreaSQKM
     } else {
         const col = arrowData.getChild(paramOne)
-        let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOne)
-        if (!coeff) addOverlay(BUI.html`<b>${paramOne}</b> environmental impact coefficient not found.`, 'warning')
-        if (paramEnv=='weight'){
-            coeff = 1
-        } else {
+        let coeff = 1
+        if (paramEnv!='weight' && envMaterials?.includes(paramOne)){ //se il paramEnv non è weight e il paramOne è nella lista dei materiali nel file dei coefficienti => prendi il coefficiente
+            coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOne))
+            if (!coeff) addOverlay(BUI.html`<b>${paramOne}</b> environmental impact coefficient not found.`, 'warning')
             impact = paramEnv
         }
         for (let i = 0; i < arrowData.numRows; i++) {
@@ -168,6 +162,8 @@ export async function create_LOD0 (
             if (col) sumOne[suburb] ? sumOne[suburb]+=value : sumOne[suburb]=value
         }
     }
+
+    //check paramOneB
     if (paramOneB=='1'){
         for (const suburb of suburbsUnique){
             sumOneB[suburb] = 1
@@ -178,11 +174,10 @@ export async function create_LOD0 (
         sumOneB = sumAreaSQKM
     } else {
         const col = arrowData.getChild(paramOneB)
-        let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOneB)
-        if (!coeff) addOverlay(BUI.html`<b>${paramOneB}</b> environmental impact coefficient not found.`, 'warning')
-        if (paramEnv=='weight'){
-            coeff = 1
-        } else {
+        let coeff = 1
+        if (paramEnv!='weight' && envMaterials?.includes(paramOneB)){
+            coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOneB))
+            if (!coeff) addOverlay(BUI.html`<b>${paramOneB}</b> environmental impact coefficient not found.`, 'warning')
             impact = paramEnv
         }
         for (let i = 0; i < arrowData.numRows; i++) {
@@ -191,6 +186,8 @@ export async function create_LOD0 (
             if (col) sumOneB[suburb] ? sumOneB[suburb]+=value : sumOneB[suburb]=value
         }
     }
+
+    //check paramTwo
     if (paramTwo=='1'){
         for (const suburb of suburbsUnique){
             sumTwo[suburb] = 1
@@ -201,11 +198,10 @@ export async function create_LOD0 (
         sumTwo = sumAreaSQKM
     } else {
         const col = arrowData.getChild(paramTwo)
-        let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwo)
-        if (!coeff) addOverlay(BUI.html`<b>${paramTwo}</b> environmental impact coefficient not found.`, 'warning')
-        if (paramEnv=='weight'){
-            coeff = 1
-        } else {
+        let coeff = 1
+        if (paramEnv!='weight' && envMaterials?.includes(paramTwo)){
+            coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwo))
+            if (!coeff) addOverlay(BUI.html`<b>${paramTwo}</b> environmental impact coefficient not found.`, 'warning')
             impact = paramEnv
         }
         for (let i = 0; i < arrowData.numRows; i++) {
@@ -214,21 +210,22 @@ export async function create_LOD0 (
             if (col) sumTwo[suburb] ? sumTwo[suburb]+=value : sumTwo[suburb]=value
         }
     }
+
+    //check paramTwoB
     if (paramTwoB=='1'){
         for (const suburb of suburbsUnique){
             sumTwoB[suburb] = 1
         }
-    } else if (paramTwoBUrbanCheck) {
+    } else if (paramTwoBPopCheck) {
         sumTwoB = sumPerson
-    } else if (paramTwoB.includes('Urban')) {
+    } else if (paramTwoBUrbanCheck) {
         sumTwoB = sumAreaSQKM
     } else {
         const col = arrowData.getChild(paramTwoB)
-        let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwoB)
-        if (!coeff) addOverlay(BUI.html`<b>${paramTwoB}</b> environmental impact coefficient not found.`, 'warning')
-        if (paramEnv=='weight'){
-            coeff = 1
-        } else {
+        let coeff = 1
+        if (paramEnv!='weight' && envMaterials?.includes(paramTwoB)){
+            coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwoB))
+            if (!coeff) addOverlay(BUI.html`<b>${paramTwoB}</b> environmental impact coefficient not found.`, 'warning')
             impact = paramEnv
         }
         for (let i = 0; i < arrowData.numRows; i++) {
@@ -359,8 +356,8 @@ export async function create_LOD0 (
             //         BarHeight: { value: paramOneFullNameLabel },
             //         BarColor: { value: paramTwoFullNameLabel },
             //         Suburb: { value: bar_name },
-            //         [paramOneFullNameLabel]: { value: Math.round(set.param_one*10000)/10000 },
-            //         [paramTwoFullNameLabel]: { value: Math.round(set.param_two*10000)/10000 },
+            //         [paramOneFullNameLabel]: { value: Math.round(set.param_one*10000000)/10000000 },
+            //         [paramTwoFullNameLabel]: { value: Math.round(set.param_two*10000000)/10000000 },
             //     }
             // })
             pSets[bar_name] = { //object containing one pset per each suburb
@@ -371,8 +368,8 @@ export async function create_LOD0 (
                     BarHeight: { value: paramOneFullNameLabel },
                     BarColor: { value: paramTwoFullNameLabel },
                     Suburb: { value: bar_name },
-                    [paramOneFullNameLabel]: { value: Math.round(set.param_one*10000)/10000 },
-                    [paramTwoFullNameLabel]: { value: Math.round(set.param_two*10000)/10000 },
+                    [paramOneFullNameLabel]: { value: formatNumber(set.param_one) },
+                    [paramTwoFullNameLabel]: { value: formatNumber(set.param_two) },
                 }
             }
             pSetsData[bar_name] = {

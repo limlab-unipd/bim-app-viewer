@@ -8,7 +8,7 @@ import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
-import { getArrowLineValue } from './conversion'
+import { formatNumber, getArrowLineValue } from './conversion'
 
 /**
  * Generates LOD-1 suburb bars from a selected LOD-0 bar.
@@ -43,10 +43,10 @@ export async function create_LOD1 (
         arrowData:Table<any>,
         populationArrowData:Table<any>,
         environmentalArrowData:Table<any>,
-        paramOne:string='Concret',
-        paramOneB:string='1',
-        paramTwo:string='Glass',
-        paramTwoB:string='1',
+        paramOne:string|undefined,
+        paramOneB:string|undefined,
+        paramTwo:string|undefined,
+        paramTwoB:string|undefined,
         paramEnv:string,
         previousLoadedSuburbs:string[],
         paramOneFullNameLabel:string,
@@ -54,6 +54,12 @@ export async function create_LOD1 (
         urbanTable:BUI.Table,
         historyTable:BUI.Table<any>|null
     ): Promise<boolean> {
+
+    
+    if (!paramOne || !paramOneB || !paramTwo || !paramTwoB) {
+        addOverlay(BUI.html`Please select all parameters`, 'warning')
+        return false
+    }
 
     //initialize variables
     const fragments = components.get(OBC.FragmentsManager)
@@ -156,6 +162,7 @@ export async function create_LOD1 (
         sections = Object.keys(sumPop)
     }
 
+    const envMaterials = environmentalArrowData.getChild('Material category')
     const final: {[key:string]: { 'One':any; 'OneB':any; 'Two':any; 'TwoB':any }} = {}
     for (const section of sections) {
         final[section] ? '' : final[section]={'One':'', 'OneB':'', 'Two':'', 'TwoB':''}
@@ -166,11 +173,10 @@ export async function create_LOD1 (
         } else if (paramOne.includes('Urban')) {
             final[section].One = sumPop[section].sumAREASQKM
         } else {
-            let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOne)
-            if (!coeff) addOverlay(BUI.html`<b>${paramOne}</b> environmental impact coefficient not found.`, 'warning')
-            if (paramEnv=='weight'){
-                coeff = 1
-            } else {
+            let coeff = 1
+            if (paramEnv!='weight' && envMaterials?.includes(paramOne)){
+                coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOne))
+                if (!coeff) addOverlay(BUI.html`<b>${paramOne}</b> environmental impact coefficient not found.`, 'warning')
                 impact = paramEnv
             }
             final[section].One = sum[section].sumOne * Number(coeff)
@@ -182,11 +188,10 @@ export async function create_LOD1 (
         } else if (paramOneB.includes('Urban')) {
             final[section].OneB = sumPop[section].sumAREASQKM
         } else {
-            let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOneB)
-            if (!coeff) addOverlay(BUI.html`<b>${paramOneB}</b> environmental impact coefficient not found.`, 'warning')
-            if (paramEnv=='weight'){
-                coeff = 1
-            } else {
+            let coeff = 1
+            if (paramEnv!='weight' && envMaterials?.includes(paramOneB)){
+                coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOneB))
+                if (!coeff) addOverlay(BUI.html`<b>${paramOneB}</b> environmental impact coefficient not found.`, 'warning')
                 impact = paramEnv
             }
             final[section].OneB = sum[section].sumOneB * Number(coeff)
@@ -198,11 +203,10 @@ export async function create_LOD1 (
         } else if (paramTwo.includes('Urban')) {
             final[section].Two = sumPop[section].sumAREASQKM
         } else {
-            let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwo)
-            if (!coeff) addOverlay(BUI.html`<b>${paramTwo}</b> environmental impact coefficient not found.`, 'warning')
-            if (paramEnv=='weight'){
-                coeff = 1
-            } else {
+            let coeff = 1
+            if (paramEnv!='weight' && envMaterials?.includes(paramTwo)){
+                coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwo))
+                if (!coeff) addOverlay(BUI.html`<b>${paramTwo}</b> environmental impact coefficient not found.`, 'warning')
                 impact = paramEnv
             }
             final[section].Two = sum[section].sumTwo * Number(coeff)
@@ -214,11 +218,10 @@ export async function create_LOD1 (
         } else if (paramTwoB.includes('Urban')) {
             final[section].TwoB = sumPop[section].sumAREASQKM
         } else {
-            let coeff = getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwoB)
-            if (!coeff) addOverlay(BUI.html`<b>${paramTwoB}</b> environmental impact coefficient not found.`, 'warning')
-            if (paramEnv=='weight'){
-                coeff = 1
-            } else {
+            let coeff = 1
+            if (paramEnv!='weight' && envMaterials?.includes(paramTwoB)){
+                coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwoB))
+                if (!coeff) addOverlay(BUI.html`<b>${paramTwoB}</b> environmental impact coefficient not found.`, 'warning')
                 impact = paramEnv
             }
             final[section].TwoB = sum[section].sumTwoB * Number(coeff)
@@ -287,8 +290,8 @@ export async function create_LOD1 (
                 {
                     data: {
                         Name: bar_name,
-                        Param1: Math.round(set.param_one*10000)/10000,
-                        Param2: Math.round(set.param_two*10000)/10000,
+                        Param1: formatNumber(set.param_one),
+                        Param2: formatNumber(set.param_two),
                         Color: 'blue',
                     },
                 }

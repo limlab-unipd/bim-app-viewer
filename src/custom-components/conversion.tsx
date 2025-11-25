@@ -99,3 +99,13 @@ export function parseWKTPolygon(wkt: string): number[][][] {
     }
     return polygons
 }
+
+export function formatNumber(n: number): string {
+    if (Math.abs(n) < 0.001 && n !== 0) {
+        // scientifico: 3 cifre significative dopo la virgola
+        return n.toExponential(3);
+    } else {
+        // normale, con 5 cifre decimali -> altrimenti per i numeri poco più grandi di 0.001 (come 0.0011) ci sarebbero troppe poche cifre dopo l'ultimo numero
+        return n.toFixed(5);
+    }
+}

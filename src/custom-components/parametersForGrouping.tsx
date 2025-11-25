@@ -14,8 +14,8 @@ export const coordinatesScaleFactor = 1 //it is a reducing factor, so it reduce 
 export const normalizationHeight = {
     notNormalized : 1, // this value only divide the not normalized value by this number, to not have bars too high
     lod0 : 5000,
-    lod1 : 3000,
-    lod2 : 1000,
+    lod1 : 1000,
+    lod2 : 300,
 }
 
 // side length of the base square of bars
