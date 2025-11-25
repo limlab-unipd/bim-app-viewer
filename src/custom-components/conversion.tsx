@@ -72,33 +72,53 @@ export function getArrowLineValue (arrowFile:Table<any>, columnToGetValue:string
     }
 }
 
-// Funzione per parsing POLYGON da WKT
-export function parseWKTPolygon(wkt: string): number[][][] {
-    const polygons: number[][][] = []
+// Parsing WKT POLYGON / MULTIPOLYGON → array di poligoni (solo contorni esterni)
+/**
+ * Parsing WKT POLYGON / MULTIPOLYGON → array di poligoni (solo contorni esterni)
+ */
+export function parseWKTPolygon(wkt: string): [number, number][][] {
+    const polygons: [number, number][][] = [];
 
-    if (wkt.startsWith('POLYGON')) {
-        const match = wkt.match(/POLYGON\s*\(\((.+)\)\)/i)
-        if (!match) return []
+    const parseRing = (ringStr: string): [number, number][] => {
+        return ringStr
+            .split(",")
+            .map(pt => {
+                const nums = pt.trim().split(/\s+/).map(Number);
+                if (nums.length !== 2 || nums.some(isNaN)) {
+                    console.warn(`Punto non valido scartato: ${pt}`);
+                    return null;
+                }
+                return [nums[0], nums[1]] as [number, number];
+            })
+            .filter((p): p is [number, number] => p !== null);
+    };
 
-        const rings = match[1].split('),(')
-        const polygon: number[][] = rings.map(ringStr =>
-            ringStr.split(',').map(pt => pt.trim().split(/\s+/).map(Number))
-        ).flat()
-
-        polygons.push(polygon)
-    } else if (wkt.startsWith('MULTIPOLYGON')) {
-        // Estrapola ogni poligono
-        const multipolyMatch = wkt.match(/MULTIPOLYGON\s*\(\(\((.+)\)\)\)/i)
-        if (!multipolyMatch) return []
-
-        const polyStrings = multipolyMatch[1].split(')), ((')
-        polyStrings.forEach(polyStr => {
-            const polygon: number[][] = polyStr.split(',').map(pt => pt.trim().split(/\s+/).map(Number))
-            polygons.push(polygon)
-        })
+    if (wkt.startsWith("POLYGON")) {
+        const inner = wkt.replace(/^POLYGON\s*\(\(/i, "").replace(/\)\)\s*$/, "");
+        const coords = inner.split("),(");
+        if (coords.length > 0) {
+            const outerRing = parseRing(coords[0]);
+            if (outerRing.length > 0) polygons.push(outerRing);
+        }
     }
-    return polygons
+
+    if (wkt.startsWith("MULTIPOLYGON")) {
+        const cleanedWKT = wkt.replace(/^MULTIPOLYGON\s*\(\(\(/i, "").replace(/\)\)\)\s*$/, "");
+        const polyStrings = cleanedWKT.split(")), ((");
+        polyStrings.forEach(polyStr => {
+            const rings = polyStr.split("),(");
+            if (rings.length > 0) {
+                const outerRing = parseRing(rings[0]);
+                if (outerRing.length > 0) polygons.push(outerRing);
+            }
+        });
+    }
+
+    return polygons;
 }
+
+
+
 
 export function formatNumber(n: number): string {
     if (Math.abs(n) < 0.001 && n !== 0) {

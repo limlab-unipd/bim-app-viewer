@@ -102,7 +102,7 @@ export function UrbanViewer () {
                 color: new THREE.Color("rgba(36, 241, 234, 1)"),
                 opacity: 1,
                 transparent: false,
-                renderedFaces: 0,
+                renderedFaces: 1,
             },
         })
         highlighter.events.select.onHighlight.add((modelIdMap) => {
@@ -113,7 +113,7 @@ export function UrbanViewer () {
             color: new THREE.Color("rgba(123, 123, 123, 1)"),
             opacity: 0.3,
             transparent: true,
-            renderedFaces: 0, //render only front side
+            renderedFaces: 1, //render only front side
         })
 
         await ifcLoader.setup({
@@ -1413,7 +1413,7 @@ export function UrbanViewer () {
                             }
                         }}></bim-button>
                         <bim-button label='Color' @click=${async ()=>{
-                            highlighter.styles.set('color_test', {color: new THREE.Color('rgba(26, 150, 65, 1)'),opacity: 1,transparent: false,renderedFaces: 0,})
+                            highlighter.styles.set('color_test', {color: new THREE.Color('rgba(26, 150, 65, 1)'),opacity: 1,transparent: false,renderedFaces: 1,})
                             highlighter.highlightByID('color_test', highlighter.selection.select, true, false)
                             console.log(highlighter.selection.select)
                         }}></bim-button>

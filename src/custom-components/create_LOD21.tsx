@@ -10,6 +10,7 @@ import { addOverlay } from './addOverlay'
 import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 import { formatNumber, getArrowLineValue, parseWKTPolygon } from './conversion'
 import { readArrow } from './readArrow'
+import polygonClipping from 'polygon-clipping'
 
 export async function create_LOD21 (
         world:OBC.SimpleWorld<OBC.SimpleScene, OBC.OrthoPerspectiveCamera, OBCF.PostproductionRenderer>,
@@ -164,8 +165,81 @@ export async function create_LOD21 (
     }
     dataForBars = normalizeParamOne(dataOfBuildings)
     
-    // Bar geometry
-    const barGeometry = new THREE.BufferGeometry();
+    function appendGeometry(target: THREE.BufferGeometry, source: THREE.BufferGeometry) {
+        // --- 1) Raccogli gli attributi esistenti ---
+        const targetPos = target.getAttribute("position");
+        const targetNorm = target.getAttribute("normal");
+        const targetUV = target.getAttribute("uv");
+
+        const targetIndex = target.getIndex();
+
+        const tPos = targetPos ? Array.from(targetPos.array) : [];
+        const tNorm = targetNorm ? Array.from(targetNorm.array) : [];
+        const tUV = targetUV ? Array.from(targetUV.array) : [];
+        const tIdx = targetIndex ? Array.from(targetIndex.array) : [];
+
+        // --- 2) Raccogli attributi della nuova geometria ---
+        const srcPos = source.getAttribute("position");
+        const srcNorm = source.getAttribute("normal");
+        const srcUV = source.getAttribute("uv");
+
+        const srcIndex = source.getIndex();
+
+        const sPos = Array.from(srcPos.array);
+        const sNorm = srcNorm ? Array.from(srcNorm.array) : [];
+        const sUV = srcUV ? Array.from(srcUV.array) : [];
+
+        const sIdx = srcIndex ? Array.from(srcIndex.array) : [];
+
+        // --- 3) Offset dei vertici esistenti ---
+        const vertexOffset = tPos.length / 3;
+
+        // --- 4) Aggiorna gli indici della sorgente ---
+        const newIdx = sIdx.map(i => i + vertexOffset);
+
+        // --- 5) Concatena tutti gli arrays ---
+        const finalPos = new Float32Array([...tPos, ...sPos]);
+        const finalNorm = new Float32Array([...tNorm, ...sNorm]);
+        const finalUV = new Float32Array([...tUV, ...sUV]);
+        const finalIdx = new (tIdx.length + sIdx.length > 65535 ? Uint32Array : Uint16Array)([
+            ...tIdx,
+            ...newIdx
+        ]);
+
+        // --- 6) Aggiorna attributi nella geometria finale ---
+        target.setAttribute("position", new THREE.BufferAttribute(finalPos, 3));
+        if (sNorm.length > 0) {
+            target.setAttribute("normal", new THREE.BufferAttribute(finalNorm, 3));
+        }
+        if (sUV.length > 0) {
+            target.setAttribute("uv", new THREE.BufferAttribute(finalUV, 2));
+        }
+
+        target.setIndex(new THREE.BufferAttribute(finalIdx, 1));
+        target.computeBoundingBox();
+        target.computeBoundingSphere();
+    }// Funzione per assicurarsi che il profilo sia chiuso
+    /**
+     * Chiude un poligono aggiungendo l'ultimo punto uguale al primo
+     */
+    function closePolygon(polygon: [number, number][]): [number, number][] {
+        if (polygon.length === 0) return polygon;
+        const first = polygon[0];
+        const last = polygon[polygon.length - 1];
+        if (first[0] !== last[0] || first[1] !== last[1]) {
+            polygon.push([first[0], first[1]]);
+        }
+        return polygon;
+    }
+    /**
+     * Assicura che il poligono sia in senso orario CCW (counter-clockwise)
+     */
+    function ensureCCW(polygon: [number, number][]): [number, number][] {
+        if (polygon.length < 3) return polygon; // un poligono non valido
+        const pts = polygon.map(p => new THREE.Vector2(p[0], p[1]));
+        const isCW = THREE.ShapeUtils.isClockWise(pts);
+        return isCW ? [...polygon].reverse() : polygon;
+    }
 
     // building generation logic
     let processing = false;
@@ -185,33 +259,68 @@ export async function create_LOD21 (
             newModel.modelId,
             new THREE.Matrix4().identity(),
         );
-
-        // Bars
+        
+        // Buildings
         const tempObject = new THREE.Object3D();
+
         // Fattore di scala per adattare le coordinate a Three.js
         const scale = 1/coordinatesScaleFactor
-        //creation of each bar
+
+        //creation of each building
         for (const [key,set] of Object.entries(dataForBars)) {
             const building_position = new THREE.Vector3(0,0,0)
             const building_name = set.identfr
             const building_height = set.shapeHeight
 
-            const shapeProfilePoints: number[] = []
-            try {
-                if (!set.shape) continue
-                const polygons = parseWKTPolygon(set.shape)
-                if (!polygons || polygons.length === 0) continue
-                polygons.forEach(polygon => {
-                    polygon.forEach(([x, y]) => {
-                        const tx = (x - globalCentroid.x) * scale
-                        const tz = - (y - globalCentroid.y) * scale
-                        shapeProfilePoints.push(tx, 0, tz) // Y=0
-                    })
-                })
-            } catch (error) {
-                console.warn(error)
+            if (!set.shape) continue
+            const buildingGeometry = new THREE.BufferGeometry();
+            const polygons = parseWKTPolygon(set.shape);
+            if (!polygons || polygons.length === 0) continue;
+
+            // Estrudi ogni poligono *separatamente*
+            for (let polygon of polygons) {
+                // 1) Chiudi il poligono (aggiunge l'ultimo punto uguale al primo)
+                polygon = closePolygon(polygon);
+                // 2) Assicura orientamento CCW
+                polygon = ensureCCW(polygon);
+                // 3) Pulizia auto-intersezioni con polygon-clipping
+                polygon.filter((pt, i, arr) => i === 0 || pt[0] !== arr[i-1][0] || pt[1] !== arr[i-1][1])
+                // wrap per ottenere un Polygon valido
+                const polygonForClipping: [ [number, number][] ] = [polygon];
+                const cleaned = polygonClipping.union([polygonForClipping]);
+                // Se il poligono pulito è vuoto, salta
+                if (!cleaned.length || !cleaned[0].length) continue;
+                // Prendi il primo anello del primo poligono pulito
+                const outer: [number, number][] = cleaned[0][0] as [number, number][];
+                // 4) Genera il profilo 3D per l'estrusione
+                const profile: number[] = outer.map(([x, y]) => [
+                    (x - globalCentroid.x) * scale, // X
+                    0,                              // Y=0
+                    -(y - globalCentroid.y) * scale // Z
+                ]).flat();
+                // 5) Crea geometria temporanea e estrudi
+                const tempGeometry = new THREE.BufferGeometry();
+                geometryEngine.getExtrusion(tempGeometry, {
+                    profilePoints: profile,
+                    direction: [0, 1, 0],
+                    cap: true,
+                    length: building_height
+                });
+                // 6) Append alla geometria finale del building
+                appendGeometry(buildingGeometry, tempGeometry);
             }
+
+            //creazione shell
+            const buildingGeoId = fragments.core.editor.createShell(
+                newModel.modelId,
+                buildingGeometry,
+            );
             
+            //sposta l'oggetto in posizione
+            tempObject.position.copy(building_position);
+            tempObject.updateMatrix();
+            
+            //array per l'inserimento dei dati nella urban table
             buildings.push(
                 {
                     data: {
@@ -222,24 +331,6 @@ export async function create_LOD21 (
                     },
                 }
             )
-
-            //estrusione
-            geometryEngine.getExtrusion(barGeometry, {
-                profilePoints: shapeProfilePoints,
-                direction: [0, 1, 0], //vettore direzione
-                cap: true,
-                length: building_height, //estrusione
-            });
-            //creazione shell
-            const barGeoId = fragments.core.editor.createShell(
-                newModel.modelId,
-                barGeometry,
-            );
-
-            //sposta l'oggetto in posizione
-            tempObject.position.copy(building_position);
-            tempObject.updateMatrix();
-
             //proprietà dell'oggetto appena creato (qui andranno inserite le eventuali proprietà IFC)
             elementsData.push({
                 attributes: {
@@ -259,7 +350,7 @@ export async function create_LOD21 (
                 samples: [
                     {
                         localTransform: ltId,
-                        representation: barGeoId,
+                        representation: buildingGeoId,
                         material: matId,
                     },
                 ],
