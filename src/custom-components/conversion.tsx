@@ -117,15 +117,17 @@ export function parseWKTPolygon(wkt: string): [number, number][][] {
     return polygons;
 }
 
-
-
-
 export function formatNumber(n: number): string {
     if (Math.abs(n) < 0.001 && n !== 0) {
         // scientifico: 3 cifre significative dopo la virgola
         return n.toExponential(3);
     } else {
-        // normale, con 5 cifre decimali -> altrimenti per i numeri poco più grandi di 0.001 (come 0.0011) ci sarebbero troppe poche cifre dopo l'ultimo numero
-        return n.toFixed(5);
+        // normale, con fino a 5 cifre decimali, ma senza zeri terminali
+        let s = n.toFixed(5);
+        // rimuove zeri finali
+        s = s.replace(/(\.\d*?[1-9])0+$/g, '$1');
+        // se tutto dopo la virgola sono zeri, rimuove anche il punto
+        s = s.replace(/\.0+$/, '');
+        return s;
     }
 }

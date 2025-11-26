@@ -1054,7 +1054,7 @@ export function UrbanViewer () {
             () => BUI.html`
             <bim-dropdown name="param_one">
                 <bim-option label='1' value='1' style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Population (number)' value="Population (number)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building height (m)' value="Building height (m)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
@@ -1111,7 +1111,7 @@ export function UrbanViewer () {
                 <bim-option label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Population (number)' value="Population (number)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building height (m)' value="Building height (m)" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building gross floor area (m²)' value="Building gross floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building net floor area (m²)' value="Building net floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building weight (tonnes)' value="Building weight (tonnes)" style="padding:0 10px 0 10px"></bim-option>
@@ -1212,7 +1212,7 @@ export function UrbanViewer () {
         )
         const materialsImpactsDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
-            <bim-dropdown name="materials-impacts" icon='mdi:recycle' label='Materials Impacts'>
+            <bim-dropdown name="materials-impacts" icon='mdi:recycle' label='Materials impact'>
                 <bim-option label='Weight (tonnes)' value='Weight (tonnes)' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option checked label='Global Warming Potential (kg CO₂ eq)' value='Global Warming Potential (kg CO₂ eq)' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Abiotic Depletion - elem., econ. reserve (kg SB eq)' value='Abiotic Depletion - elem., econ. reserve (kg SB eq)' style="padding:0 10px 0 10px"></bim-option>

@@ -83,6 +83,10 @@ export async function createTable (
     urbanTable.data = []
     urbanTable.preserveStructureOnFilter = true
     urbanTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
+    urbanTable.style.flex = "1";
+    urbanTable.style.minWidth = "0";
+    urbanTable.style.minHeight = "0";
+    urbanTable.style.overflow = "auto";
     urbanTable.hiddenColumns = ['modelId', 'localId']
 
     for (const [modelName,model] of fragments.list.entries()){
@@ -181,23 +185,33 @@ export async function createTable (
     //CREATE THE PANEL
     const urbanDownPanel = BUI.Component.create<BUI.Panel>(() => {
         return BUI.html`
-        <bim-panel style="display:flex; flex-direction:column; gap:10px; margin:10px; background-color:transparent; flex:1;">
-            <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px'})}>
-                <div style="display: flex; gap: 0.5rem;">
-                    <bim-label>Sort by:</bim-label>
-                    ${sortByColumn}
-                    ${sortByDirection}
-                    <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,urbanTable)}}></bim-text-input>
-                    <bim-button @click=${() => {onClearPanel(panelDown)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
-                    <bim-button tooltip-text="Click on item's name to add it to the selection" icon='majesticons:lightbulb-shine' style="max-width:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
+            <bim-panel style="flex: 1; height: 100%; min-width: 0; min-height: 0; gap: 10px; background-color: transparent; padding: 16px;">
+                <div style="display: flex;flex-direction: row;gap: 1rem;position: relative;inset: 0;width: 100%;height: 100%;min-width: 0;min-height: 0;overflow: hidden;">
+                    <div style="display: flex;gap: 0.5rem;flex-shrink: 0;flex-direction: column;min-width:20%;">
+                        <bim-label style="height: 2.2rem;font-weight: 600;flex-shrink: 0;border-bottom: 1px solid var(--bim-ui_bg-contrast-20);color: var(--bim-label--c, var(--bim-ui_bg-contrast-60));
+                            font-size: var(--bim-label--fz, var(--bim-ui_size-xs));--bim-label--c: var(--bim-panel--c, var(--bim-ui_bg-contrast-80));--bim-label--fz: var(--bim-panel--fz, var(--bim-ui_size-sm));">
+                            CANBERRA SUBURBS
+                        </bim-label>
+                        <div style="display: flex;gap: 0.5rem;flex-shrink: 0; flex-direction: row;">
+                            <bim-label>Sort by:</bim-label>
+                            ${sortByColumn}
+                            ${sortByDirection}
+                        </div>
+                        <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,urbanTable)}}></bim-text-input>
+                        <div style="display: flex;gap: 0.5rem;flex-shrink: 0;flex-direction: row;">
+                            <bim-label>Options: </bim-label>
+                            <bim-button @click=${() => {onClearPanel(panelDown)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
+                            <bim-button tooltip-text="Click on item's name to add it to the selection" icon='majesticons:lightbulb-shine' style="max-width:fit-content; background:none; background-color:transparent !important; z-index:100"></bim-button>
+                        </div>
+                    </div>
+                    ${urbanTable}
                 </div>
-                ${urbanTable}
-            </div>
-        </bim-panel>`
+            </bim-panel>
+        `
     })
 
     //APPEND THE PANEL
-    panelDown.label = `CANBERRA SUBURBS`
+    panelDown.label = ``
     panelDown.appendChild(urbanDownPanel)
     
     return urbanTable

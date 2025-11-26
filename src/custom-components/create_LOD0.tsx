@@ -126,7 +126,7 @@ export async function create_LOD0 (
     const paramTwoUrbanCheck = paramTwo.includes('Urban')
     const paramTwoBUrbanCheck = paramTwoB.includes('Urban')
 
-    if ([paramOnePopCheck,paramOnePopCheck,paramOneBPopCheck,paramTwoBPopCheck].includes(true) || [paramOneUrbanCheck,paramOneUrbanCheck,paramOneBUrbanCheck,paramTwoBUrbanCheck].includes(true)){
+    if ([paramOnePopCheck,paramOneBPopCheck,paramTwoPopCheck,paramTwoBPopCheck].includes(true) || [paramOneUrbanCheck,paramOneBUrbanCheck,paramTwoUrbanCheck,paramTwoBUrbanCheck].includes(true)){
         popArrow_Person = populationArrowData.getChild('Person')
         popArrow_AREA_SQKM = populationArrowData.getChild('AREA_SQKM')
         popArrow_Suburb = populationArrowData.getChild(groupColumn.lod0_population)
