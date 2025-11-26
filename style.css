@@ -129,13 +129,22 @@ html.bim-ui-light {
     text-transform: uppercase;
 }
 .pages-subheader{
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     font-weight: bold;
     color: white;
     font-family: 'Orbitron';
     letter-spacing: 0.2rem;
     text-transform: uppercase;
     margin-top: 3rem;
+}
+.pages-subsubheader{
+    font-size: 0.75rem;
+    font-weight: normal;
+    color: white;
+    font-family: 'Orbitron';
+    letter-spacing: 0.2rem;
+    text-transform: uppercase;
+    margin-top: 1rem;
 }
 
 .home-title{
@@ -217,4 +226,20 @@ input[type="range"]::-moz-range-thumb {
 }
 .survey-card:hover {
     background-color: #6528d7;
+}
+.survey-card-coming-soon{
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin: 1.5rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    color:white;
+    cursor: pointer;
+    flex: 1;
+    text-align: center;
+    letter-spacing: 0.2rem;
+    transition: background-color 0.3s ease;
+}
+.survey-card-coming-soon:hover {
+    background-color: #6b6b6b;
 }

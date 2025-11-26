@@ -43,9 +43,10 @@ export function SurveyPage() {
                 color: "#333",
             }}
             >
-            <header style={{ textAlign: "center", marginBottom: "2rem" }}>
+            <header style={{ textAlign: "center", marginBottom: "1rem" }}>
                 <h1 className="pages-header">Survey</h1>
-                <p className="pages-subheader">Choose your language:</p>
+                <p className="pages-subheader">COST VIEWER</p>
+                <p className="pages-subsubheader">Choose your language:</p>
             </header>
 
             <div style={{ display:'flex', flexDirection:'row' }}>
@@ -55,6 +56,24 @@ export function SurveyPage() {
                 <section
                     className="survey-card"
                     onClick={() => {loadSurvey('ENG')}}
+                >
+                    <h2 className="info-card-title" style={{ margin:"0"}}>ENG</h2>
+                </section>
+            </div>
+
+            <header style={{ textAlign: "center", marginBottom: "1rem" }}>
+                <p className="pages-subheader">URBAN VIEWER</p>
+                <p className="pages-subsubheader">( coming soon ... )</p>
+                <p className="pages-subsubheader">Choose your language:</p>
+            </header>
+
+            <div style={{ display:'flex', flexDirection:'row' }}>
+                <section className="survey-card-coming-soon" onClick={() => { }}>
+                    <h2 className="info-card-title" style={{ margin: "0" }}>ITA</h2>
+                </section>
+                <section
+                    className="survey-card-coming-soon"
+                    onClick={() => { }}
                 >
                     <h2 className="info-card-title" style={{ margin:"0"}}>ENG</h2>
                 </section>
