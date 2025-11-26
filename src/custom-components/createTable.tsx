@@ -144,15 +144,26 @@ export async function createTable (
     urbanTable.dataTransform.Name = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
         const { modelId, localId } = rowData
         return BUI.html`
-            <bim-label 
-                @click=${() => {
-                    highlighter.highlightByID("select", {[modelId as string]: new Set<number>([localId as number])}, false, true)
-                    }}
-                @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
-                @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
-            >
-                ${value}
-            </bim-label>`
+            <div style='display:flex; align-items:center'>
+                <bim-label
+                    @click=${() => {
+                        highlighter.highlightByID("select", {[modelId as string]: new Set<number>([localId as number])}, false, true)
+                        }}
+                    @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
+                    @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
+                >
+                    ${value}
+                </bim-label>
+                <bim-button icon='hugeicons:cursor-magic-selection-04' style='transform: scale(0.6)' @click=${async () => {
+                    for (const [mId,model] of fragments.list.entries()){
+                        if (model.isDeltaModel) continue
+                        if (mId.includes(value)) {
+                            highlighter.highlightByID('select',{[mId]:new Set(await model.getLocalIds())},true,false)
+                            return
+                        }
+                    }
+                }}></bim-button>
+            </div>`
     }
     urbanTable.dataTransform.Color = (value) => { //color also the total resource cost in the table with the same color of related element
         return BUI.html`<div style="height:1rem; width: 1rem; border-radius:5px; background-color:${value}; color:${value};">.</div>`
@@ -187,11 +198,22 @@ export async function createTable (
         return BUI.html`
             <bim-panel style="flex: 1; height: 100%; min-width: 0; min-height: 0; gap: 10px; background-color: transparent; padding: 16px;">
                 <div style="display: flex;flex-direction: row;gap: 1rem;position: relative;inset: 0;width: 100%;height: 100%;min-width: 0;min-height: 0;overflow: hidden;">
-                    <div style="display: flex;gap: 0.5rem;flex-shrink: 0;flex-direction: column;min-width:20%;">
-                        <bim-label style="height: 2.2rem;font-weight: 600;flex-shrink: 0;border-bottom: 1px solid var(--bim-ui_bg-contrast-20);color: var(--bim-label--c, var(--bim-ui_bg-contrast-60));
-                            font-size: var(--bim-label--fz, var(--bim-ui_size-xs));--bim-label--c: var(--bim-panel--c, var(--bim-ui_bg-contrast-80));--bim-label--fz: var(--bim-panel--fz, var(--bim-ui_size-sm));">
-                            CANBERRA SUBURBS
-                        </bim-label>
+                    <div style="display: flex;gap: 1rem;flex-shrink: 0;flex-direction: column;min-width:20%;">
+                        <div style="display:flex; height: 2.2rem;border-bottom: 1px solid var(--bim-ui_bg-contrast-20); justify-content:start">
+                            <bim-label style="font-weight: 600;color: var(--bim-label--c, var(--bim-ui_bg-contrast-60));
+                                font-size: var(--bim-label--fz, var(--bim-ui_size-xs));--bim-label--c: var(--bim-panel--c, var(--bim-ui_bg-contrast-80));--bim-label--fz: var(--bim-panel--fz, var(--bim-ui_size-sm));">
+                                CANBERRA SUBURBS
+                            </bim-label>
+                            <bim-button icon='hugeicons:cursor-magic-selection-04' style='transform: scale(0.8); background-color:transparent; max-width:fit-content'
+                                @click=${async () => {
+                                    for (const [modelId,model] of fragments.list.entries()){
+                                        if (model.isDeltaModel) continue
+                                        if (modelId.includes('LOD_0_')) {
+                                            highlighter.highlightByID('select',{[modelId]:new Set(await model.getLocalIds())},true,false)
+                                        }
+                                    }}}
+                            ></bim-button>
+                        </div>
                         <div style="display: flex;gap: 0.5rem;flex-shrink: 0; flex-direction: row;">
                             <bim-label>Sort by:</bim-label>
                             ${sortByColumn}
@@ -202,6 +224,7 @@ export async function createTable (
                             <bim-label>Options: </bim-label>
                             <bim-button @click=${() => {onClearPanel(panelDown)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-button tooltip-text="Click on item's name to add it to the selection" icon='majesticons:lightbulb-shine' style="max-width:fit-content; background:none; background-color:transparent !important; z-index:100"></bim-button>
+                            <bim-button tooltip-text="Click this icon around to select all item's children" icon='hugeicons:cursor-magic-selection-04' style="max-width:fit-content; background:none; background-color:transparent !important; z-index:100"></bim-button>
                         </div>
                     </div>
                     ${urbanTable}

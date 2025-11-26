@@ -85,7 +85,7 @@ export function parseWKTPolygon(wkt: string): [number, number][][] {
             .map(pt => {
                 const nums = pt.trim().split(/\s+/).map(Number);
                 if (nums.length !== 2 || nums.some(isNaN)) {
-                    console.warn(`Punto non valido scartato: ${pt}`);
+                    //console.warn(`Punto non valido scartato: ${pt}`);
                     return null;
                 }
                 return [nums[0], nums[1]] as [number, number];

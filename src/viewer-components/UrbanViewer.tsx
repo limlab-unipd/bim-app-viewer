@@ -337,7 +337,7 @@ export function UrbanViewer () {
             target.loading = true
             for (const [modelName,model] of fragments.list.entries()) {
                 if (model.isDeltaModel) continue
-                if (modelName.includes(`LOD_${uvl}`)) {
+                if (modelName.includes(`LOD_${uvl}_`)) {
                     if (visibility) {
                         await model.setVisible(undefined, false)
                     } else {
@@ -347,6 +347,7 @@ export function UrbanViewer () {
             }
             target.loading = false
             visibility ? target.icon = 'mdi:eye-off' : target.icon = 'mdi:eye'
+            await world.camera.controls.rotate(0.001,0.001,true)
         }
         const onHide = async () => {
             hider.set(false, highlighter.selection.select)
@@ -592,11 +593,19 @@ export function UrbanViewer () {
             }
         },{
             data: {
-                UVL: '2',
+                UVL: '2.0',
                 Visibility: '',
                 Opacity: '',
                 ColorScale: '',
                 NormHeight: 300,
+            }
+        },{
+            data: {
+                UVL: '2.1',
+                Visibility: '',
+                Opacity: '',
+                ColorScale: '',
+                NormHeight: '',
             }
         },{
             data: {
@@ -617,21 +626,23 @@ export function UrbanViewer () {
         uvlVisualizationTable.dataTransform.Visibility = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
             const { UVL } = rowData
             if (!UVL) return value
+            const uvl = UVL=='2.0' ? '2' : UVL=='2.1' ? '21' : UVL
             return BUI.html`
-                <bim-button icon='mdi:eye' @click=${async ({target}:{target:BUI.Button})=>{await onHideLodModels(target,UVL)}}></bim-button>`
+                <bim-button icon='mdi:eye' @click=${async ({target}:{target:BUI.Button})=>{await onHideLodModels(target,uvl)}}></bim-button>`
         }
         uvlVisualizationTable.dataTransform.Opacity = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
             const { UVL } = rowData
             if (!UVL) return value
+            const uvl = UVL=='2.0' ? '2' : UVL=='2.1' ? '21' : UVL
             return BUI.html`
                 <bim-number-input 
-                    id="transparency-opacity-uvl-${UVL}" slider step="0.05" value="0.05" min="0" max="1"
+                    id="transparency-opacity-uvl-${uvl}" slider step="0.05" value="0.05" min="0" max="1"
                     @change="${async ({ target }: { target: BUI.NumberInput }) => {
-                        highlighter.styles.get(`LOD_${UVL}_color_0_02`)!.opacity = target.value
-                        highlighter.styles.get(`LOD_${UVL}_color_02_04`)!.opacity = target.value
-                        highlighter.styles.get(`LOD_${UVL}_color_04_06`)!.opacity = target.value
-                        highlighter.styles.get(`LOD_${UVL}_color_06_08`)!.opacity = target.value
-                        highlighter.styles.get(`LOD_${UVL}_color_08_1`)!.opacity = target.value
+                        highlighter.styles.get(`LOD_${uvl}_color_0_02`)!.opacity = target.value
+                        highlighter.styles.get(`LOD_${uvl}_color_02_04`)!.opacity = target.value
+                        highlighter.styles.get(`LOD_${uvl}_color_04_06`)!.opacity = target.value
+                        highlighter.styles.get(`LOD_${uvl}_color_06_08`)!.opacity = target.value
+                        highlighter.styles.get(`LOD_${uvl}_color_08_1`)!.opacity = target.value
                         await highlighter.updateColors()
                     }}">
                 </bim-number-input>`
@@ -639,11 +650,12 @@ export function UrbanViewer () {
         uvlVisualizationTable.dataTransform.ColorScale = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
             const { UVL } = rowData
             if (!UVL) return value
+            const uvl = UVL=='2.0' ? '2' : UVL=='2.1' ? '21' : UVL
             return BUI.html`
                 <bim-dropdown
                     @change="${async ({target}:{target:BUI.Dropdown}) => {
                         const colorScale = target.value[0]
-                        setHighlighterStyles(components,colorScale,Number(UVL))
+                        setHighlighterStyles(components,colorScale,Number(uvl))
                         await highlighter.updateColors()
                     }}">
                     <bim-option label='Green-Yellow-Red' value='gnylrd' style="color:black; padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(26, 150, 65, 1),rgba(166, 217, 106, 1),rgba(255, 255, 0, 1),rgba(253, 174, 97, 1),rgba(215, 25, 28, 1))"></bim-option>
@@ -673,10 +685,10 @@ export function UrbanViewer () {
                             normalizationHeight.lod1 = target.value
                         }}">
                     </bim-number-input>`
-            } else if (UVL=='2') {
+            } else if (UVL=='2.0') {
                 return BUI.html`
                     <bim-number-input 
-                        id="normalization-height-uvl-${UVL}" slider step="40" value=${normalizationHeight.lod2} min="20" max="2000"
+                        id="normalization-height-uvl-2" slider step="40" value=${normalizationHeight.lod2} min="20" max="2000"
                         @change="${async ({ target }: { target: BUI.NumberInput }) => {
                             normalizationHeight.lod2 = target.value
                         }}">
