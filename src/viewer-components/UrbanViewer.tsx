@@ -70,7 +70,7 @@ export function UrbanViewer () {
         await world.camera.controls.setLookAt(def_camera.x,def_camera.y,def_camera.z,def_target.x,def_target.y,def_target.z) // convenient position for the model we will load: (cameraX,Y,Z,targetX,Y,Z)
         world.camera.threeOrtho.far = 1000000 // distanza massima del clipping plane per vedere gli oggetti: per la camera ortografica
         world.camera.threePersp.far = 1000000 // distanza massima del clipping plane per vedere gli oggetti: per la camera prospettica (quella usata di default)
-        world.camera.controls.minDistance = 2500 //serve per poter continuare a zoommare velocemente anche da distante, tuttavia modifica anche lo zoom quando si seleziona un elemento ma va bene lo stesso
+        world.camera.controls.minDistance = 3500 //serve per poter continuare a zoommare velocemente anche da distante, tuttavia modifica anche lo zoom quando si seleziona un elemento ma va bene lo stesso
         //world.camera.controls.minDistance = 20000 //serve per poter continuare a zoommare velocemente anche da distante, tuttavia modifica anche lo zoom quando si seleziona un elemento ma va bene lo stesso
         world.camera.controls.truckSpeed = 12
         world.camera.controls.dollySpeed = 2
@@ -458,7 +458,7 @@ export function UrbanViewer () {
                     uvlFactor=1000
                     break;
             }
-            world.camera.controls.minDistance = 2500/uvlFactor
+            world.camera.controls.minDistance = 3500/uvlFactor
             centerViewButton.addEventListener('click', async (e) => {
                 await world.camera.controls.setLookAt(def_camera.x/uvlFactor,def_camera.y/uvlFactor,def_camera.z/uvlFactor,def_target.x/uvlFactor,def_target.y/uvlFactor,def_target.z/uvlFactor)
             })
@@ -1066,7 +1066,7 @@ export function UrbanViewer () {
             () => BUI.html`
             <bim-dropdown name="param_one">
                 <bim-option label='1' value='1' style="padding:0 10px 0 10px"></bim-option>
-                <bim-option checked label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Population (number)' value="Population (number)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building height (m)' value="Building height (m)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
@@ -1123,7 +1123,7 @@ export function UrbanViewer () {
                 <bim-option label='Urban area (km²)' value='Urban area (km²)' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Population (number)' value="Population (number)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building height (m)' value="Building height (m)" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option checked label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building gross floor area (m²)' value="Building gross floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building net floor area (m²)' value="Building net floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building weight (tonnes)' value="Building weight (tonnes)" style="padding:0 10px 0 10px"></bim-option>

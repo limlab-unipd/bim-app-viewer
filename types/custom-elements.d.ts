@@ -15,6 +15,7 @@ declare global {
         'bim-toolbar': any;
         'bim-table': any;
         'bim-checkbox': any;
+        'bim-icon': any,
         }
     }
 }

@@ -63,7 +63,7 @@ export function MenuSidebar() {
                     <bim-button
                         id='Viewer'
                         icon="ph:cube-focus-bold"
-                        tooltip-title="BIM Viewer"
+                        tooltip-title="Costs Viewer"
                         style="display:flex; min-width:2.5rem; min-height:2.5rem; align-items:center; justify-content:center"
                         @click=${(e: any) => {
                             navigate('/');
@@ -72,7 +72,7 @@ export function MenuSidebar() {
                     <bim-button
                         id='Urban-Viewer'
                         icon="fluent:city-24-regular"
-                        tooltip-title="Urban BIM Viewer"
+                        tooltip-title="Urban Viewer"
                         style="display:flex; min-width:2.5rem; min-height:2.5rem; align-items:center; justify-content:center"
                         @click=${(e: any) => {
                             navigate('/urban-viewer');
