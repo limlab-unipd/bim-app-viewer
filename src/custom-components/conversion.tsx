@@ -131,3 +131,31 @@ export function formatNumber(n: number): string {
         return s;
     }
 }
+
+export function normalizeParamOne(data: Record<string, any>): Record<string, any> {
+    const rawValues = Object.values(data).map(d => d.param_one);
+    // prendi solo i valori finiti per calcolare min e max
+    const finiteValues = rawValues.filter(v => Number.isFinite(v));
+    const min = Math.min(...finiteValues);
+    const max = Math.max(...finiteValues);
+    return Object.fromEntries(
+        Object.entries(data).map(([key, obj]) => {
+            const v = obj.param_one;
+            let normalized;
+            if (v === Infinity) {
+                normalized = 1;
+            } else if (v === -Infinity) {
+                normalized = 0;
+            } else {
+                normalized = (v - min) / (max - min);
+            }
+            return [
+                key,
+                {
+                    ...obj,
+                    param_one_normalized: normalized,
+                },
+            ];
+        })
+    );
+}

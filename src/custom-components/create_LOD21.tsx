@@ -8,7 +8,7 @@ import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
-import { formatNumber, getArrowLineValue, parseWKTPolygon } from './conversion'
+import { formatNumber, getArrowLineValue, normalizeParamOne, parseWKTPolygon } from './conversion'
 import { readArrow } from './readArrow'
 import polygonClipping from 'polygon-clipping'
 
@@ -157,20 +157,7 @@ export async function create_LOD21 (
                 dataOfBuildings[buildingIdentfr].shapeHeight = row.BLDGHEI
             }
         }
-        function normalizeParamOne(data: Record<string, any>): Record<string, any> {
-            const values = Object.values(data).map(d => d.param_one);
-            const min = Math.min(...values);
-            const max = Math.max(...values);
-            return Object.fromEntries(
-                Object.entries(data).map(([key, obj]) => [
-                key,
-                {
-                    ...obj,
-                    param_one_normalized: (obj.param_one - min) / (max - min),
-                },
-                ])
-            )
-        }
+        
         dataForBars = normalizeParamOne(dataOfBuildings)
         
         function appendGeometry(target: THREE.BufferGeometry, source: THREE.BufferGeometry) {

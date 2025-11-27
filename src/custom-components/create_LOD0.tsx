@@ -9,7 +9,7 @@ import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { readArrow } from './readArrow'
 import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
-import { formatNumber, getArrowLineValue } from './conversion'
+import { formatNumber, getArrowLineValue, normalizeParamOne } from './conversion'
 
 /**
  * Generates a complete Level of Detail 0 (LOD0) model composed of extruded bar
@@ -235,26 +235,23 @@ export async function create_LOD0 (
         }
     }
 
+    const dataCityTotals: {[key: string]: {suburb: string; param_one: number; param_two: number;}} = 
+    { 'Canberra' : {
+            suburb: 'Canberra',
+            param_one: 0,
+            param_two: 0,
+        }
+    } //calculated but not used. The totals are calculated directly from the createTable component.
+    //console.log(dataCityTotals)
+
     for (const suburb of suburbsUnique){
         if (!dataCityBySuburb[suburb]) dataCityBySuburb[suburb] = {suburb:suburb}
         dataCityBySuburb[suburb].param_one = sumOne[suburb] / sumOneB[suburb]
         dataCityBySuburb[suburb].param_two = sumTwo[suburb] / sumTwoB[suburb]
+        dataCityTotals['Canberra'].param_one += dataCityBySuburb[suburb].param_one
+        dataCityTotals['Canberra'].param_two += dataCityBySuburb[suburb].param_two
     }
 
-    function normalizeParamOne(data: Record<string, any>): Record<string, any> {
-        const values = Object.values(data).map(d => d.param_one);
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-        return Object.fromEntries(
-            Object.entries(data).map(([key, obj]) => [
-            key,
-            {
-                ...obj,
-                param_one_normalized: (obj.param_one - min) / (max - min),
-            },
-            ])
-        )
-    }
     dataForBars = normalizeParamOne(dataCityBySuburb)
     //console.log(dataForBars!)
     

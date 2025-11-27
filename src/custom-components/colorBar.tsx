@@ -30,16 +30,20 @@ export async function colorBar (
     // array di righe (già filtrate)
     const rows: any = Object.values(dataForBars); // tuo array
 
-    
     // estrai valori "name"
-    const values = rows.map((r:any) => Number(r[paramChoice]))
+    const rawValues = rows.map((r:any) => Number(r[paramChoice]));
 
-    // calcola min e max
+    // filtra solo i valori finiti
+    const values = rawValues.filter((v:any) => Number.isFinite(v));
+
     const min = Math.min(...values);
     const max = Math.max(...values);
 
-    // normalizza
-    const normalized = values.map((v:any) => (v - min) / (max - min));
+    const normalized = rawValues.map((v:any) => {
+        if (v === Infinity) v = 1;
+        if (v === -Infinity) v = 0;
+        return (v - min) / (max - min);
+    });
 
     // crea mappa identfr da dati Ray - valore normalizzato del parametro scelto
     const map_identfr_normValue: Record<string, number> = {};

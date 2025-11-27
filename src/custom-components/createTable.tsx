@@ -54,12 +54,13 @@ export async function createTable (
     panelDown:BUI.Panel,
     fragments:OBC.FragmentsManager,
     components:OBC.Components,
-    paramOne:string='Concret',
-    paramTwo:string='Glass'
+    paramOne:string,
+    paramTwo:string,
 ): Promise<BUI.Table<any>> {
 
     const highlighter = components.get(OBCF.Highlighter)
     await onClearPanel(panelDown)
+    let param1_cityTotal = 0, param2_cityTotal = 0
 
     //CREATE THE TABLE
     type tableType = {
@@ -128,14 +129,18 @@ export async function createTable (
             //get psets data of previous local ids
             let pSets = await model.getItemsData(pSetsLocalIds)
             pSets = pSets.filter(item => (item.Name as ItemAttribute).value == 'EnvironmentalAnalysisData') //mantiene solo i pset con quel nome
+            const param1 = (pSets[0][paramOne] as ItemAttribute).value
+            const param2 = (pSets[0][paramTwo] as ItemAttribute).value
+            param1_cityTotal += Number.isFinite(Number(param1)) ? Number(param1) : 0
+            param2_cityTotal += Number.isFinite(Number(param2)) ? Number(param2) : 0
             //aggiunge le righe nella tabella
             urbanTable.data.push({
                 data: {
                     modelId: modelName,
                     localId: (itemData._localId as ItemAttribute).value,
                     Name: (itemData.Name as ItemAttribute).value,
-                    Param1: (pSets[0][paramOne] as ItemAttribute).value,
-                    Param2: (pSets[0][paramTwo] as ItemAttribute).value,
+                    Param1: param1,
+                    Param2: param2,
                     Color: color,
                 }
             })
@@ -200,7 +205,7 @@ export async function createTable (
                 <div style="display: flex;flex-direction: row;gap: 1rem;position: relative;inset: 0;width: 100%;height: 100%;min-width: 0;min-height: 0;overflow: hidden;">
                     <div style="display: flex;gap: 1rem;flex-shrink: 0;flex-direction: column;min-width:20%;">
                         <div style="display:flex; height: 2.2rem;border-bottom: 1px solid var(--bim-ui_bg-contrast-20); justify-content:start">
-                            <bim-label style="font-weight: 600;color: var(--bim-label--c, var(--bim-ui_bg-contrast-60));
+                            <bim-label style="font-weight: 600; color: var(--bim-label--c, var(--bim-ui_bg-contrast-60));
                                 font-size: var(--bim-label--fz, var(--bim-ui_size-xs));--bim-label--c: var(--bim-panel--c, var(--bim-ui_bg-contrast-80));--bim-label--fz: var(--bim-panel--fz, var(--bim-ui_size-sm));">
                                 CANBERRA SUBURBS
                             </bim-label>
@@ -213,6 +218,13 @@ export async function createTable (
                                         }
                                     }}}
                             ></bim-button>
+                        </div>
+                        <div style="display:flex; flex-direction:column; border-bottom: 1px solid var(--bim-ui_bg-contrast-20); justify-content:start; padding-bottom:1rem">
+                            <bim-label style='color: var(--bim-label--c, var(--bim-ui_bg-contrast-60)); --bim-label--c: var(--bim-panel--c, var(--bim-ui_bg-contrast-80)); margin-bottom: 0.25rem'>
+                                Totals
+                            </bim-label>
+                            <bim-label>${`${paramOne}: ${formatNumber(param1_cityTotal)}`}</bim-label>
+                            <bim-label>${`${paramTwo}: ${formatNumber(param2_cityTotal)}`}</bim-label>
                         </div>
                         <div style="display: flex;gap: 0.5rem;flex-shrink: 0; flex-direction: row;">
                             <bim-label>Sort by:</bim-label>

@@ -8,7 +8,7 @@ import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
-import { formatNumber, getArrowLineValue } from './conversion'
+import { formatNumber, getArrowLineValue, normalizeParamOne } from './conversion'
 
 /**
  * Generates LOD-2 building bars for a selected LOD-1 section.
@@ -182,21 +182,7 @@ export async function create_LOD20 (
                 dataOfBuildings[buildingIdentfr].param_two = ((paramTwo=='1' ? 1 : Number(row[paramTwo])) * coeffTwo) / ((paramTwoB=='1' ? 1 : Number(row[paramTwoB])) * coeffTwoB)
             }
         }
-    
-        function normalizeParamOne(data: Record<string, any>): Record<string, any> {
-            const values = Object.values(data).map(d => d.param_one);
-            const min = Math.min(...values);
-            const max = Math.max(...values);
-            return Object.fromEntries(
-                Object.entries(data).map(([key, obj]) => [
-                key,
-                {
-                    ...obj,
-                    param_one_normalized: (obj.param_one - min) / (max - min),
-                },
-                ])
-            )
-        }
+
         dataForBars = normalizeParamOne(dataOfBuildings)
         //console.log(dataForBars!)
         
