@@ -233,8 +233,7 @@ export async function createTable (
                         </div>
                         <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,urbanTable)}}></bim-text-input>
                         <div style="display: flex;gap: 0.5rem;flex-shrink: 0;flex-direction: row;">
-                            <bim-label>Options: </bim-label>
-                            <bim-button @click=${() => {onClearPanel(panelDown)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
+                            <bim-label>Hint: </bim-label>
                             <bim-button tooltip-text="Click on item's name to add it to the selection" icon='majesticons:lightbulb-shine' style="max-width:fit-content; background:none; background-color:transparent !important; z-index:100"></bim-button>
                             <bim-button tooltip-text="Click this icon around to select all item's children" icon='hugeicons:cursor-magic-selection-04' style="max-width:fit-content; background:none; background-color:transparent !important; z-index:100"></bim-button>
                         </div>

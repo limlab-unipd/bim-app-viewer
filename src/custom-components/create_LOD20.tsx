@@ -7,7 +7,7 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
-import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { allMaterials, barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 import { formatNumber, getArrowLineValue, normalizeParamOne } from './conversion'
 
 /**
@@ -127,7 +127,7 @@ export async function create_LOD20 (
         let coeffOne = 1, coeffOneB = 1, coeffTwo = 1, coeffTwoB = 1
         const envMaterials = environmentalArrowData.getChild('Material category')
         if (paramEnv != 'weight'){ //se i parametri sono dei materiali (non serve fare il check sulla popolazione perche' e' gia fatto in precedenza e neanche si entra in questo componente)
-            if (envMaterials?.includes(paramOne)){
+            if (envMaterials?.includes(paramOne)){ //questo check serve per verificare che il parametro sia un materiale e non un dimensionale (gross floor area, net floor area, ecc..)
                 coeffOne = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOne))
                 if (!coeffOne) addOverlay(BUI.html`<b>${paramOne}</b> environmental impact coefficient not found.`, 'warning')
             }
@@ -155,15 +155,11 @@ export async function create_LOD20 (
             param_one? : number,
             param_one_normalized? : number,
             param_two? : number,
-            paramOne? : number,
-            paramOneB? : number,
-            paramTwo? : number,
-            paramTwoB? : number,
         }
         const dataOfBuildings: {[key:string] : buildingsDataType} = {}
         const col = arrowData.getChild(groupColumn.lod1);
         if (!col) throw new Error(`${groupColumn.lod1} column not found`);
-        for (let i = 0; i < arrowData.numRows; i++) { //effettua la moltiplicazione per ogni riga
+        for (let i = 0; i < arrowData.numRows; i++) { // cicla su ogni riga, cioe' ogni edificio
             if (Number(col.get(i)).toString() === name) {
                 const row = arrowData.get(i)
                 if (!row) continue
@@ -174,12 +170,25 @@ export async function create_LOD20 (
                 dataOfBuildings[buildingIdentfr].identfr = buildingIdentfr
                 dataOfBuildings[buildingIdentfr].centroid_x = parseFloat(row.centroid_x)
                 dataOfBuildings[buildingIdentfr].centroid_y = parseFloat(row.centroid_y)
-                dataOfBuildings[buildingIdentfr].paramOne = Number(row[paramOne])
-                dataOfBuildings[buildingIdentfr].paramOneB = Number(row[paramOneB])
-                dataOfBuildings[buildingIdentfr].paramTwo = Number(row[paramTwo])
-                dataOfBuildings[buildingIdentfr].paramTwoB = Number(row[paramTwoB])
-                dataOfBuildings[buildingIdentfr].param_one = ((paramOne=='1' ? 1 : Number(row[paramOne])) * coeffOne) / ((paramOneB=='1' ? 1 : Number(row[paramOneB])) * coeffOneB)
-                dataOfBuildings[buildingIdentfr].param_two = ((paramTwo=='1' ? 1 : Number(row[paramTwo])) * coeffTwo) / ((paramTwoB=='1' ? 1 : Number(row[paramTwoB])) * coeffTwoB)
+                let allMaterialsImpact = 0
+                if ([paramOne,paramOneB,paramTwo,paramTwoB].includes('All materials')){ //se uno qualsiasi dei parametri e' all materials allora calcola:
+                    // qui viene solo effettuata la somma, poi l'assegnazione al parametro corretto viene fatta sotto
+                    for (const material of allMaterials) {
+                        if (paramEnv!='weight'){ // l'impatto totale
+                            allMaterialsImpact += Number(row[material]) * Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+                        } else { // oppure il peso totale
+                            allMaterialsImpact += Number(row[material])
+                        }
+                    }
+                }
+                // casi: parametro = All materials, oppure 1, oppure uno degli altri valori (materiale o dimensionale)
+                const final_one = paramOne=='All materials' ? allMaterialsImpact : paramOne=='1' ? 1 : Number(row[paramOne] * coeffOne) //il coefficiente singolo gia' controlla se il paramEnv e' il weight o un impact e anche se il parametro e' un materiale o un dimensionale
+                const final_oneB = paramOneB=='All materials' ? allMaterialsImpact : paramOneB=='1' ? 1 : Number(row[paramOneB] * coeffOneB)
+                const final_two = paramTwo=='All materials' ? allMaterialsImpact : paramTwo=='1' ? 1 : Number(row[paramTwo] * coeffTwo)
+                const final_twoB = paramTwoB=='All materials' ? allMaterialsImpact : paramTwoB=='1' ? 1 : Number(row[paramTwoB] * coeffTwoB)
+
+                dataOfBuildings[buildingIdentfr].param_one = final_one / final_oneB
+                dataOfBuildings[buildingIdentfr].param_two = final_two / final_twoB
             }
         }
 

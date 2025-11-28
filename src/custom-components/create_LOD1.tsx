@@ -7,7 +7,7 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
-import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { allMaterials, barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 import { formatNumber, getArrowLineValue, normalizeParamOne } from './conversion'
 
 /**
@@ -136,7 +136,7 @@ export async function create_LOD1 (
             if (!sum[section]) {
                 sum[section] = { sumOne:0, sumOneB:0, sumTwo:0, sumTwoB:0 }
             }
-            row[paramOne] ? sum[section].sumOne += Number(row[paramOne]) : null
+            //row[paramOne] ? sum[section].sumOne += Number(row[paramOne]) : null
             row[paramOneB] ? sum[section].sumOneB += Number(row[paramOneB]) : null
             row[paramTwo] ? sum[section].sumTwo += Number(row[paramTwo]) : null
             row[paramTwoB] ? sum[section].sumTwoB += Number(row[paramTwoB]) : null
@@ -170,6 +170,11 @@ export async function create_LOD1 (
             sections = Object.keys(sumPop)
         }
     
+        const dataOfSuburbSectionKey:{[key:string]:any}={}
+        for (const [,row] of Object.entries(dataOfSuburb)) {
+            dataOfSuburbSectionKey[row[groupColumn.lod1]] ? dataOfSuburbSectionKey[row[groupColumn.lod1]].push(row) : dataOfSuburbSectionKey[row[groupColumn.lod1]]=[]
+        }
+
         const envMaterials = environmentalArrowData.getChild('Material category')
         const final: {[key:string]: { 'One':any; 'OneB':any; 'Two':any; 'TwoB':any }} = {}
         for (const section of sections) {
@@ -181,13 +186,23 @@ export async function create_LOD1 (
             } else if (paramOne.includes('Urban')) {
                 final[section].One = sumPop[section].sumAREASQKM
             } else {
-                let coeff = 1
-                if (paramEnv!='weight' && envMaterials?.includes(paramOne)){
-                    coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOne))
-                    if (!coeff) addOverlay(BUI.html`<b>${paramOne}</b> environmental impact coefficient not found.`, 'warning')
-                    impact = paramEnv
+                let listMaterials = [paramOne]
+                if (paramOne=='All materials') {
+                    listMaterials = allMaterials
                 }
-                final[section].One = sum[section].sumOne * Number(coeff)
+                for (const material of listMaterials) {
+                    let coeff = 1
+                    if (paramEnv!='weight' && envMaterials?.includes(material)){
+                        coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+                        if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
+                        impact = paramEnv
+                    }
+                    for (const row of dataOfSuburbSectionKey[section]){
+                        const value = Number(row[material]) * Number(coeff)
+                        sum[section].sumOne ? sum[section].sumOne+=value : sum[section].sumOne=value
+                    }
+                }
+                final[section].One = sum[section].sumOne
             }
             if (paramOneB=='1'){
                 final[section].OneB = sumPop[section].one
@@ -196,13 +211,23 @@ export async function create_LOD1 (
             } else if (paramOneB.includes('Urban')) {
                 final[section].OneB = sumPop[section].sumAREASQKM
             } else {
-                let coeff = 1
-                if (paramEnv!='weight' && envMaterials?.includes(paramOneB)){
-                    coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOneB))
-                    if (!coeff) addOverlay(BUI.html`<b>${paramOneB}</b> environmental impact coefficient not found.`, 'warning')
-                    impact = paramEnv
+                let listMaterials = [paramOneB]
+                if (paramOneB=='All materials') {
+                    listMaterials = allMaterials
                 }
-                final[section].OneB = sum[section].sumOneB * Number(coeff)
+                for (const material of listMaterials) {
+                    let coeff = 1
+                    if (paramEnv!='weight' && envMaterials?.includes(material)){
+                        coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+                        if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
+                        impact = paramEnv
+                    }
+                    for (const row of dataOfSuburbSectionKey[section]){
+                        const value = Number(row[material]) * Number(coeff)
+                        sum[section].sumOneB ? sum[section].sumOneB+=value : sum[section].sumOneB=value
+                    }
+                }
+                final[section].OneB = sum[section].sumOneB
             }
             if (paramTwo=='1'){
                 final[section].Two = sumPop[section].one
@@ -211,13 +236,23 @@ export async function create_LOD1 (
             } else if (paramTwo.includes('Urban')) {
                 final[section].Two = sumPop[section].sumAREASQKM
             } else {
-                let coeff = 1
-                if (paramEnv!='weight' && envMaterials?.includes(paramTwo)){
-                    coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwo))
-                    if (!coeff) addOverlay(BUI.html`<b>${paramTwo}</b> environmental impact coefficient not found.`, 'warning')
-                    impact = paramEnv
+                let listMaterials = [paramTwo]
+                if (paramTwo=='All materials') {
+                    listMaterials = allMaterials
                 }
-                final[section].Two = sum[section].sumTwo * Number(coeff)
+                for (const material of listMaterials) {
+                    let coeff = 1
+                    if (paramEnv!='weight' && envMaterials?.includes(material)){
+                        coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+                        if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
+                        impact = paramEnv
+                    }
+                    for (const row of dataOfSuburbSectionKey[section]){
+                        const value = Number(row[material]) * Number(coeff)
+                        sum[section].sumTwo ? sum[section].sumTwo+=value : sum[section].sumTwo=value
+                    }
+                }
+                final[section].Two = sum[section].sumTwo
             }
             if (paramTwoB=='1'){
                 final[section].TwoB = sumPop[section].one
@@ -226,13 +261,23 @@ export async function create_LOD1 (
             } else if (paramTwoB.includes('Urban')) {
                 final[section].TwoB = sumPop[section].sumAREASQKM
             } else {
-                let coeff = 1
-                if (paramEnv!='weight' && envMaterials?.includes(paramTwoB)){
-                    coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwoB))
-                    if (!coeff) addOverlay(BUI.html`<b>${paramTwoB}</b> environmental impact coefficient not found.`, 'warning')
-                    impact = paramEnv
+                let listMaterials = [paramTwoB]
+                if (paramTwoB=='All materials') {
+                    listMaterials = allMaterials
                 }
-                final[section].TwoB = sum[section].sumTwoB * Number(coeff)
+                for (const material of listMaterials) {
+                    let coeff = 1
+                    if (paramEnv!='weight' && envMaterials?.includes(material)){
+                        coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+                        if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
+                        impact = paramEnv
+                    }
+                    for (const row of dataOfSuburbSectionKey[section]){
+                        const value = Number(row[material]) * Number(coeff)
+                        sum[section].sumTwoB ? sum[section].sumTwoB+=value : sum[section].sumTwoB=value
+                    }
+                }
+                final[section].TwoB = sum[section].sumTwoB
             }
         }
     

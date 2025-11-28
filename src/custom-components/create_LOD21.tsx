@@ -7,7 +7,7 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
-import { barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { allMaterials, barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 import { formatNumber, getArrowLineValue, normalizeParamOne, parseWKTPolygon } from './conversion'
 import { readArrow } from './readArrow'
 import polygonClipping from 'polygon-clipping'
@@ -151,10 +151,28 @@ export async function create_LOD21 (
                 dataOfBuildings[buildingIdentfr].identfr = buildingIdentfr
                 dataOfBuildings[buildingIdentfr].centroid_x = parseFloat(row.centroid_x)
                 dataOfBuildings[buildingIdentfr].centroid_y = parseFloat(row.centroid_y)
-                dataOfBuildings[buildingIdentfr].param_one = (paramOne=='1' ? 1 : Number(row[paramOne])) * coeffOne / (paramOneB=='1' ? 1 : Number(row[paramOneB])) * coeffOneB
-                dataOfBuildings[buildingIdentfr].param_two = (paramTwo=='1' ? 1 : Number(row[paramTwo])) * coeffTwo / (paramTwoB=='1' ? 1 : Number(row[paramTwoB])) * coeffTwoB
                 dataOfBuildings[buildingIdentfr].shape = row.geometry_wkt
                 dataOfBuildings[buildingIdentfr].shapeHeight = row.BLDGHEI
+                
+                let allMaterialsImpact = 0
+                if ([paramOne,paramOneB,paramTwo,paramTwoB].includes('All materials')){ //se uno qualsiasi dei parametri e' all materials allora calcola:
+                    // qui viene solo effettuata la somma, poi l'assegnazione al parametro corretto viene fatta sotto
+                    for (const material of allMaterials) {
+                        if (paramEnv!='weight'){ // l'impatto totale
+                            allMaterialsImpact += Number(row[material]) * Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+                        } else { // oppure il peso totale
+                            allMaterialsImpact += Number(row[material])
+                        }
+                    }
+                }
+                // casi: parametro = All materials, oppure 1, oppure uno degli altri valori (materiale o dimensionale)
+                const final_one = paramOne=='All materials' ? allMaterialsImpact : paramOne=='1' ? 1 : Number(row[paramOne] * coeffOne) //il coefficiente singolo gia' controlla se il paramEnv e' il weight o un impact e anche se il parametro e' un materiale o un dimensionale
+                const final_oneB = paramOneB=='All materials' ? allMaterialsImpact : paramOneB=='1' ? 1 : Number(row[paramOneB] * coeffOneB)
+                const final_two = paramTwo=='All materials' ? allMaterialsImpact : paramTwo=='1' ? 1 : Number(row[paramTwo] * coeffTwo)
+                const final_twoB = paramTwoB=='All materials' ? allMaterialsImpact : paramTwoB=='1' ? 1 : Number(row[paramTwoB] * coeffTwoB)
+
+                dataOfBuildings[buildingIdentfr].param_one = final_one / final_oneB
+                dataOfBuildings[buildingIdentfr].param_two = final_two / final_twoB
             }
         }
         
@@ -263,9 +281,12 @@ export async function create_LOD21 (
     
             //creation of each building
             for (const [key,set] of Object.entries(dataForBars)) {
-                const building_position = new THREE.Vector3(0,0,0)
+                //const building_position = new THREE.Vector3(0,0,0)
                 const building_name = set.identfr
                 const building_height = set.shapeHeight
+                const centr_x = set.centroid_x! - globalCentroid.x / coordinatesScaleFactor
+                const centr_y = set.centroid_y! - globalCentroid.y / coordinatesScaleFactor
+                const building_position = new THREE.Vector3(centr_x,0,-centr_y)
     
                 if (!set.shape) continue
                 const buildingGeometry = new THREE.BufferGeometry();
@@ -289,9 +310,9 @@ export async function create_LOD21 (
                     const outer: [number, number][] = cleaned[0][0] as [number, number][];
                     // 4) Genera il profilo 3D per l'estrusione
                     const profile: number[] = outer.map(([x, y]) => [
-                        (x - globalCentroid.x) * scale, // X
+                        ((x - globalCentroid.x) * scale - centr_x), // X
                         0,                              // Y=0
-                        -(y - globalCentroid.y) * scale // Z
+                        - ((y - globalCentroid.y) * scale - centr_y)// Z
                     ]).flat();
                     // 5) Crea geometria temporanea e estrudi
                     const tempGeometry = new THREE.BufferGeometry();

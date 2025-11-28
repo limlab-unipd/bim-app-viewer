@@ -377,6 +377,7 @@ export function UrbanViewer () {
                 'LOD_0': 0.05,
                 'LOD_1': 0.10,
                 'LOD_2': 0.15,
+                'LOD_21': 0.15,
             }
             highlighter.styles.get(`LOD_${LOD}_color_0_02`)!.opacity = opacity[`LOD_${LOD}`]
             highlighter.styles.get(`LOD_${LOD}_color_02_04`)!.opacity = opacity[`LOD_${LOD}`]
@@ -619,7 +620,9 @@ export function UrbanViewer () {
         const columns: (keyof uvlVisualizationTableType | BUI.ColumnData)[] = [
             { name:'UVL', width:'3rem'},
             { name:'Visibility', width:'4rem'},
-            { name:'Opacity', width:'5rem'},
+            { name:'Opacity', width:'4rem'},
+            { name:'ColorScale', width:'1fr'},
+            { name:'NormHeight', width:'4rem'},
         ]
         uvlVisualizationTable.columns = columns;
         uvlVisualizationTable.preserveStructureOnFilter = true
@@ -634,15 +637,24 @@ export function UrbanViewer () {
             const { UVL } = rowData
             if (!UVL) return value
             const uvl = UVL=='2.0' ? '2' : UVL=='2.1' ? '21' : UVL
+            const op = UVL=='0' ? '0.05' : UVL=='1' ? '0.1' : UVL=='2.0'||UVL=='2.1' ? 0.15 : 1
             return BUI.html`
                 <bim-number-input 
-                    id="transparency-opacity-uvl-${uvl}" slider step="0.05" value="0.05" min="0" max="1"
+                    id="transparency-opacity-uvl-${uvl}" slider step="0.05" value=${op} min="0" max="1"
                     @change="${async ({ target }: { target: BUI.NumberInput }) => {
-                        highlighter.styles.get(`LOD_${uvl}_color_0_02`)!.opacity = target.value
-                        highlighter.styles.get(`LOD_${uvl}_color_02_04`)!.opacity = target.value
-                        highlighter.styles.get(`LOD_${uvl}_color_04_06`)!.opacity = target.value
-                        highlighter.styles.get(`LOD_${uvl}_color_06_08`)!.opacity = target.value
-                        highlighter.styles.get(`LOD_${uvl}_color_08_1`)!.opacity = target.value
+                        const highlighterStyle002 = highlighter.styles.get(`LOD_${uvl}_color_0_02`)
+                        const highlighterStyle0204 = highlighter.styles.get(`LOD_${uvl}_color_02_04`)
+                        const highlighterStyle0406 = highlighter.styles.get(`LOD_${uvl}_color_04_06`)
+                        const highlighterStyle0608 = highlighter.styles.get(`LOD_${uvl}_color_06_08`)
+                        const highlighterStyle081 = highlighter.styles.get(`LOD_${uvl}_color_08_1`)
+                        if (!highlighterStyle002 || !highlighterStyle0204 || !highlighterStyle0406 || !highlighterStyle0608 || !highlighterStyle081) {
+                            return
+                        }
+                        highlighterStyle002.opacity = target.value
+                        highlighterStyle0204.opacity = target.value
+                        highlighterStyle0406.opacity = target.value
+                        highlighterStyle0608.opacity = target.value
+                        highlighterStyle081.opacity = target.value
                         await highlighter.updateColors()
                     }}">
                 </bim-number-input>`
@@ -1072,7 +1084,7 @@ export function UrbanViewer () {
                 <bim-option label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building gross floor area (m²)' value="Building gross floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building net floor area (m²)' value="Building net floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Building weight (tonnes)' value="Building weight (tonnes)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='All materials' value="All materials" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Aluminium' value="Aluminium" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Bitumen' value="Bitumen" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Carpet' value="Carpet" style="padding:0 10px 0 10px"></bim-option>
@@ -1099,7 +1111,7 @@ export function UrbanViewer () {
                 <bim-option label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building gross floor area (m²)' value="Building gross floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building net floor area (m²)' value="Building net floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Building weight (tonnes)' value="Building weight (tonnes)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='All materials' value="All materials" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Aluminium' value="Aluminium" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Bitumen' value="Bitumen" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Carpet' value="Carpet" style="padding:0 10px 0 10px"></bim-option>
@@ -1126,7 +1138,7 @@ export function UrbanViewer () {
                 <bim-option label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building gross floor area (m²)' value="Building gross floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building net floor area (m²)' value="Building net floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Building weight (tonnes)' value="Building weight (tonnes)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='All materials' value="All materials" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Aluminium' value="Aluminium" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Bitumen' value="Bitumen" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Carpet' value="Carpet" style="padding:0 10px 0 10px"></bim-option>
@@ -1153,7 +1165,7 @@ export function UrbanViewer () {
                 <bim-option label='Building footprint area (m²)' value="Building footprint area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building gross floor area (m²)' value="Building gross floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Building net floor area (m²)' value="Building net floor area (m²)" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Building weight (tonnes)' value="Building weight (tonnes)" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='All materials' value="All materials" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Aluminium' value="Aluminium" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Bitumen' value="Bitumen" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Carpet' value="Carpet" style="padding:0 10px 0 10px"></bim-option>
@@ -1180,6 +1192,7 @@ export function UrbanViewer () {
                 'Building gross floor area (m²)': 'grss_fl',
                 'Building net floor area (m²)': 'usbl_fl',
                 'Building weight (tonnes)': 'Tonnes',
+                'All materials': 'All materials',
                 'Aluminium': 'Aluminm',
                 'Bitumen': 'Bitumen',
                 'Carpet': 'Carpet',
@@ -1360,7 +1373,7 @@ export function UrbanViewer () {
                                             if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                                 onSetLayout({target:'down'})
                                             }
-                                            //onSetCameraUVL(2)
+                                            onSetCameraUVL(2)
                                             target.loading = false
                                         }}></bim-button>
                                         <bim-button style='flex:0' label="Param2" @click=${async ({target}:{target:BUI.Button})=>{
@@ -1378,7 +1391,7 @@ export function UrbanViewer () {
                                             if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                                 onSetLayout({target:'down'})
                                             }
-                                            //onSetCameraUVL(2)
+                                            onSetCameraUVL(2)
                                             target.loading = false
                                         }}></bim-button>
                                     </div>
@@ -1391,7 +1404,7 @@ export function UrbanViewer () {
                             target.loading = true
                             onSetLayout({target:'down'})
                             const result_3 = await create_LOD3(components,loadFragmentFile,world)
-                            result_3[0] ? await onSetTransparencyWithColors(2) : ''
+                            result_3[0] ? await onSetTransparencyWithColors(result_3[2]) : ''
                             onSetCameraUVL(3)
                             if (result_3[1]) {
                                 await world.camera.controls.setLookAt(result_3[1].x+100,result_3[1].y+100,result_3[1].z+100,result_3[1].x,result_3[1].y,result_3[1].z)

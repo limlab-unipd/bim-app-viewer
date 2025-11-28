@@ -31,3 +31,20 @@ export const globalCentroid = {
     x : 693145.6576212854,
     y : 6090713.28243175,
 }
+
+export const allMaterials = [
+    'Aluminm',
+    'Bitumen',
+    'Carpet',
+    'Ceramcs',
+    'Concret',
+    'Copper',
+    'Glass',
+    'Insultn',
+    'Paint',
+    'Plstrbr',
+    'Plastcs',
+    'Snd_nd_',
+    'Steel',
+    'Timber',
+]
