@@ -76,7 +76,8 @@ export async function create_LOD0 (
     //initialize variables
     const fragments = components.get(OBC.FragmentsManager)
 
-    for (const [modelId,] of fragments.list){
+    for (const [modelId,model] of fragments.list){
+        if (model.isDeltaModel) continue
         if (modelId.includes('LOD_0')) {
             addOverlay(BUI.html`UVL-0 model already exists. Please reload the browser page to do a new analysis.`,'warning')
             return [false,null]
@@ -403,7 +404,7 @@ export async function create_LOD0 (
             }
         }
         const createdBars = await fragments.core.editor.createElements(newModel.modelId, elementsData) //crea la geometria delle barre
-        if (!createdBars) return false
+        if (!createdBars) return [false,null]
         for (const bar of createdBars){
             const barData = await bar.getData()
             const suburb = (barData.Name as FRAGS.ItemAttribute).value

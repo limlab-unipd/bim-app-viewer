@@ -32,6 +32,14 @@ export function UrbanViewer () {
         'IFCBUILTSYSTEM')
     importedCategories.sort()
     const marker = components.get(OBCF.Marker)
+    let map: {
+        urbanMap: THREE.Mesh<THREE.BufferGeometry<THREE.NormalBufferAttributes>, THREE.Material | THREE.Material[], THREE.Object3DEventMap>
+        territoryMap: THREE.Mesh<THREE.BufferGeometry<THREE.NormalBufferAttributes>, THREE.Material | THREE.Material[], THREE.Object3DEventMap>
+        tonerMap: THREE.Mesh<THREE.BufferGeometry<THREE.NormalBufferAttributes>, THREE.Material | THREE.Material[], THREE.Object3DEventMap>
+        positronMap: THREE.Mesh<THREE.BufferGeometry<THREE.NormalBufferAttributes>, THREE.Material | THREE.Material[], THREE.Object3DEventMap>
+        darkMatterMap: THREE.Mesh<THREE.BufferGeometry<THREE.NormalBufferAttributes>, THREE.Material | THREE.Material[], THREE.Object3DEventMap>
+    } | undefined
+    let init_x, init_z, init_scaleX, init_scaleY, init_rotZ
     // #endregion
 
     const setViewer = async (devMode:boolean=false) => {
@@ -622,7 +630,7 @@ export function UrbanViewer () {
             { name:'Visibility', width:'4rem'},
             { name:'Opacity', width:'4rem'},
             { name:'ColorScale', width:'1fr'},
-            { name:'NormHeight', width:'4rem'},
+            { name:'NormHeight', width:'4.5rem'},
         ]
         uvlVisualizationTable.columns = columns;
         uvlVisualizationTable.preserveStructureOnFilter = true
@@ -667,7 +675,7 @@ export function UrbanViewer () {
                 <bim-dropdown
                     @change="${async ({target}:{target:BUI.Dropdown}) => {
                         const colorScale = target.value[0]
-                        setHighlighterStyles(components,colorScale,Number(uvl))
+                        setHighlighterStyles(components,colorScale,Number(uvl),'urban')
                         await highlighter.updateColors()
                     }}">
                     <bim-option label='Green-Yellow-Red' value='gnylrd' style="color:black; padding:0 10px 0 10px; margin:0.25rem; background:linear-gradient(to right, rgba(26, 150, 65, 1),rgba(166, 217, 106, 1),rgba(255, 255, 0, 1),rgba(253, 174, 97, 1),rgba(215, 25, 28, 1))"></bim-option>
@@ -709,28 +717,80 @@ export function UrbanViewer () {
             else {
                 return ''
             }
-
         }
+
+        const uvlCameraDropdown = BUI.Component.create<BUI.Dropdown>(() => {
+            return BUI.html`
+                <bim-dropdown label='Camera UVL' style="padding-left:1.5rem"
+                    @change="${(e:Event) => {
+                        if (!e.target) return
+                        const target = e.target as BUI.Dropdown
+                        const uvl = target.value[0]
+                        onSetCameraUVL(uvl)
+                    }}">
+                <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-0' value='0'></bim-option>
+                <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-1' value='1'></bim-option>
+                <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-2' value='2'></bim-option>
+                <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-3' value='3'></bim-option>
+            </bim-dropdown>`
+        })
+        window.addEventListener('keydown', (event) => {
+            if (event.altKey && event.key === '0') {
+                onSetCameraUVL(0)
+            } else if (event.altKey && event.key === '1') {
+                onSetCameraUVL(1)
+            } else if (event.altKey && event.key === '2') {
+                onSetCameraUVL(2)
+            } else if (event.altKey && event.key === '3') {
+                onSetCameraUVL(3)
+            }
+        });
 
         const panelWorldSettings = BUI.Component.create<BUI.Panel>(() => {
             return BUI.html`
                 <bim-panel
                     label="World Visibility Settings"
                     style="background-color:rgba(0, 0, 0, 0.65); z-index:200">
-                    <bim-panel-section label='UVL Settings'>
-                        <bim-label style="display:flex; white-space:normal" icon='fluent:scan-camera-20-regular'>Change zoom and pan speeds, and default position of camera</bim-label>
-                        <bim-dropdown label='Camera UVL' style="padding-left:1.5rem"
-                            @change="${(e:Event) => {
-                                if (!e.target) return
-                                const target = e.target as BUI.Dropdown
-                                const uvl = target.value[0]
-                                onSetCameraUVL(uvl)
+                    <bim-panel-section style='display:${devElementsVisibility}'>
+                        <bim-number-input
+                            slider step="0.001" label="scale X" value="1" min="0.5" max="1.5"
+                            @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                                if (!map) return
+                                map.urbanMap.scale.x = init_scaleX! * target.value
                             }}">
-                            <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-0' value='0'></bim-option>
-                            <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-1' value='1'></bim-option>
-                            <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-2' value='2'></bim-option>
-                            <bim-option style="padding:0 0.5rem 0 0.5rem" label='UVL-3' value='3'></bim-option>
-                        </bim-dropdown>
+                        </bim-number-input>
+                        <bim-number-input
+                            slider step="0.001" label="scale Y" value="1" min="0.5" max="1.5"
+                            @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                                if (!map) return
+                                map.urbanMap.scale.y = init_scaleY! * target.value
+                            }}">
+                        </bim-number-input>
+                        <bim-number-input
+                            slider step="1" label="posX" value="10" min="-500" max="500"
+                            @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                                if (!map) return
+                                map.urbanMap.position.x = init_x! + target.value
+                            }}">
+                        </bim-number-input>
+                        <bim-number-input
+                            slider step="1" label="posZ" value="10" min="-500" max="500"
+                            @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                                if (!map) return
+                                map.urbanMap.position.z = init_z! + target.value
+                            }}">
+                        </bim-number-input>
+                        <bim-number-input
+                            slider step="0.001" label="rotation" value="1" min="-1" max="2"
+                            @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                                if (!map) return
+                                map.urbanMap.rotation.z = init_rotZ! * target.value
+                            }}">
+                        </bim-number-input>
+                    </bim-panel-section>
+                    <bim-panel-section label='UVL Settings'>
+                        <bim-label style="display:flex; white-space:normal" icon='fluent:scan-camera-20-regular'>Change zoom and pan speeds, and default position of camera (shortcut: Alt + 0,1,2,3)</bim-label>
+                        ${uvlCameraDropdown}
                         <bim-label style="display:flex; white-space:normal" icon='mdi:circle-opacity'>Change visualization settings of each UVL</bim-label>
                         ${uvlVisualizationTable}
                     </bim-panel-section>
@@ -1096,7 +1156,7 @@ export function UrbanViewer () {
                 <bim-option label='Paint' value="Paint" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Plasterboard' value="Plasterboard" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Plastics' value="Plastics" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Sand' value="Sand" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Sand and stone' value="Sand and stone" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Steel' value="Steel" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
@@ -1123,7 +1183,7 @@ export function UrbanViewer () {
                 <bim-option label='Paint' value="Paint" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Plasterboard' value="Plasterboard" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Plastics' value="Plastics" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Sand' value="Sand" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Sand and stone' value="Sand and stone" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Steel' value="Steel" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
@@ -1150,7 +1210,7 @@ export function UrbanViewer () {
                 <bim-option label='Paint' value="Paint" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Plasterboard' value="Plasterboard" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Plastics' value="Plastics" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Sand' value="Sand" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Sand and stone' value="Sand and stone" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Steel' value="Steel" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
@@ -1177,7 +1237,7 @@ export function UrbanViewer () {
                 <bim-option label='Paint' value="Paint" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Plasterboard' value="Plasterboard" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Plastics' value="Plastics" style="padding:0 10px 0 10px"></bim-option>
-                <bim-option label='Sand' value="Sand" style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Sand and stone' value="Sand and stone" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Steel' value="Steel" style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
@@ -1204,7 +1264,7 @@ export function UrbanViewer () {
                 'Paint': 'Paint',
                 'Plasterboard': 'Plstrbr',
                 'Plastics': 'Plastcs',
-                'Sand': 'Snd_nd_',
+                'Sand and stone': 'Snd_nd_',
                 'Steel': 'Steel',
                 'Timber': 'Timber',
                 'Weight (tonnes)': 'weight',
@@ -1490,6 +1550,26 @@ export function UrbanViewer () {
                             target.tooltipTitle = target.tooltipTitle=='Hide Markers' ? 'Show Markers' : 'Hide Markers'
                         }}
                     ></bim-button>
+                    <bim-dropdown vertical tooltip-title="Choose Map" placeholder='Map...'
+                        @change="${(e:Event) => {
+                            if (!e.target) return
+                            const target = e.target as BUI.Dropdown
+                            const choosenMap = target.value[0]
+                            if (!map) return
+                            for (const [key,loadedMap] of Object.entries(map)){
+                                if (choosenMap == key) {
+                                    loadedMap.visible = true
+                                    continue
+                                }
+                                loadedMap.visible = false
+                            }
+                        }}">
+                        <bim-option checked icon="gis:road-map" label='Urban' value='urbanMap' style="padding:0 10px 0 10px"></bim-option>
+                        <bim-option icon="gis:landcover-map" label='Territory' value='territoryMap' style="padding:0 10px 0 10px"></bim-option>
+                        <bim-option icon="gis:magnify-map" label='Positron' value='positronMap' style="padding:0 10px 0 10px"></bim-option>
+                        <bim-option icon="gis:world-map-alt" label='Toner' value='tonerMap' style="padding:0 10px 0 10px"></bim-option>
+                        <bim-option icon="gis:world-map-alt-o" label='Dark Matter' value='darkMatterMap' style="padding:0 10px 0 10px"></bim-option>
+                    </bim-dropdown>
                     <bim-button
                         style="display:${devElementsVisibility}"
                         tooltip-title="Print on console position and target of the camera"
@@ -1512,8 +1592,13 @@ export function UrbanViewer () {
                                         arrowData = await readArrow('materials')
                                         populationArrowData = await readArrow('population')
                                         environmentalArrowData = await readArrow('environmental')
-                                        await suburbsBoundaries(world,components,arrowData!)
+                                        map = await suburbsBoundaries(world,components,arrowData!)
                                         collapsePanelSections()
+                                        init_x = map?.urbanMap?.position.x
+                                        init_z = map?.urbanMap?.position.z
+                                        init_scaleX = map?.urbanMap?.scale.x
+                                        init_scaleY = map?.urbanMap?.scale.y
+                                        init_rotZ = map?.urbanMap?.rotation.z
                                         target.loading = false
                                     }}>
                             </bim-button>
@@ -1642,8 +1727,8 @@ export function UrbanViewer () {
         })
 
         const panelDownHeight = '40%'
-        const panelLeftWidth = '20%'
-        const panelRightWidth = '20%'
+        const panelLeftWidth = '22%'
+        const panelRightWidth = '22%'
         const left_right = {
                 template: `
                     "panelLeft toolbar panelRight" auto

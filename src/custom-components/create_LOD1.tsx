@@ -9,6 +9,8 @@ import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { allMaterials, barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 import { formatNumber, getArrowLineValue, normalizeParamOne } from './conversion'
+import { sa1Boundaries } from './suburbsBoundaries'
+import { readArrow } from './readArrow'
 
 /**
  * Generates LOD-1 suburb bars from a selected LOD-0 bar.
@@ -87,6 +89,8 @@ export async function create_LOD1 (
             nameList.push((i['Name'] as FRAGS.ItemAttribute).value)
         }
     }
+    
+    const arrow = await readArrow('boundaries_sa1')
 
     const results = []
     for (const name of nameList) {
@@ -109,6 +113,12 @@ export async function create_LOD1 (
             continue
         } else { 
             previousLoadedSuburbs.push(name)
+        }
+
+        if (arrow) {
+            await sa1Boundaries(world, components, arrow, name)
+        } else {
+            console.log('SA1 boundaries not loaded.')
         }
 
         //create new base model for geometries

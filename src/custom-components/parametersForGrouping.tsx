@@ -1,10 +1,11 @@
 // parameter from Ray data to choose to group data
 export const groupColumn = {
+    lod0 : 'SA2_NAM', //DIVISION_N or SA2_NAME
     lod0_boundaries : 'SA2_NAME16', //the parameter is the same but with a different name
     lod0_population : 'SA2_NAME16', //the parameter is the same but with a different name
-    lod0 : 'SA2_NAM', //DIVISION_N or SA2_NAME
     lod1 : 'SA1_MAI', //SA1_MAI or MB_CODE
     lod1_population : 'SA1_MAIN16',
+    lod1_boundaries : 'SA1_MAIN16',
 }
 
 // scale factor to scale the map
