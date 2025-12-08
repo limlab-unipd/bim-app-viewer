@@ -15,9 +15,9 @@
     "@thatopen/fragments": "^3.2.0",
     "@thatopen/ui": "^3.2.0",
     "@thatopen/ui-obc": "^3.2.1",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-router-dom": "^7.7.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "react-router-dom": "^7.10.1",
     "stats.js": "^0.17.0",
     "three": "0.175.0"
   },
