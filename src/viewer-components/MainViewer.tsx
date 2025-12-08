@@ -327,26 +327,33 @@ export function MainViewer () {
             highlighter.highlightByID('transparent', allItems, true, false, selectedItems)
         }
         const onSetTransparencyToCostColor = async (e:Event) => {
-            const selectedItems = highlighter.selection.select
+            const selItems = highlighter.selection.select
+            console.log(selItems)
             const buttonLabel = (e.target as any as BUI.Button).label
             if (buttonLabel=='Reset'){
                 highlighter.highlightByID('color_0_02', highlighter.selection.color_0_02_transparent, false, false)
                 highlighter.highlightByID('color_02_04', highlighter.selection.color_02_04_transparent, false, false)
                 highlighter.highlightByID('color_04_06', highlighter.selection.color_04_06_transparent, false, false)
                 highlighter.highlightByID('color_06_08', highlighter.selection.color_06_08_transparent, false, false)
-                highlighter.highlightByID('color_08_1', highlighter.selection.color_08_1_transparent, false, false)
-    
+                highlighter.highlightByID('color_08_1', highlighter.selection.color_08_1_transparent, false, false)    
             } else if (buttonLabel=='Ghost') {
-                highlighter.highlightByID('color_0_02_transparent', highlighter.selection.color_0_02, true, false, selectedItems)
-                highlighter.highlightByID('color_02_04_transparent', highlighter.selection.color_02_04, true, false, selectedItems)
-                highlighter.highlightByID('color_04_06_transparent', highlighter.selection.color_04_06, true, false, selectedItems)
-                highlighter.highlightByID('color_06_08_transparent', highlighter.selection.color_06_08, true, false, selectedItems)
-                highlighter.highlightByID('color_08_1_transparent', highlighter.selection.color_08_1, true, false, selectedItems)
+                //quando aggiorneranno i pacchetti sara' da aggiornare usando come prima direttamente il parametro exclude con setItems
+                await highlighter.highlightByID('color_0_02_transparent', highlighter.selection.color_0_02, true, false)
+                await highlighter.highlightByID('color_02_04_transparent', highlighter.selection.color_02_04, true, false)
+                await highlighter.highlightByID('color_04_06_transparent', highlighter.selection.color_04_06, true, false)
+                await highlighter.highlightByID('color_06_08_transparent', highlighter.selection.color_06_08, true, false)
+                await highlighter.highlightByID('color_08_1_transparent', highlighter.selection.color_08_1, true, false)
 
+                highlighter.highlightByID('color_0_02', OBC.ModelIdMapUtils.intersect([highlighter.selection.color_0_02_transparent,selItems]), false, false)
+                highlighter.highlightByID('color_02_04', OBC.ModelIdMapUtils.intersect([highlighter.selection.color_02_04_transparent,selItems]), false, false)
+                highlighter.highlightByID('color_04_06', OBC.ModelIdMapUtils.intersect([highlighter.selection.color_04_06_transparent,selItems]), false, false)
+                highlighter.highlightByID('color_06_08', OBC.ModelIdMapUtils.intersect([highlighter.selection.color_06_08_transparent,selItems]), false, false)
+                highlighter.highlightByID('color_08_1', OBC.ModelIdMapUtils.intersect([highlighter.selection.color_08_1_transparent,selItems]), false, false)
             } else {
                 console.log('Analysis still not performed.')
             }
-            console.log(highlighter.selection)
+            //console.log(highlighter.selection)
+            await highlighter.clear('select')
         }
         
         const isModelIdMapEmpty = (modelIdMap: OBC.ModelIdMap): boolean => {
