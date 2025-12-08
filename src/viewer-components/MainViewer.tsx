@@ -328,7 +328,6 @@ export function MainViewer () {
         }
         const onSetTransparencyToCostColor = async (e:Event) => {
             const selItems = highlighter.selection.select
-            console.log(selItems)
             const buttonLabel = (e.target as any as BUI.Button).label
             if (buttonLabel=='Reset'){
                 highlighter.highlightByID('color_0_02', highlighter.selection.color_0_02_transparent, false, false)
