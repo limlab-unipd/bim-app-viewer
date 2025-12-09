@@ -73,7 +73,7 @@ export function MenuSidebar() {
                         id='Urban-Viewer'
                         icon="fluent:city-24-regular"
                         tooltip-title="Urban Viewer"
-                        style="display:flex; min-width:2.5rem; min-height:2.5rem; align-items:center; justify-content:center"
+                        style="display:none; min-width:2.5rem; min-height:2.5rem; align-items:center; justify-content:center"
                         @click=${(e: any) => {
                             navigate('/urban-viewer');
                         }}>
