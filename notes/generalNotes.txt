@@ -89,3 +89,7 @@ GET ITEMS
             })                
             console.log('all elements of IFCCOSTVALUE in the model:\n', dataCV)
         }
+
+
+LOG IN CONSOLE OF GUID OF NEW ELEMENTS:
+    Fault of a line in the worker "console.log(e.guid)"

@@ -15,6 +15,54 @@
 
     --bim-icon--fz: 20px;
 }
+
+/* Background Colors */
+/*@media (prefers-color-scheme: dark) {
+    :root {
+        --bim-ui_bg-base: var(--bim-ui_gray-0);
+        --bim-ui_bg-contrast-10: var(--bim-ui_gray-1);
+        --bim-ui_bg-contrast-20: var(--bim-ui_gray-2);
+        --bim-ui_bg-contrast-40: var(--bim-ui_gray-4);
+        --bim-ui_bg-contrast-60: var(--bim-ui_gray-6);
+        --bim-ui_bg-contrast-80: var(--bim-ui_gray-8);
+        --bim-ui_bg-contrast-100: var(--bim-ui_gray-10);
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --bim-ui_bg-base: var(--bim-ui_gray-10);
+        --bim-ui_bg-contrast-10: var(--bim-ui_gray-9);
+        --bim-ui_bg-contrast-20: var(--bim-ui_gray-8);
+        --bim-ui_bg-contrast-40: var(--bim-ui_gray-6);
+        --bim-ui_bg-contrast-60: var(--bim-ui_gray-4);
+        --bim-ui_bg-contrast-80: var(--bim-ui_gray-2);
+        --bim-ui_bg-contrast-100: var(--bim-ui_gray-0);
+        --bim-ui_accent-base: #6528d7;
+    }
+}
+
+html.bim-ui-dark {
+    --bim-ui_bg-base: var(--bim-ui_gray-0);
+    --bim-ui_bg-contrast-10: var(--bim-ui_gray-1);
+    --bim-ui_bg-contrast-20: var(--bim-ui_gray-2);
+    --bim-ui_bg-contrast-40: var(--bim-ui_gray-4);
+    --bim-ui_bg-contrast-60: var(--bim-ui_gray-6);
+    --bim-ui_bg-contrast-80: var(--bim-ui_gray-8);
+    --bim-ui_bg-contrast-100: var(--bim-ui_gray-10);
+}
+
+html.bim-ui-light {
+    --bim-ui_bg-base: var(--bim-ui_gray-10);
+    --bim-ui_bg-contrast-10: var(--bim-ui_gray-9);
+    --bim-ui_bg-contrast-20: var(--bim-ui_gray-8);
+    --bim-ui_bg-contrast-40: var(--bim-ui_gray-6);
+    --bim-ui_bg-contrast-60: var(--bim-ui_gray-4);
+    --bim-ui_bg-contrast-80: var(--bim-ui_gray-2);
+    --bim-ui_bg-contrast-100: var(--bim-ui_gray-0);
+    --bim-ui_accent-base: var(--bim-ui_main-base);
+}*/
+
 * {
     margin: 0;
     padding: 0;
@@ -81,13 +129,22 @@
     text-transform: uppercase;
 }
 .pages-subheader{
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     font-weight: bold;
     color: white;
     font-family: 'Orbitron';
     letter-spacing: 0.2rem;
     text-transform: uppercase;
     margin-top: 3rem;
+}
+.pages-subsubheader{
+    font-size: 0.75rem;
+    font-weight: normal;
+    color: white;
+    font-family: 'Orbitron';
+    letter-spacing: 0.2rem;
+    text-transform: uppercase;
+    margin-top: 1rem;
 }
 
 .home-title{
@@ -129,6 +186,9 @@ input[type="range"]::-moz-range-thumb {
     color:white;
     height: fit-content;
 }
+.info-card:hover{
+    background-color: rgba(255, 255, 255, 0.13);
+}
 .info-card-title{
     font-size: 1.4rem;
     margin-bottom: 0.5rem;
@@ -137,6 +197,8 @@ input[type="range"]::-moz-range-thumb {
     font-family: 'Orbitron';
     text-transform: uppercase;
     letter-spacing: 0.05rem;
+    display:flex;
+    align-items:center;
 }
 .info-card-description{
     line-height: 1.8;
@@ -145,14 +207,14 @@ input[type="range"]::-moz-range-thumb {
     margin-top: 0.5rem;
     font-family: 'Nunito';
     font-size: 1.1rem;
-    color:rgb(227, 227, 227);
+    color:rgba(227, 227, 227, 0.875);
     text-align: justify;
 }
-.info-card-description > b{
+.info-card-description > b {
     line-height: 1.8;
     font-family: 'Nunito';
     font-size: 1.15rem;
-    color:rgb(239, 239, 239);
+    color:rgb(255, 255, 255);
 }
 .survey-card{
     background-color: rgba(255, 255, 255, 0.08);
@@ -169,4 +231,20 @@ input[type="range"]::-moz-range-thumb {
 }
 .survey-card:hover {
     background-color: #6528d7;
+}
+.survey-card-coming-soon{
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin: 1.5rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    color:white;
+    cursor: pointer;
+    flex: 1;
+    text-align: center;
+    letter-spacing: 0.2rem;
+    transition: background-color 0.3s ease;
+}
+.survey-card-coming-soon:hover {
+    background-color: #6b6b6b;
 }

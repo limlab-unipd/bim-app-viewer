@@ -843,8 +843,8 @@ export function MainViewer () {
                                     <bim-label>Ghost mode:</bim-label>
                                     <bim-button 
                                         id='ghost-mode' 
-                                        @click=${(e:Event) => {
-                                            onSetTransparencyToCostColor(e);
+                                        @click=${async (e:Event) => {
+                                            await onSetTransparencyToCostColor(e);
                                             (e.target as any).label = (e.target as any).label=='Ghost' ? 'Reset' : 'Ghost'
                                         }} 
                                         label="Ghost"
@@ -1916,8 +1916,8 @@ export function MainViewer () {
                             <bim-label>Ghost mode:</bim-label>
                             <bim-button 
                                 id='ghost-mode' 
-                                @click=${(e:Event) => {
-                                    onSetTransparencyToCostColor(e);
+                                @click=${async (e:Event) => {
+                                    await onSetTransparencyToCostColor(e);
                                     (e.target as any).label = (e.target as any).label=='Ghost' ? 'Reset' : 'Ghost'
                                 }} 
                                 label="Ghost"

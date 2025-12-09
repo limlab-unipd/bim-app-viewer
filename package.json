@@ -15,6 +15,8 @@
     "@thatopen/fragments": "^3.2.11",
     "@thatopen/ui": "^3.2.0",
     "@thatopen/ui-obc": "^3.2.2",
+    "polygon-clipping": "^0.15.7",
+    "proj4": "^2.20.2",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-router-dom": "^7.10.1",
@@ -26,7 +28,9 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/three": "0.175.0",
+    "@types/wellknown": "^0.5.8",
     "@vitejs/plugin-react": "^5.1.1",
+    "apache-arrow": "^21.1.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
@@ -34,6 +38,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.1",
     "vite": "^7.2.7",
-    "web-ifc": "^0.0.72"
+    "web-ifc": "^0.0.72",
+    "wellknown": "^0.5.0"
   }
 }
