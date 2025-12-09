@@ -11,7 +11,7 @@ import { readArrow } from '../custom-components/readArrow'
 import { addOverlay } from '../custom-components/addOverlay'
 import { createTable } from '../custom-components/createTable'
 import { suburbsBoundaries } from '../custom-components/suburbsBoundaries'
-import { setHighlighterStyles } from '../custom-components/colors'
+import { colorForValue, setHighlighterStyles } from '../custom-components/colors'
 import { create_LOD0 } from '../custom-components/create_LOD0'
 import { create_LOD1 } from '../custom-components/create_LOD1'
 import { create_LOD20 } from '../custom-components/create_LOD20'
@@ -19,6 +19,7 @@ import { create_LOD3 } from '../custom-components/create_LOD3'
 import Stats from 'stats.js'
 import { create_LOD21 } from '../custom-components/create_LOD21'
 import { normalizationHeight } from '../custom-components/parametersForGrouping'
+import { normalizeParamTwoForColorsNormalization, normalizeParamTwoForColorsOriginal } from '../custom-components/conversion'
 
 
 export function UrbanViewer () {
@@ -534,6 +535,98 @@ export function UrbanViewer () {
                 const volumes = await model.getItemsVolume(selection)
             }
         }
+        let originalHighlighters: {
+            [key:string] : {
+                color_0_02: {},
+                color_02_04: {},
+                color_04_06: {},
+                color_06_08: {},
+                color_08_1: {}
+            }
+        } = {
+            '1': {
+                color_0_02: {},
+                color_02_04: {},
+                color_04_06: {},
+                color_06_08: {},
+                color_08_1: {}
+            },
+            '2': {
+                color_0_02: {},
+                color_02_04: {},
+                color_04_06: {},
+                color_06_08: {},
+                color_08_1: {}
+            },
+            '21': {
+                color_0_02: {},
+                color_02_04: {},
+                color_04_06: {},
+                color_06_08: {},
+                color_08_1: {}
+            },
+        }
+        const onNormalizeColorScale = async (target:BUI.Checkbox, uvl:string) => {
+            if (!target) return
+            //target.loading = true
+            const check = target.value //legge il valore prima che venga aggiornato il bottone
+            //console.log(check)
+            //console.log('clear highlighter')
+            //console.log(originalHighlighters)
+            highlighter.clear(`LOD_${uvl}_color_0_02`)
+            highlighter.clear(`LOD_${uvl}_color_02_04`)
+            highlighter.clear(`LOD_${uvl}_color_04_06`)
+            highlighter.clear(`LOD_${uvl}_color_06_08`)
+            highlighter.clear(`LOD_${uvl}_color_08_1`)
+            const mergedUvlModels: Record<string, Record<string | number, string>> = {}
+            for (const [modelName,model] of fragments.list.entries()) {
+                if (model.isDeltaModel) continue
+                if (modelName.includes(`LOD_${uvl}_`)) {
+                    mergedUvlModels[modelName] = {}
+                    //console.log(modelName)
+                    const items = await model.getItems()
+                    // get attributes and relations of bar
+                    const barsData = await fragments.getData({[modelName]:new Set(items.keys())},{
+                        attributesDefault: true,
+                        relationsDefault: {
+                            attributes: true,
+                            relations: true //here is the only point where could be accepted because there are only few relations to load and they are in a closed loop
+                        }
+                    })
+                    // get color of bar
+                    for (const itemData of barsData[modelName]){
+                        // get all psets localids of bar
+                        const itemId = (itemData._localId as FRAGS.ItemAttribute).value as number
+                        //const itemIs = itemData.
+                        const pSetsLocalIds: FRAGS.Identifier[] = [];
+                        (itemData.IsDefinedBy as FRAGS.ItemData[]).forEach((x:FRAGS.ItemData) => { //questo legge l'id del pset collegato dall'attributo IsDefinedBy della barra -> il ciclo serve se ci sono piu pset, restituisce tutti gli id
+                            pSetsLocalIds.push((x._localId as FRAGS.ItemAttribute).value)
+                        })
+                        //get psets data of previous local ids
+                        let pSets = await model.getItemsData(pSetsLocalIds)
+                        pSets = pSets.filter(item => (item.Name as FRAGS.ItemAttribute).value == 'EnvironmentalAnalysisData') //mantiene solo i pset con quel nome
+                        const param1 = (pSets[0][Object.keys(pSets[0])[7]] as FRAGS.ItemAttribute).value //HEIGHT e' sempre 7 per come e' scritto il pset
+                        const param2 = (pSets[0][Object.keys(pSets[0])[8]] as FRAGS.ItemAttribute).value //COLOR e' sempre 8 per come e' scritto il pset
+                        mergedUvlModels[modelName][itemId] = param2
+                    }
+                }
+            }
+            //console.log('mergedUvlModels',mergedUvlModels)
+            let normalizedMergedUvlModels
+            if (check) {
+                normalizedMergedUvlModels = normalizeParamTwoForColorsOriginal(mergedUvlModels)
+            } else {
+                normalizedMergedUvlModels = normalizeParamTwoForColorsNormalization(mergedUvlModels)
+            }
+            //console.log('normalizedMergedUvlModels',normalizedMergedUvlModels)
+            for (const [modelName, itemsList] of Object.entries(normalizedMergedUvlModels)){
+                for (const [itemId, value] of Object.entries(itemsList)) {
+                    const range = colorForValue(value)
+                    highlighter.highlightByID(`LOD_${uvl}_${range}`,{[modelName]:new Set<number>([Number(itemId)])},false,false)
+                }
+            }
+            //target.loading = false
+        }
 
 
         //#region geometry creation
@@ -579,6 +672,7 @@ export function UrbanViewer () {
             UVL: string,
             Visibility: string,
             Opacity: string,
+            NormColors: string,
             ColorScale: string,
             NormHeight: number | string,
         }
@@ -597,6 +691,7 @@ export function UrbanViewer () {
                 UVL: '1',
                 Visibility: '',
                 Opacity: '',
+                NormColors: '',
                 ColorScale: '',
                 NormHeight: 1000,
             }
@@ -605,6 +700,7 @@ export function UrbanViewer () {
                 UVL: '2.0',
                 Visibility: '',
                 Opacity: '',
+                NormColors: '',
                 ColorScale: '',
                 NormHeight: 300,
             }
@@ -613,6 +709,7 @@ export function UrbanViewer () {
                 UVL: '2.1',
                 Visibility: '',
                 Opacity: '',
+                NormColors: '',
                 ColorScale: '',
                 NormHeight: '',
             }
@@ -629,10 +726,12 @@ export function UrbanViewer () {
             { name:'UVL', width:'3rem'},
             { name:'Visibility', width:'4rem'},
             { name:'Opacity', width:'4rem'},
+            { name:'NormColors', width:'4.5rem'},
             { name:'ColorScale', width:'1fr'},
             { name:'NormHeight', width:'4.5rem'},
         ]
         uvlVisualizationTable.columns = columns;
+        uvlVisualizationTable.style.width = 'max-content'
         uvlVisualizationTable.preserveStructureOnFilter = true
         uvlVisualizationTable.dataTransform.Visibility = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
             const { UVL } = rowData
@@ -666,6 +765,13 @@ export function UrbanViewer () {
                         await highlighter.updateColors()
                     }}">
                 </bim-number-input>`
+        }
+        uvlVisualizationTable.dataTransform.NormColors = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+            const { UVL } = rowData
+            if (!UVL) return value
+            const uvl = UVL=='2.0' ? '2' : UVL=='2.1' ? '21' : UVL
+            return BUI.html`
+                <bim-checkbox icon='mdi:eye' @click=${async ({target}:{target:BUI.Checkbox})=>{await onNormalizeColorScale(target,uvl)}}></bim-checkbox>`
         }
         uvlVisualizationTable.dataTransform.ColorScale = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
             const { UVL } = rowData
@@ -1295,9 +1401,28 @@ export function UrbanViewer () {
                 }}">
             </bim-checkbox>`
         )
-        const materialsImpactsDropdown = BUI.Component.create<BUI.Dropdown>(
+        const materialsImpactsDropdownOne = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
-            <bim-dropdown name="materials-impacts" icon='mdi:recycle' label='Materials impact'>
+            <bim-dropdown name="materials-impacts" icon='mdi:recycle' label='Materials impact' style="margin-left: 1.5rem">
+                <bim-option label='Weight (tonnes)' value='Weight (tonnes)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked label='Global Warming Potential (kg CO₂ eq)' value='Global Warming Potential (kg CO₂ eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Abiotic Depletion - elem., econ. reserve (kg SB eq)' value='Abiotic Depletion - elem., econ. reserve (kg SB eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Abiotic depletion - fossil fuels (MJ NCV)' value='Abiotic depletion - fossil fuels (MJ NCV)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Ozone Layer Depletion (kg CFC-11 eq)' value='Ozone Layer Depletion (kg CFC-11 eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Photochemical Oxidation (kg C2H4 eq)' value='Photochemical Oxidation (kg C2H4 eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Acidification (kg SO2 eq)' value='Acidification (kg SO2 eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Eutrophication (kg PO4--- eq)' value='Eutrophication (kg PO4--- eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Particulate Matter (kg PM2.5)' value='Particulate Matter (kg PM2.5)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Human toxicity - cancer (CTUh)' value='Human toxicity - cancer (CTUh)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Human toxicit - non-cancer (CTUh)' value='Human toxicit - non-cancer (CTUh)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Freshwater Ecotoxicity (CTUe)' value='Freshwater Ecotoxicity (CTUe)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Ionizing Radiation H (kBq U235 eq)' value='Ionizing Radiation H (kBq U235 eq)' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Water Scarcity (m3 eq)' value='Water Scarcity (m3 eq)' style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
+        const materialsImpactsDropdownTwo = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="materials-impacts" icon='mdi:recycle' label='Materials impact' style="margin-left: 1.5rem">
                 <bim-option label='Weight (tonnes)' value='Weight (tonnes)' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option checked label='Global Warming Potential (kg CO₂ eq)' value='Global Warming Potential (kg CO₂ eq)' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Abiotic Depletion - elem., econ. reserve (kg SB eq)' value='Abiotic Depletion - elem., econ. reserve (kg SB eq)' style="padding:0 10px 0 10px"></bim-option>
@@ -1336,13 +1461,14 @@ export function UrbanViewer () {
                         <bim-label style='font-size:1.5rem'>/</bim-label>
                         ${paramOneBDropdown}
                     </div>
+                    ${materialsImpactsDropdownOne}
                     <bim-label icon='icon-park-outline:two-key' style='margin-right:1rem'>Parameter 2 (bar color)</bim-label>
                     <div style='display:flex; flex-direction:row; gap:0.5rem; flex:0; align-items:center; margin-left:1.5rem'>
                         ${paramTwoDropdown}
                         <bim-label style='font-size:1.5rem'>/</bim-label>
                         ${paramTwoBDropdown}
                     </div>
-                    ${materialsImpactsDropdown}
+                    ${materialsImpactsDropdownTwo}
                     ${normalizationCheckbox}
                     <bim-label icon='solar:city-bold-duotone'>Urban Visualization Level</bim-label>
                     <div style='display:flex; flex-direction:row; gap:0.5rem; align-items:center'>
@@ -1355,10 +1481,15 @@ export function UrbanViewer () {
                             const paramOneB = paramLabelToValue(paramOneBDropdown.value[0]);
                             const paramTwo = paramLabelToValue(paramTwoDropdown.value[0]);
                             const paramTwoB = paramLabelToValue(paramTwoBDropdown.value[0]);
-                            const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
-                            const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
-                            const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
-                            [result_0,historyTable] = await create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,panelRight,paramOneFullNameLabel,paramTwoFullNameLabel);
+                            const paramEnvOne = paramLabelToValue(materialsImpactsDropdownOne.value[0]);
+                            const paramEnvTwo = paramLabelToValue(materialsImpactsDropdownTwo.value[0]);
+                            let paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
+                            let paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`
+                            if (paramOneFullNameLabel == paramTwoFullNameLabel) {
+                                paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
+                                paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
+                            }
+                            [result_0,historyTable] = await create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,panelRight,paramOneFullNameLabel,paramTwoFullNameLabel);
                             if (result_0) {
                                 urbanTable = await createTable(panelDown,fragments,components,paramOneFullNameLabel,paramTwoFullNameLabel)
                                 if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
@@ -1379,10 +1510,15 @@ export function UrbanViewer () {
                             const paramOneB = paramLabelToValue(paramOneBDropdown.value[0]);
                             const paramTwo = paramLabelToValue(paramTwoDropdown.value[0]);
                             const paramTwoB = paramLabelToValue(paramTwoBDropdown.value[0]);
-                            const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
-                            const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
-                            const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
-                            const result_1 = await create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
+                            const paramEnvOne = paramLabelToValue(materialsImpactsDropdownOne.value[0]);
+                            const paramEnvTwo = paramLabelToValue(materialsImpactsDropdownTwo.value[0]);
+                            let paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
+                            let paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`
+                            if (paramOneFullNameLabel == paramTwoFullNameLabel) {
+                                paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
+                                paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
+                            }
+                            const result_1 = await create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
                             result_1 ? await onSetTransparencyWithColors(0) : ''
                             if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                 onSetLayout({target:'down'})
@@ -1399,10 +1535,15 @@ export function UrbanViewer () {
                                 const paramOneB = paramLabelToValue(paramOneBDropdown.value[0]);
                                 const paramTwo = paramLabelToValue(paramTwoDropdown.value[0]);
                                 const paramTwoB = paramLabelToValue(paramTwoBDropdown.value[0]);
-                                const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
-                                const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
-                                const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
-                                const result_2 = await create_LOD20(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
+                                const paramEnvOne = paramLabelToValue(materialsImpactsDropdownOne.value[0]);
+                                const paramEnvTwo = paramLabelToValue(materialsImpactsDropdownTwo.value[0]);
+                                let paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
+                                let paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`
+                                if (paramOneFullNameLabel == paramTwoFullNameLabel) {
+                                    paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
+                                    paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
+                                }
+                                const result_2 = await create_LOD20(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
                                 result_2 ? await onSetTransparencyWithColors(1) : ''
                                 if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                     onSetLayout({target:'down'})
@@ -1425,10 +1566,15 @@ export function UrbanViewer () {
                                             const paramOneB = paramLabelToValue(paramOneBDropdown.value[0]);
                                             const paramTwo = paramLabelToValue(paramTwoDropdown.value[0]);
                                             const paramTwoB = paramLabelToValue(paramTwoBDropdown.value[0]);
-                                            const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
-                                            const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
-                                            const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
-                                            const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,paramChoice)
+                                            const paramEnvOne = paramLabelToValue(materialsImpactsDropdownOne.value[0]);
+                                            const paramEnvTwo = paramLabelToValue(materialsImpactsDropdownTwo.value[0]);
+                                            let paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
+                                            let paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`
+                                            if (paramOneFullNameLabel == paramTwoFullNameLabel) {
+                                                paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
+                                                paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
+                                            }
+                                            const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,paramChoice)
                                             result_2 ? await onSetTransparencyWithColors(1) : ''
                                             if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                                 onSetLayout({target:'down'})
@@ -1443,10 +1589,15 @@ export function UrbanViewer () {
                                             const paramOneB = paramLabelToValue(paramOneBDropdown.value[0]);
                                             const paramTwo = paramLabelToValue(paramTwoDropdown.value[0]);
                                             const paramTwoB = paramLabelToValue(paramTwoBDropdown.value[0]);
-                                            const paramEnv = paramLabelToValue(materialsImpactsDropdown.value[0]);
-                                            const paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
-                                            const paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`;
-                                            const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnv!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,paramChoice)
+                                            const paramEnvOne = paramLabelToValue(materialsImpactsDropdownOne.value[0]);
+                                            const paramEnvTwo = paramLabelToValue(materialsImpactsDropdownTwo.value[0]);
+                                            let paramOneFullNameLabel = `${paramOneDropdown.value[0]}${paramOneBDropdown.value[0]=='1'?'':`/${paramOneBDropdown.value[0]}`}`
+                                            let paramTwoFullNameLabel = `${paramTwoDropdown.value[0]}${paramTwoBDropdown.value[0]=='1'?'':`/${paramTwoBDropdown.value[0]}`}`
+                                            if (paramOneFullNameLabel == paramTwoFullNameLabel) {
+                                                paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
+                                                paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
+                                            }
+                                            const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,paramChoice)
                                             result_2 ? await onSetTransparencyWithColors(1) : ''
                                             if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                                 onSetLayout({target:'down'})

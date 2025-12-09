@@ -35,7 +35,7 @@ type PerModelGrouped = Record<string, GroupedData>;
  * @param value - Normalized number between 0 and 1
  * @returns The corresponding color range key
  */
-const colorForValue = (value: number): ColorRangeKey => {
+export const colorForValue = (value: number): ColorRangeKey => {
     if (value >= 0 && value < 0.20) return "color_0_02";
     if (value >= 0.20 && value < 0.40) return "color_02_04";
     if (value >= 0.40 && value < 0.60) return "color_04_06";

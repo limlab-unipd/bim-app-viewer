@@ -22,7 +22,8 @@ export async function create_LOD21 (
         paramOneB:string|undefined,
         paramTwo:string|undefined,
         paramTwoB:string|undefined,
-        paramEnv:string,
+        paramEnvOne:string,
+        paramEnvTwo:string,
         previousLoadedSuburbs:string[],
         paramOneFullNameLabel:string,
         paramTwoFullNameLabel:string,
@@ -89,7 +90,8 @@ export async function create_LOD21 (
         
         //init variables
         const pChoice = paramChoice=='Param1' ? 'param_one' : 'param_two'
-        const impact = paramEnv!='weight' ? paramEnv : 'None'
+        const impactOne = paramEnvOne!='weight' ? paramEnvOne : 'None'
+        const impactTwo = paramEnvTwo!='weight' ? paramEnvTwo : 'None'
     
         //create new base model for geometries
         const bytes = FRAGS.EditUtils.newModel({ raw: true });
@@ -101,23 +103,25 @@ export async function create_LOD21 (
         world.scene.three.add(newModel.object);
         await fragments.core.update(true);
     
-        let coeffOne = 1,coeffOneB = 1,coeffTwo = 1,coeffTwoB = 1
+        let coeffOne = 1, coeffOneB = 1, coeffTwo = 1, coeffTwoB = 1
         const envMaterials = environmentalArrowData.getChild('Material category')
-        if (paramEnv != 'weight'){ //se i parametri sono dei materiali (non serve fare il check sulla popolazione perche' e' gia fatto in precedenza e neanche si entra in questo componente)
-            if (envMaterials?.includes(paramOne)){
-                coeffOne = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOne))
+        if (paramEnvOne != 'weight'){ //se i parametri sono dei materiali (non serve fare il check sulla popolazione perche' e' gia fatto in precedenza e neanche si entra in questo componente)
+            if (envMaterials?.includes(paramOne)){ //questo check serve per verificare che il parametro sia un materiale e non un dimensionale (gross floor area, net floor area, ecc..)
+                coeffOne = Number(getArrowLineValue(environmentalArrowData,paramEnvOne,'Material category',paramOne))
                 if (!coeffOne) addOverlay(BUI.html`<b>${paramOne}</b> environmental impact coefficient not found.`, 'warning')
             }
             if (envMaterials?.includes(paramOneB)){
-                coeffOneB = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramOneB))
+                coeffOneB = Number(getArrowLineValue(environmentalArrowData,paramEnvOne,'Material category',paramOneB))
                 if (!coeffOneB) addOverlay(BUI.html`<b>${paramOneB}</b> environmental impact coefficient not found.`, 'warning')
             }
+        }
+        if (paramEnvTwo != 'weight'){ //se i parametri sono dei materiali (non serve fare il check sulla popolazione perche' e' gia fatto in precedenza e neanche si entra in questo componente)
             if (envMaterials?.includes(paramTwo)){
-                coeffTwo = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwo))
+                coeffTwo = Number(getArrowLineValue(environmentalArrowData,paramEnvTwo,'Material category',paramTwo))
                 if (!coeffTwo) addOverlay(BUI.html`<b>${paramTwo}</b> environmental impact coefficient not found.`, 'warning')
             }
             if (envMaterials?.includes(paramTwoB)){
-                coeffTwoB = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',paramTwoB))
+                coeffTwoB = Number(getArrowLineValue(environmentalArrowData,paramEnvTwo,'Material category',paramTwoB))
                 if (!coeffTwoB) addOverlay(BUI.html`<b>${paramTwoB}</b> environmental impact coefficient not found.`, 'warning')
             }
         }
@@ -154,22 +158,32 @@ export async function create_LOD21 (
                 dataOfBuildings[buildingIdentfr].shape = row.geometry_wkt
                 dataOfBuildings[buildingIdentfr].shapeHeight = row.BLDGHEI
                 
-                let allMaterialsImpact = 0
-                if ([paramOne,paramOneB,paramTwo,paramTwoB].includes('All materials')){ //se uno qualsiasi dei parametri e' all materials allora calcola:
+                let allMaterialsImpactOne = 0, allMaterialsImpactTwo = 0
+                if ([paramOne,paramOneB].includes('All materials')){ //se uno qualsiasi dei parametri e' all materials allora calcola:
                     // qui viene solo effettuata la somma, poi l'assegnazione al parametro corretto viene fatta sotto
                     for (const material of allMaterials) {
-                        if (paramEnv!='weight'){ // l'impatto totale
-                            allMaterialsImpact += Number(row[material]) * Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+                        if (paramEnvOne!='weight'){ // l'impatto totale
+                            allMaterialsImpactOne += Number(row[material]) * Number(getArrowLineValue(environmentalArrowData,paramEnvOne,'Material category',material))
                         } else { // oppure il peso totale
-                            allMaterialsImpact += Number(row[material])
+                            allMaterialsImpactOne += Number(row[material])
+                        }
+                    }
+                }
+                if ([paramTwo,paramTwoB].includes('All materials')){ //se uno qualsiasi dei parametri e' all materials allora calcola:
+                    // qui viene solo effettuata la somma, poi l'assegnazione al parametro corretto viene fatta sotto
+                    for (const material of allMaterials) {
+                        if (paramEnvTwo!='weight'){ // l'impatto totale
+                            allMaterialsImpactTwo += Number(row[material]) * Number(getArrowLineValue(environmentalArrowData,paramEnvTwo,'Material category',material))
+                        } else { // oppure il peso totale
+                            allMaterialsImpactTwo += Number(row[material])
                         }
                     }
                 }
                 // casi: parametro = All materials, oppure 1, oppure uno degli altri valori (materiale o dimensionale)
-                const final_one = paramOne=='All materials' ? allMaterialsImpact : paramOne=='1' ? 1 : Number(row[paramOne] * coeffOne) //il coefficiente singolo gia' controlla se il paramEnv e' il weight o un impact e anche se il parametro e' un materiale o un dimensionale
-                const final_oneB = paramOneB=='All materials' ? allMaterialsImpact : paramOneB=='1' ? 1 : Number(row[paramOneB] * coeffOneB)
-                const final_two = paramTwo=='All materials' ? allMaterialsImpact : paramTwo=='1' ? 1 : Number(row[paramTwo] * coeffTwo)
-                const final_twoB = paramTwoB=='All materials' ? allMaterialsImpact : paramTwoB=='1' ? 1 : Number(row[paramTwoB] * coeffTwoB)
+                const final_one = paramOne=='All materials' ? allMaterialsImpactOne : paramOne=='1' ? 1 : Number(row[paramOne] * coeffOne) //il coefficiente singolo gia' controlla se il paramEnv e' il weight o un impact e anche se il parametro e' un materiale o un dimensionale
+                const final_oneB = paramOneB=='All materials' ? allMaterialsImpactOne : paramOneB=='1' ? 1 : Number(row[paramOneB] * coeffOneB)
+                const final_two = paramTwo=='All materials' ? allMaterialsImpactTwo : paramTwo=='1' ? 1 : Number(row[paramTwo] * coeffTwo)
+                const final_twoB = paramTwoB=='All materials' ? allMaterialsImpactTwo : paramTwoB=='1' ? 1 : Number(row[paramTwoB] * coeffTwoB)
 
                 dataOfBuildings[buildingIdentfr].param_one = final_one / final_oneB
                 dataOfBuildings[buildingIdentfr].param_two = final_two / final_twoB
@@ -428,8 +442,9 @@ export async function create_LOD21 (
                 UVL: lod,
                 Name: name,
                 Param1: paramOneFullNameLabel,
+                ImpactOne: impactOne,
                 Param2: paramTwoFullNameLabel,
-                Impact: impact,
+                ImpactTwo: impactTwo,
                 ColorScale: colorScaleDropdown.value[0] ? colorScaleDropdown.value[0] : 'gnylrd',
                 Normalization: false,
             }

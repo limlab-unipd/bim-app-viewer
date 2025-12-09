@@ -30,7 +30,8 @@ import { readArrow } from './readArrow'
  * @param paramOneB Normalization parameter for paramOne.
  * @param paramTwo Secondary parameter.
  * @param paramTwoB Normalization parameter for paramTwo.
- * @param paramEnv Environmental category for coefficients.
+ * @param paramEnvOne Environmental category used to retrieve impact coefficients for param one.
+ * @param paramEnvTwo Environmental category used to retrieve impact coefficients for param two.
  * @param previousLoadedSuburbs Tracks already loaded suburbs to avoid duplicates.
  * @param paramOneFullNameLabel Label for paramOne in the UI.
  * @param paramTwoFullNameLabel Label for paramTwo in the UI.
@@ -49,7 +50,8 @@ export async function create_LOD1 (
         paramOneB:string|undefined,
         paramTwo:string|undefined,
         paramTwoB:string|undefined,
-        paramEnv:string,
+        paramEnvOne:string,
+        paramEnvTwo:string,
         previousLoadedSuburbs:string[],
         paramOneFullNameLabel:string,
         paramTwoFullNameLabel:string,
@@ -202,10 +204,10 @@ export async function create_LOD1 (
                 }
                 for (const material of listMaterials) {
                     let coeff = 1
-                    if (paramEnv!='weight' && envMaterials?.includes(material)){
-                        coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+                    if (paramEnvOne!='weight' && envMaterials?.includes(material)){
+                        coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvOne,'Material category',material))
                         if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                        impact = paramEnv
+                        impact = paramEnvOne
                     }
                     for (const row of dataOfSuburbSectionKey[section]){
                         const value = Number(row[material]) * Number(coeff)
@@ -227,10 +229,10 @@ export async function create_LOD1 (
                 }
                 for (const material of listMaterials) {
                     let coeff = 1
-                    if (paramEnv!='weight' && envMaterials?.includes(material)){
-                        coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+                    if (paramEnvOne!='weight' && envMaterials?.includes(material)){
+                        coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvOne,'Material category',material))
                         if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                        impact = paramEnv
+                        impact = paramEnvOne
                     }
                     for (const row of dataOfSuburbSectionKey[section]){
                         const value = Number(row[material]) * Number(coeff)
@@ -252,10 +254,10 @@ export async function create_LOD1 (
                 }
                 for (const material of listMaterials) {
                     let coeff = 1
-                    if (paramEnv!='weight' && envMaterials?.includes(material)){
-                        coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+                    if (paramEnvTwo!='weight' && envMaterials?.includes(material)){
+                        coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvTwo,'Material category',material))
                         if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                        impact = paramEnv
+                        impact = paramEnvTwo
                     }
                     for (const row of dataOfSuburbSectionKey[section]){
                         const value = Number(row[material]) * Number(coeff)
@@ -277,10 +279,10 @@ export async function create_LOD1 (
                 }
                 for (const material of listMaterials) {
                     let coeff = 1
-                    if (paramEnv!='weight' && envMaterials?.includes(material)){
-                        coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+                    if (paramEnvTwo!='weight' && envMaterials?.includes(material)){
+                        coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvTwo,'Material category',material))
                         if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                        impact = paramEnv
+                        impact = paramEnvTwo
                     }
                     for (const row of dataOfSuburbSectionKey[section]){
                         const value = Number(row[material]) * Number(coeff)
@@ -309,6 +311,8 @@ export async function create_LOD1 (
         const blocks: any[] = []
         const regenerateFragments = async () => {
             const elementsData: FRAGS.NewElementData[] = [];
+            const pSets: {[key:string]:FRAGS.RawItemData} = {}
+            const pSetsData: {[key:string]:FRAGS.RawItemData} = {}
             await fragments.core.editor.reset(newModel.modelId)
             // Create base items
             const matId = fragments.core.editor.createMaterial(
@@ -388,8 +392,43 @@ export async function create_LOD1 (
                         },
                     ],
                 });
+
+
+                pSets[bar_name] = { //object containing one pset per each suburb
+                    category: "IFCPROPERTYSET",
+                    guid: generateUUID(),
+                    data: {
+                        Name: { value: "EnvironmentalAnalysisData" },
+                        BarHeight: { value: paramOneFullNameLabel },
+                        BarColor: { value: paramTwoFullNameLabel },
+                        Suburb: { value: bar_name },
+                        [paramOneFullNameLabel]: { value: formatNumber(set.param_one) },
+                        [paramTwoFullNameLabel]: { value: formatNumber(set.param_two) },
+                    }
+                }
+                pSetsData[bar_name] = {
+                    category: "IFCPROPERTYSET",
+                    guid: generateUUID(),
+                    data: {
+                        Name: { value: "EnvironmentalData" },
+                        Suburb: { value: bar_name },
+                    }
+                }
             }
-            await fragments.core.editor.createElements(newModel.modelId, elementsData);
+            const createdBars = await fragments.core.editor.createElements(newModel.modelId, elementsData);
+
+            if (!createdBars) return [false,null]
+            for (const bar of createdBars){
+                const barData = await bar.getData()
+                const suburb = (barData.Name as FRAGS.ItemAttribute).value
+                const pSet = pSets[suburb]
+                const pSetData = pSetsData[suburb]
+                //--------------------------------- A T T E N Z I O N E ---------------------------------
+                const pSetId = Number(fragments.core.editor.createItem(newModel.modelId,pSet)) + 1 //ATTENZIONE: non so perche' sia necessario questo + 1 --> serve per aumentare di uno il localId del pset
+                const pSetDataId = Number(fragments.core.editor.createItem(newModel.modelId,pSetData)) + 1 //ATTENZIONE: non so perche' sia necessario questo + 1 --> serve per aumentare di uno il localId del pset
+                await fragments.core.editor.relate(newModel.modelId, bar.localId, 'IsDefinedBy', [pSetId,pSetDataId])
+            }
+            
             await fragments.core.editor.applyChanges(newModel.modelId)
             await fragments.core.editor.save(newModel.modelId)
             await fragments.core.update(true);

@@ -35,7 +35,8 @@ import { formatNumber, getArrowLineValue, normalizeParamOne } from './conversion
  * @param paramOneB Denominator parameter used for normalizing `paramOne`.
  * @param paramTwo Secondary numerator parameter used for color mapping.
  * @param paramTwoB Denominator parameter used for normalizing `paramTwo`.
- * @param paramEnv Environmental category used to retrieve impact coefficients.
+ * @param paramEnvOne Environmental category used to retrieve impact coefficients for param one.
+ * @param paramEnvTwo Environmental category used to retrieve impact coefficients for param two.
  * @param panelRight UI panel where the analysis history table will be appended.
  * @param paramOneFullNameLabel Full descriptive label of the first parameter.
  * @param paramTwoFullNameLabel Full descriptive label of the second parameter.
@@ -52,7 +53,8 @@ export async function create_LOD0 (
         paramOneB:string|undefined,
         paramTwo:string|undefined,
         paramTwoB:string|undefined,
-        paramEnv:string,
+        paramEnvOne:string,
+        paramEnvTwo:string,
         panelRight:BUI.Panel,
         paramOneFullNameLabel:string,
         paramTwoFullNameLabel:string,
@@ -157,10 +159,10 @@ export async function create_LOD0 (
         for (const material of listMaterials){
             const col = arrowData.getChild(material)
             let coeff = 1
-            if (paramEnv!='weight' && envMaterials?.includes(material)){ //se il paramEnv non è weight e il paramOne è nella lista dei materiali nel file dei coefficienti => prendi il coefficiente
-                coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+            if (paramEnvOne!='weight' && envMaterials?.includes(material)){ //se il paramEnvOne non è weight e il paramOne è nella lista dei materiali nel file dei coefficienti => prendi il coefficiente
+                coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvOne,'Material category',material))
                 if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                impact = paramEnv
+                impact = paramEnvOne
             }
             for (let i = 0; i < arrowData.numRows; i++) {
                 const suburb = colSuburbs.get(i)
@@ -187,10 +189,10 @@ export async function create_LOD0 (
         for (const material of listMaterials){
             const col = arrowData.getChild(material)
             let coeff = 1
-            if (paramEnv!='weight' && envMaterials?.includes(material)){
-                coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+            if (paramEnvOne!='weight' && envMaterials?.includes(material)){
+                coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvOne,'Material category',material))
                 if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                impact = paramEnv
+                impact = paramEnvOne
             }
             for (let i = 0; i < arrowData.numRows; i++) {
                 const suburb = colSuburbs.get(i)
@@ -217,10 +219,10 @@ export async function create_LOD0 (
         for (const material of listMaterials){
             const col = arrowData.getChild(material)
             let coeff = 1
-            if (paramEnv!='weight' && envMaterials?.includes(material)){
-                coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+            if (paramEnvTwo!='weight' && envMaterials?.includes(material)){
+                coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvTwo,'Material category',material))
                 if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                impact = paramEnv
+                impact = paramEnvTwo
             }
             for (let i = 0; i < arrowData.numRows; i++) {
                 const suburb = colSuburbs.get(i)
@@ -247,10 +249,10 @@ export async function create_LOD0 (
         for (const material of listMaterials) {
             const col = arrowData.getChild(material)
             let coeff = 1
-            if (paramEnv!='weight' && envMaterials?.includes(material)){
-                coeff = Number(getArrowLineValue(environmentalArrowData,paramEnv,'Material category',material))
+            if (paramEnvTwo!='weight' && envMaterials?.includes(material)){
+                coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvTwo,'Material category',material))
                 if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                impact = paramEnv
+                impact = paramEnvTwo
             }
             for (let i = 0; i < arrowData.numRows; i++) {
                 const suburb = colSuburbs.get(i)
