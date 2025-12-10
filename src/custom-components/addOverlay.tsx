@@ -4,7 +4,7 @@ import * as BUI from '@thatopen/ui'
  * Add a div container on top of the page to show a message.
  *
  * @param sentence - The message to show written in BUI.html`` format
- * @param urgency - If it is a normale or warning message, default='normal', options:'normal','warning'
+ * @param urgency - If it is a normal or warning message, default='normal', options:'normal','warning'
  * @param time - Time (in milliseconds) that overlay is shown up
  * @returns The message print on top of the page
  */

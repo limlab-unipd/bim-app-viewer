@@ -119,7 +119,7 @@ export async function create_LOD0 (
     let popArrow_AREA_SQKM, popArrow_Person, popArrow_Suburb: any
     let sumPerson:{[key:string]:number}={}, sumAreaSQKM:{[key:string]:number}={}
     let sumOne:{[key:string]:number}={}, sumOneB:{[key:string]:number}={}, sumTwo:{[key:string]:number}={}, sumTwoB:{[key:string]:number}={}
-    let impact:string='None'
+    let impactOne:string='None', impactTwo:string='None'
     const paramOnePopCheck = paramOne.includes('Population')
     const paramOneBPopCheck = paramOneB.includes('Population')
     const paramTwoPopCheck = paramTwo.includes('Population')
@@ -162,7 +162,7 @@ export async function create_LOD0 (
             if (paramEnvOne!='weight' && envMaterials?.includes(material)){ //se il paramEnvOne non è weight e il paramOne è nella lista dei materiali nel file dei coefficienti => prendi il coefficiente
                 coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvOne,'Material category',material))
                 if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                impact = paramEnvOne
+                impactOne = paramEnvOne
             }
             for (let i = 0; i < arrowData.numRows; i++) {
                 const suburb = colSuburbs.get(i)
@@ -192,7 +192,7 @@ export async function create_LOD0 (
             if (paramEnvOne!='weight' && envMaterials?.includes(material)){
                 coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvOne,'Material category',material))
                 if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                impact = paramEnvOne
+                impactOne = paramEnvOne
             }
             for (let i = 0; i < arrowData.numRows; i++) {
                 const suburb = colSuburbs.get(i)
@@ -222,7 +222,7 @@ export async function create_LOD0 (
             if (paramEnvTwo!='weight' && envMaterials?.includes(material)){
                 coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvTwo,'Material category',material))
                 if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                impact = paramEnvTwo
+                impactTwo = paramEnvTwo
             }
             for (let i = 0; i < arrowData.numRows; i++) {
                 const suburb = colSuburbs.get(i)
@@ -252,7 +252,7 @@ export async function create_LOD0 (
             if (paramEnvTwo!='weight' && envMaterials?.includes(material)){
                 coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvTwo,'Material category',material))
                 if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                impact = paramEnvTwo
+                impactTwo = paramEnvTwo
             }
             for (let i = 0; i < arrowData.numRows; i++) {
                 const suburb = colSuburbs.get(i)
@@ -439,10 +439,11 @@ export async function create_LOD0 (
         UVL: number,
         Name: string,
         Param1: string,
+        Impact1: string,
         Param2: string,
-        Impact: string,
+        Impact2: string,
         ColorScale:any,
-        Normalization:boolean,
+        NormHeight:boolean,
     }
     const historyTable = document.createElement("bim-table") as BUI.Table<historyTableType>
     historyTable.id = 'history-table'
@@ -451,20 +452,22 @@ export async function create_LOD0 (
             UVL: lod,
             Name: name,
             Param1: paramOneFullNameLabel,
+            Impact1: impactOne,
             Param2: paramTwoFullNameLabel,
-            Impact: impact,
+            Impact2: impactTwo,
             ColorScale: colorScaleDropdown.value[0] ? colorScaleDropdown.value[0] : 'gnylrd',
-            Normalization: normalizationCheckbox.checked,
+            NormHeight: normalizationCheckbox.checked,
         }
     }]
     const columns: (keyof historyTableType | BUI.ColumnData)[] = [
         { name:'UVL', width:'3rem'},
         { name:'Name', width:'5rem'},
         { name:'Param1', width:'5rem'},
+        { name:'Impact1', width:'5rem'},
         { name:'Param2', width:'5rem'},
-        { name:'Impact', width:'5rem'},
+        { name:'Impact2', width:'5rem'},
         { name:'ColorScale', width:'5rem'},
-        { name:'Normalization', width:'5rem'},
+        { name:'NormHeight', width:'5rem'},
     ]
     historyTable.columns = columns;
     historyTable.preserveStructureOnFilter = true

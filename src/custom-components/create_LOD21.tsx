@@ -90,6 +90,7 @@ export async function create_LOD21 (
         
         //init variables
         const pChoice = paramChoice=='Param1' ? 'param_one' : 'param_two'
+        const paramChoiceFullNameLabel = paramChoice=='Param1' ? paramOneFullNameLabel : paramTwoFullNameLabel
         const impactOne = paramEnvOne!='weight' ? paramEnvOne : 'None'
         const impactTwo = paramEnvTwo!='weight' ? paramEnvTwo : 'None'
     
@@ -273,6 +274,8 @@ export async function create_LOD21 (
         const buildings: any[] = []
         const regenerateFragments = async () => {
             const elementsData: FRAGS.NewElementData[] = [];
+            const pSets: {[key:string]:FRAGS.RawItemData} = {}
+            const pSetsData: {[key:string]:FRAGS.RawItemData} = {}
             await fragments.core.editor.reset(newModel.modelId)
             // Create base items
             const matId = fragments.core.editor.createMaterial(
@@ -296,7 +299,7 @@ export async function create_LOD21 (
             //creation of each building
             for (const [key,set] of Object.entries(dataForBars)) {
                 //const building_position = new THREE.Vector3(0,0,0)
-                const building_name = set.identfr
+                const building_name = Number(set.identfr).toString()
                 const building_height = set.shapeHeight
                 const centr_x = set.centroid_x! - globalCentroid.x / coordinatesScaleFactor
                 const centr_y = set.centroid_y! - globalCentroid.y / coordinatesScaleFactor
@@ -371,7 +374,7 @@ export async function create_LOD21 (
                         Name: { value: building_name },
                         Suburb: { value: set.suburb ? set.suburb : 'None' },
                         Section: { value: set.section ? set.section : 'None' },
-                        ParamName: { value: paramOneFullNameLabel },
+                        ParamName: { value: paramChoiceFullNameLabel },
                         ParamValue: { value: set[pChoice] },
                         //Aluminium: { value: getArrowLineValue(arrowData, 'Aluminm', 'identfr', set.identfr!) },
                         //Concrete: { value: getArrowLineValue(arrowData, 'Concret', 'identfr', set.identfr!) },
@@ -385,8 +388,40 @@ export async function create_LOD21 (
                         },
                     ],
                 });
+                
+                pSets[building_name] = { //object containing one pset per each suburb
+                    category: "IFCPROPERTYSET",
+                    guid: generateUUID(),
+                    data: {
+                        Name: { value: "EnvironmentalAnalysisData" },
+                        Suburb: { value: building_name },
+                        BuildingColor: { value: paramChoiceFullNameLabel },
+                        [paramChoiceFullNameLabel]: { value: formatNumber(Number(set[pChoice])) },
+                    }
+                }
+                pSetsData[building_name] = {
+                    category: "IFCPROPERTYSET",
+                    guid: generateUUID(),
+                    data: {
+                        Name: { value: "EnvironmentalData" },
+                        Suburb: { value: building_name },
+                    }
+                }
             }
-            await fragments.core.editor.createElements(newModel.modelId, elementsData);
+            const createdBars = await fragments.core.editor.createElements(newModel.modelId, elementsData);
+
+            if (!createdBars) return [false,null]
+            for (const bar of createdBars){
+                const barData = await bar.getData()
+                const suburb = (barData.Name as FRAGS.ItemAttribute).value
+                const pSet = pSets[suburb]
+                const pSetData = pSetsData[suburb]
+                //--------------------------------- A T T E N Z I O N E ---------------------------------
+                const pSetId = Number(fragments.core.editor.createItem(newModel.modelId,pSet)) + 1 //ATTENZIONE: non so perche' sia necessario questo + 1 --> serve per aumentare di uno il localId del pset
+                const pSetDataId = Number(fragments.core.editor.createItem(newModel.modelId,pSetData)) + 1 //ATTENZIONE: non so perche' sia necessario questo + 1 --> serve per aumentare di uno il localId del pset
+                await fragments.core.editor.relate(newModel.modelId, bar.localId, 'IsDefinedBy', [pSetId,pSetDataId])
+            }
+
             await fragments.core.editor.applyChanges(newModel.modelId)
             await fragments.core.editor.save(newModel.modelId)
             await fragments.core.update(true);
@@ -400,7 +435,7 @@ export async function create_LOD21 (
         const endTime = performance.now() // End timer
         const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
         console.log(`Bars created in ${loadTime} seconds`)
-        addOverlay(BUI.html`Bars for <b><i>${name}</i></b> suburb created in <b>${loadTime}</b> seconds.`)
+        addOverlay(BUI.html`Shape of buildings for <b><i>${name}</i></b> created in <b>${loadTime}</b> seconds.`)
     
         for (const row of buildings){
             const block = row.data.Name
@@ -441,12 +476,12 @@ export async function create_LOD21 (
             data: {
                 UVL: lod,
                 Name: name,
-                Param1: paramOneFullNameLabel,
-                ImpactOne: impactOne,
-                Param2: paramTwoFullNameLabel,
-                ImpactTwo: impactTwo,
+                Param1: pChoice=='param_one' ? paramOneFullNameLabel : '',
+                Impact1: pChoice=='param_one' ? impactOne : '',
+                Param2: pChoice=='param_two' ? paramTwoFullNameLabel : '',
+                Impact2: pChoice=='param_two' ? impactTwo : '',
                 ColorScale: colorScaleDropdown.value[0] ? colorScaleDropdown.value[0] : 'gnylrd',
-                Normalization: false,
+                NormHeight: false,
             }
         })
         historyTable?.requestUpdate()

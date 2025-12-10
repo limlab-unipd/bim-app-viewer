@@ -11,7 +11,7 @@ import { readArrow } from '../custom-components/readArrow'
 import { addOverlay } from '../custom-components/addOverlay'
 import { createTable } from '../custom-components/createTable'
 import { suburbsBoundaries } from '../custom-components/suburbsBoundaries'
-import { colorForValue, setHighlighterStyles } from '../custom-components/colors'
+import { setHighlighterStyles } from '../custom-components/colors'
 import { create_LOD0 } from '../custom-components/create_LOD0'
 import { create_LOD1 } from '../custom-components/create_LOD1'
 import { create_LOD20 } from '../custom-components/create_LOD20'
@@ -19,7 +19,7 @@ import { create_LOD3 } from '../custom-components/create_LOD3'
 import Stats from 'stats.js'
 import { create_LOD21 } from '../custom-components/create_LOD21'
 import { normalizationHeight } from '../custom-components/parametersForGrouping'
-import { normalizeParamTwoForColorsNormalization, normalizeParamTwoForColorsOriginal } from '../custom-components/conversion'
+import { onNormalizeColorScale } from '../custom-components/conversion'
 
 
 export function UrbanViewer () {
@@ -535,100 +535,7 @@ export function UrbanViewer () {
                 const volumes = await model.getItemsVolume(selection)
             }
         }
-        let originalHighlighters: {
-            [key:string] : {
-                color_0_02: {},
-                color_02_04: {},
-                color_04_06: {},
-                color_06_08: {},
-                color_08_1: {}
-            }
-        } = {
-            '1': {
-                color_0_02: {},
-                color_02_04: {},
-                color_04_06: {},
-                color_06_08: {},
-                color_08_1: {}
-            },
-            '2': {
-                color_0_02: {},
-                color_02_04: {},
-                color_04_06: {},
-                color_06_08: {},
-                color_08_1: {}
-            },
-            '21': {
-                color_0_02: {},
-                color_02_04: {},
-                color_04_06: {},
-                color_06_08: {},
-                color_08_1: {}
-            },
-        }
-        const onNormalizeColorScale = async (target:BUI.Checkbox, uvl:string) => {
-            if (!target) return
-            //target.loading = true
-            const check = target.value //legge il valore prima che venga aggiornato il bottone
-            //console.log(check)
-            //console.log('clear highlighter')
-            //console.log(originalHighlighters)
-            highlighter.clear(`LOD_${uvl}_color_0_02`)
-            highlighter.clear(`LOD_${uvl}_color_02_04`)
-            highlighter.clear(`LOD_${uvl}_color_04_06`)
-            highlighter.clear(`LOD_${uvl}_color_06_08`)
-            highlighter.clear(`LOD_${uvl}_color_08_1`)
-            const mergedUvlModels: Record<string, Record<string | number, string>> = {}
-            for (const [modelName,model] of fragments.list.entries()) {
-                if (model.isDeltaModel) continue
-                if (modelName.includes(`LOD_${uvl}_`)) {
-                    mergedUvlModels[modelName] = {}
-                    //console.log(modelName)
-                    const items = await model.getItems()
-                    // get attributes and relations of bar
-                    const barsData = await fragments.getData({[modelName]:new Set(items.keys())},{
-                        attributesDefault: true,
-                        relationsDefault: {
-                            attributes: true,
-                            relations: true //here is the only point where could be accepted because there are only few relations to load and they are in a closed loop
-                        }
-                    })
-                    // get color of bar
-                    for (const itemData of barsData[modelName]){
-                        // get all psets localids of bar
-                        const itemId = (itemData._localId as FRAGS.ItemAttribute).value as number
-                        //const itemIs = itemData.
-                        const pSetsLocalIds: FRAGS.Identifier[] = [];
-                        (itemData.IsDefinedBy as FRAGS.ItemData[]).forEach((x:FRAGS.ItemData) => { //questo legge l'id del pset collegato dall'attributo IsDefinedBy della barra -> il ciclo serve se ci sono piu pset, restituisce tutti gli id
-                            pSetsLocalIds.push((x._localId as FRAGS.ItemAttribute).value)
-                        })
-                        //get psets data of previous local ids
-                        let pSets = await model.getItemsData(pSetsLocalIds)
-                        pSets = pSets.filter(item => (item.Name as FRAGS.ItemAttribute).value == 'EnvironmentalAnalysisData') //mantiene solo i pset con quel nome
-                        const param1 = (pSets[0][Object.keys(pSets[0])[7]] as FRAGS.ItemAttribute).value //HEIGHT e' sempre 7 per come e' scritto il pset
-                        const param2 = (pSets[0][Object.keys(pSets[0])[8]] as FRAGS.ItemAttribute).value //COLOR e' sempre 8 per come e' scritto il pset
-                        mergedUvlModels[modelName][itemId] = param2
-                    }
-                }
-            }
-            //console.log('mergedUvlModels',mergedUvlModels)
-            let normalizedMergedUvlModels
-            if (check) {
-                normalizedMergedUvlModels = normalizeParamTwoForColorsOriginal(mergedUvlModels)
-            } else {
-                normalizedMergedUvlModels = normalizeParamTwoForColorsNormalization(mergedUvlModels)
-            }
-            //console.log('normalizedMergedUvlModels',normalizedMergedUvlModels)
-            for (const [modelName, itemsList] of Object.entries(normalizedMergedUvlModels)){
-                for (const [itemId, value] of Object.entries(itemsList)) {
-                    const range = colorForValue(value)
-                    highlighter.highlightByID(`LOD_${uvl}_${range}`,{[modelName]:new Set<number>([Number(itemId)])},false,false)
-                }
-            }
-            //target.loading = false
-        }
-
-
+        
         //#region geometry creation
         const api = new WEBIFC.IfcAPI();
         api.SetWasmPath("https://unpkg.com/web-ifc@0.0.72/", true);
@@ -771,7 +678,9 @@ export function UrbanViewer () {
             if (!UVL) return value
             const uvl = UVL=='2.0' ? '2' : UVL=='2.1' ? '21' : UVL
             return BUI.html`
-                <bim-checkbox icon='mdi:eye' @click=${async ({target}:{target:BUI.Checkbox})=>{await onNormalizeColorScale(target,uvl)}}></bim-checkbox>`
+                <bim-checkbox icon='mdi:eye' @click=${async ({target}:{target:BUI.Checkbox}) => {
+                    await onNormalizeColorScale(components,target,uvl)
+                }}></bim-checkbox>`
         }
         uvlVisualizationTable.dataTransform.ColorScale = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
             const { UVL } = rowData

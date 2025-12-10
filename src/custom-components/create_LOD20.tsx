@@ -219,6 +219,8 @@ export async function create_LOD20 (
         const buildings: any[] = []
         const regenerateFragments = async () => {
             const elementsData: FRAGS.NewElementData[] = [];
+            const pSets: {[key:string]:FRAGS.RawItemData} = {}
+            const pSetsData: {[key:string]:FRAGS.RawItemData} = {}
             await fragments.core.editor.reset(newModel.modelId)
             // Create base items
             const matId = fragments.core.editor.createMaterial(
@@ -301,8 +303,43 @@ export async function create_LOD20 (
                         },
                     ],
                 });
+                
+                pSets[bar_name] = { //object containing one pset per each suburb
+                    category: "IFCPROPERTYSET",
+                    guid: generateUUID(),
+                    data: {
+                        Name: { value: "EnvironmentalAnalysisData" },
+                        BarHeight: { value: paramOneFullNameLabel },
+                        BarColor: { value: paramTwoFullNameLabel },
+                        Suburb: { value: bar_name },
+                        [paramOneFullNameLabel]: { value: formatNumber(set.param_one) },
+                        [paramTwoFullNameLabel]: { value: formatNumber(set.param_two) },
+                    }
+                }
+                pSetsData[bar_name] = {
+                    category: "IFCPROPERTYSET",
+                    guid: generateUUID(),
+                    data: {
+                        Name: { value: "EnvironmentalData" },
+                        Suburb: { value: bar_name },
+                    }
+                }
             }
-            await fragments.core.editor.createElements(newModel.modelId, elementsData);
+            
+            const createdBars = await fragments.core.editor.createElements(newModel.modelId, elementsData);
+
+            if (!createdBars) return [false,null]
+            for (const bar of createdBars){
+                const barData = await bar.getData()
+                const suburb = (barData.Name as FRAGS.ItemAttribute).value
+                const pSet = pSets[suburb]
+                const pSetData = pSetsData[suburb]
+                //--------------------------------- A T T E N Z I O N E ---------------------------------
+                const pSetId = Number(fragments.core.editor.createItem(newModel.modelId,pSet)) + 1 //ATTENZIONE: non so perche' sia necessario questo + 1 --> serve per aumentare di uno il localId del pset
+                const pSetDataId = Number(fragments.core.editor.createItem(newModel.modelId,pSetData)) + 1 //ATTENZIONE: non so perche' sia necessario questo + 1 --> serve per aumentare di uno il localId del pset
+                await fragments.core.editor.relate(newModel.modelId, bar.localId, 'IsDefinedBy', [pSetId,pSetDataId])
+            }
+
             await fragments.core.editor.applyChanges(newModel.modelId)
             await fragments.core.editor.save(newModel.modelId)
             await fragments.core.update(true);
@@ -316,7 +353,7 @@ export async function create_LOD20 (
         const endTime = performance.now() // End timer
         const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
         console.log(`Bars created in ${loadTime} seconds`)
-        addOverlay(BUI.html`Bars for <b><i>${name}</i></b> suburb created in <b>${loadTime}</b> seconds.`)
+        addOverlay(BUI.html`Bars for <b><i>${name}</i></b> created in <b>${loadTime}</b> seconds.`)
     
         for (const row of buildings){
             const block = row.data.Name
@@ -358,11 +395,11 @@ export async function create_LOD20 (
                 UVL: lod,
                 Name: name,
                 Param1: paramOneFullNameLabel,
-                ImpactOne: impactOne,
+                Impact1: impactOne,
                 Param2: paramTwoFullNameLabel,
-                ImpactTwo: impactTwo,
+                Impact2: impactTwo,
                 ColorScale: colorScaleDropdown.value[0] ? colorScaleDropdown.value[0] : 'gnylrd',
-                Normalization: normalizationCheckbox.checked,
+                NormHeight: normalizationCheckbox.checked,
             }
         })
         historyTable?.requestUpdate()

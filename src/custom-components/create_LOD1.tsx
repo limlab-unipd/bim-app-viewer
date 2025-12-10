@@ -71,7 +71,7 @@ export async function create_LOD1 (
     const startTime = performance.now() // Start timer
     const lod: number = 1
     //let name = ''
-    let impact: string = 'None'
+    let impactOne:string='None', impactTwo:string='None'
     let nameList = []
 
     //getting the selected bar name
@@ -207,7 +207,7 @@ export async function create_LOD1 (
                     if (paramEnvOne!='weight' && envMaterials?.includes(material)){
                         coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvOne,'Material category',material))
                         if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                        impact = paramEnvOne
+                        impactOne = paramEnvOne
                     }
                     for (const row of dataOfSuburbSectionKey[section]){
                         const value = Number(row[material]) * Number(coeff)
@@ -232,7 +232,7 @@ export async function create_LOD1 (
                     if (paramEnvOne!='weight' && envMaterials?.includes(material)){
                         coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvOne,'Material category',material))
                         if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                        impact = paramEnvOne
+                        impactOne = paramEnvOne
                     }
                     for (const row of dataOfSuburbSectionKey[section]){
                         const value = Number(row[material]) * Number(coeff)
@@ -257,7 +257,7 @@ export async function create_LOD1 (
                     if (paramEnvTwo!='weight' && envMaterials?.includes(material)){
                         coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvTwo,'Material category',material))
                         if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                        impact = paramEnvTwo
+                        impactTwo = paramEnvTwo
                     }
                     for (const row of dataOfSuburbSectionKey[section]){
                         const value = Number(row[material]) * Number(coeff)
@@ -282,7 +282,7 @@ export async function create_LOD1 (
                     if (paramEnvTwo!='weight' && envMaterials?.includes(material)){
                         coeff = Number(getArrowLineValue(environmentalArrowData,paramEnvTwo,'Material category',material))
                         if (!coeff) addOverlay(BUI.html`<b>${material}</b> environmental impact coefficient not found.`, 'warning')
-                        impact = paramEnvTwo
+                        impactTwo = paramEnvTwo
                     }
                     for (const row of dataOfSuburbSectionKey[section]){
                         const value = Number(row[material]) * Number(coeff)
@@ -393,7 +393,6 @@ export async function create_LOD1 (
                     ],
                 });
 
-
                 pSets[bar_name] = { //object containing one pset per each suburb
                     category: "IFCPROPERTYSET",
                     guid: generateUUID(),
@@ -480,10 +479,11 @@ export async function create_LOD1 (
                 UVL: lod,
                 Name: name,
                 Param1: paramOneFullNameLabel,
+                Impact1: impactOne,
                 Param2: paramTwoFullNameLabel,
-                Impact: impact,
+                Impact2: impactTwo,
                 ColorScale: colorScaleDropdown.value[0] ? colorScaleDropdown.value[0] : 'gnylrd',
-                Normalization: normalizationCheckbox.checked,
+                NormHeight: normalizationCheckbox.checked,
             }
         })
         historyTable?.requestUpdate()

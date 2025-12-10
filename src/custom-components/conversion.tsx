@@ -1,4 +1,10 @@
 import type { Table } from "apache-arrow"
+import * as BUI from '@thatopen/ui'
+import * as FRAGS from '@thatopen/fragments'
+import * as OBC from '@thatopen/components'
+import * as OBCF from '@thatopen/components-front'
+import { colorForValue } from "./colors"
+import { addOverlay } from "./addOverlay"
 
 /**
  * Converts currency code from IFC values to a user-friendly symbol.
@@ -162,11 +168,9 @@ export function normalizeParamOne(data: Record<string, any>): Record<string, any
 
 type NestedStringObject = Record<string, Record<string | number, string>>;
 export function normalizeParamTwoForColorsNormalization(input: NestedStringObject) {
-    const processed: Record<string, Record<string | number, number>> = {};
-
+    const output: Record<string, Record<string | number, number>> = {};
     // Estrai tutti i valori numerici validi (escludendo +/-Infinity)
     const allFiniteValues: number[] = [];
-
     for (const inner of Object.values(input)) {
         for (const raw of Object.values(inner)) {
             const num = Number(raw);
@@ -175,62 +179,116 @@ export function normalizeParamTwoForColorsNormalization(input: NestedStringObjec
             }
         }
     }
-
     const min = Math.min(...allFiniteValues);
     const max = Math.max(...allFiniteValues);
-
     // Ricostruisci l'oggetto con normalizzazione
     for (const [key, innerObj] of Object.entries(input)) {
         const newInner: Record<string | number, number> = {};
-
         for (const [subKey, raw] of Object.entries(innerObj)) {
             const num = Number(raw);
-
             let normalized: number;
-
             if (num === Infinity) normalized = 1;
             else if (num === -Infinity) normalized = 0;
             else normalized = (num - min) / (max - min);
-
             newInner[subKey] = normalized;
         }
-
-        processed[key] = newInner;
+        output[key] = newInner;
     }
-
-    return processed;
+    return output;
 }
+
 export function normalizeParamTwoForColorsOriginal(input: NestedStringObject) {
     const output: Record<string, Record<string | number, number>> = {};
-
     for (const [groupKey, innerObj] of Object.entries(input)) {
         const finiteValues: number[] = [];
-
         // Estrai solo valori finiti del gruppo
         for (const raw of Object.values(innerObj)) {
             const num = Number(raw);
             if (Number.isFinite(num)) finiteValues.push(num);
         }
-
         const min = Math.min(...finiteValues);
         const max = Math.max(...finiteValues);
-
         const newInner: Record<string | number, number> = {};
-
         for (const [subKey, raw] of Object.entries(innerObj)) {
             const num = Number(raw);
-
             let normalized: number;
-
             if (num === Infinity) normalized = 1;
             else if (num === -Infinity) normalized = 0;
             else normalized = (num - min) / (max - min);
-
             newInner[subKey] = normalized;
         }
-
         output[groupKey] = newInner;
     }
-
     return output;
+}
+
+
+export const onNormalizeColorScale = async (components: OBC.Components, target:BUI.Checkbox, uvl:string) => {
+    if (!target) return
+    const highlighter = components.get(OBCF.Highlighter)
+    const fragments = components.get(OBC.FragmentsManager)
+    addOverlay(BUI.html`Loading... Please wait a few seconds...`)
+    const check = target.value //legge il valore prima che venga aggiornato il bottone
+    //console.log(check)
+    //console.log('clear highlighter')
+    //console.log(originalHighlighters)
+    highlighter.clear(`LOD_${uvl}_color_0_02`)
+    highlighter.clear(`LOD_${uvl}_color_02_04`)
+    highlighter.clear(`LOD_${uvl}_color_04_06`)
+    highlighter.clear(`LOD_${uvl}_color_06_08`)
+    highlighter.clear(`LOD_${uvl}_color_08_1`)
+    const mergedUvlModels: Record<string, Record<string | number, string>> = {}
+    for (const [modelName,model] of fragments.list.entries()) {
+        if (model.isDeltaModel) continue
+        if (modelName.includes(`LOD_${uvl}_`)) {
+            mergedUvlModels[modelName] = {}
+            //console.log(modelName)
+            const items = await model.getItems()
+            // get attributes and relations of bar
+            const barsData = await fragments.getData({[modelName]:new Set(items.keys())},{
+                attributesDefault: true,
+                relationsDefault: {
+                    attributes: true,
+                    relations: true //here is the only point where could be accepted because there are only few relations to load and they are in a closed loop
+                }
+            })
+            // get color of bar
+            for (const itemData of barsData[modelName]){
+                // get all psets localids of bar
+                const itemId = (itemData._localId as FRAGS.ItemAttribute).value as number
+                //const itemIs = itemData.
+                const pSetsLocalIds: FRAGS.Identifier[] = [];
+                (itemData.IsDefinedBy as FRAGS.ItemData[]).forEach((x:FRAGS.ItemData) => { //questo legge l'id del pset collegato dall'attributo IsDefinedBy della barra -> il ciclo serve se ci sono piu pset, restituisce tutti gli id
+                    pSetsLocalIds.push((x._localId as FRAGS.ItemAttribute).value)
+                })
+                //get psets data of previous local ids
+                let pSets = await model.getItemsData(pSetsLocalIds)
+                pSets = pSets.filter(item => (item.Name as FRAGS.ItemAttribute).value == 'EnvironmentalAnalysisData') //mantiene solo i pset con quel nome
+                //const param1 = (pSets[0][Object.keys(pSets[0])[7]] as FRAGS.ItemAttribute).value //HEIGHT e' sempre 7 per come e' scritto il pset
+                let paramColor
+                if (uvl=="21"){ //distinzione tra uvl 21 e gli altri perchè per il 21 devi scegliere uno dei due parametri e quindi il pset ha due proprietà in meno
+                    paramColor = (pSets[0][Object.keys(pSets[0])[6]] as FRAGS.ItemAttribute).value //COLOR e' sempre 6 per come e' scritto il pset
+                } else {
+                    paramColor = (pSets[0][Object.keys(pSets[0])[8]] as FRAGS.ItemAttribute).value //COLOR e' sempre 8 per come e' scritto il pset
+                }
+                mergedUvlModels[modelName][itemId] = paramColor
+            }
+        }
+    }
+    //console.log('uvl',uvl)
+    //console.log('mergedUvlModels',mergedUvlModels)
+    let normalizedMergedUvlModels
+    if (check) {
+        normalizedMergedUvlModels = normalizeParamTwoForColorsOriginal(mergedUvlModels)
+    } else {
+        normalizedMergedUvlModels = normalizeParamTwoForColorsNormalization(mergedUvlModels)
+    }
+    //console.log('normalizedMergedUvlModels',normalizedMergedUvlModels)
+    for (const [modelName, itemsList] of Object.entries(normalizedMergedUvlModels)){
+        for (const [itemId, value] of Object.entries(itemsList)) {
+            const range = colorForValue(value)
+            highlighter.highlightByID(`LOD_${uvl}_${range}`,{[modelName]:new Set<number>([Number(itemId)])},false,false)
+        }
+    }
+    addOverlay(BUI.html`Color map updated!`)
 }
