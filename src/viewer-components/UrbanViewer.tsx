@@ -19,7 +19,7 @@ import { create_LOD3 } from '../custom-components/create_LOD3'
 import Stats from 'stats.js'
 import { create_LOD21 } from '../custom-components/create_LOD21'
 import { normalizationHeight } from '../custom-components/parametersForGrouping'
-import { onNormalizeColorScale } from '../custom-components/conversion'
+import { onNormalizeColorScale, paramLabelToValue } from '../custom-components/conversion'
 
 
 export function UrbanViewer () {
@@ -535,6 +535,15 @@ export function UrbanViewer () {
                 const volumes = await model.getItemsVolume(selection)
             }
         }
+        function takeScreenshot() {
+            if (!world.renderer) return
+            const dataURL = world.renderer.three.domElement.toDataURL("image/png");
+            const link = document.createElement("a");
+            link.href = dataURL;
+            link.download = "screenshot.png";
+            link.click();
+        }
+
         
         //#region geometry creation
         const api = new WEBIFC.IfcAPI();
@@ -1257,48 +1266,6 @@ export function UrbanViewer () {
                 <bim-option label='Timber' value="Timber" style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
         )
-        const paramLabelToValue = ((value:string|undefined) => {
-            const paramConversionMap: Record<string, string> = {
-                '1': '1',
-                'Urban area (km²)': 'Urban area (km²)',
-                'Population (number)': 'Population',
-                'Building height (m)': 'BLDGHEI',
-                'Building footprint area (m²)': 'grnd_fl',
-                'Building gross floor area (m²)': 'grss_fl',
-                'Building net floor area (m²)': 'usbl_fl',
-                'Building weight (tonnes)': 'Tonnes',
-                'All materials': 'All materials',
-                'Aluminium': 'Aluminm',
-                'Bitumen': 'Bitumen',
-                'Carpet': 'Carpet',
-                'Ceramics': 'Ceramcs',
-                'Concrete': 'Concret',
-                'Copper': 'Copper',
-                'Glass': 'Glass',
-                'Insulation': 'Insultn',
-                'Paint': 'Paint',
-                'Plasterboard': 'Plstrbr',
-                'Plastics': 'Plastcs',
-                'Sand and stone': 'Snd_nd_',
-                'Steel': 'Steel',
-                'Timber': 'Timber',
-                'Weight (tonnes)': 'weight',
-                'Global Warming Potential (kg CO₂ eq)': 'Global warming (GWP100a)',
-                'Abiotic Depletion - elem., econ. reserve (kg SB eq)': 'Abiotic depletion (elem., econ. reserve)',
-                'Abiotic depletion - fossil fuels (MJ NCV)': 'Abiotic depletion (Fossil fuels)',
-                'Ozone Layer Depletion (kg CFC-11 eq)': 'Ozone layer depletion (ODP)',
-                'Photochemical Oxidation (kg C2H4 eq)': 'Photochemical oxidation',
-                'Acidification (kg SO2 eq)': 'Acidification',
-                'Eutrophication (kg PO4--- eq)': 'Eutrophication',
-                'Particulate Matter (kg PM2.5)': 'Particulate matter',
-                'Human toxicity - cancer (CTUh)': 'Human toxicity, cancer',
-                'Human toxicit - non-cancer (CTUh)': 'Human toxicity, non-cancer',
-                'Freshwater Ecotoxicity (CTUe)': 'Freshwater ecotoxicity',
-                'Ionizing Radiation H (kBq U235 eq)': 'Ionizing radiation HH',
-                'Water Scarcity (m3 eq)': 'Water Scarcity',
-            }
-            return value ? paramConversionMap[value] : undefined
-        })
 
         const normalizationCheckbox = BUI.Component.create<BUI.Checkbox>(
             () => BUI.html`
@@ -1594,6 +1561,13 @@ export function UrbanViewer () {
                         icon="tabler:world-cog"
                         tooltip-title="Scene Visibility Settings"
                         @click=${onSetLayout}>
+                    </bim-button>
+                    <bim-button
+                        id='screenshot'
+                        style="display:none"
+                        icon="streamline-flex:screenshot-solid"
+                        tooltip-title="Take screenshot"
+                        @click=${takeScreenshot}>
                     </bim-button>
                     ${centerViewButton}
                     <bim-button

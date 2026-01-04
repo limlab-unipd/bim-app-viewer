@@ -8,7 +8,7 @@ import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { allMaterials, barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
-import { formatNumber, getArrowLineValue, normalizeParamOne } from './conversion'
+import { formatNumber, getArrowLineValue, normalizeParamOne, valueToParamLabel } from './conversion'
 import { sa1Boundaries } from './suburbsBoundaries'
 import { readArrow } from './readArrow'
 
@@ -107,6 +107,7 @@ export async function create_LOD1 (
             param_two?: number;
             centroid_x_local?:number[];
             centroid_y_local?:number[];
+            [key:string]:unknown;
         }
         const dataSuburbBySection: {[key:string]:sectionObject} = {} //all buildings of single suburb
 
@@ -293,9 +294,18 @@ export async function create_LOD1 (
             }
         }
     
+        const convertedParamOne = valueToParamLabel(paramOne)!
+        const convertedParamOneB = valueToParamLabel(paramOneB)!
+        const convertedParamTwo = valueToParamLabel(paramTwo)!
+        const convertedParamTwoB = valueToParamLabel(paramTwoB)!
+    
         for (const section of Object.keys(final)){
             dataSuburbBySection[section].param_one = final[section].One / final[section].OneB
             dataSuburbBySection[section].param_two = final[section].Two / final[section].TwoB
+            dataSuburbBySection[section][convertedParamOne] = final[section].One
+            dataSuburbBySection[section][convertedParamOneB] = final[section].OneB
+            dataSuburbBySection[section][convertedParamTwo] = final[section].Two
+            dataSuburbBySection[section][convertedParamTwoB] = final[section].TwoB
         }
     
         //add the column with the normalization always, then it is choosed below the normalized or the not normalized one
@@ -411,6 +421,10 @@ export async function create_LOD1 (
                     data: {
                         Name: { value: "EnvironmentalData" },
                         Suburb: { value: bar_name },
+                        [convertedParamOne]: { value: formatNumber(set[convertedParamOne]) },
+                        [convertedParamOneB]: { value: formatNumber(set[convertedParamOneB]) },
+                        [convertedParamTwo]: { value: formatNumber(set[convertedParamTwo]) },
+                        [convertedParamTwoB]: { value: formatNumber(set[convertedParamTwoB]) },
                     }
                 }
             }

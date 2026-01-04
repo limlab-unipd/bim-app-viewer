@@ -9,7 +9,7 @@ import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { readArrow } from './readArrow'
 import { allMaterials, barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
-import { formatNumber, getArrowLineValue, normalizeParamOne } from './conversion'
+import { formatNumber, getArrowLineValue, normalizeParamOne, valueToParamLabel } from './conversion'
 
 /**
  * Generates a complete Level of Detail 0 (LOD0) model composed of extruded bar
@@ -96,6 +96,7 @@ export async function create_LOD0 (
         param_two?: number;
         centroid_x_local?:number;
         centroid_y_local?:number;
+        [key:string]:unknown;
     }
     const dataCityBySuburb: {[key:string]:cityObject} = {}
     const dataSuburbsCentroid: {[key:string]:{centroid_x_local:number,centroid_y_local:number}} = {}
@@ -271,10 +272,18 @@ export async function create_LOD0 (
     // } //calculated but not used. The totals are calculated directly from the createTable component.
     //console.log(dataCityTotals)
 
+    const convertedParamOne = valueToParamLabel(paramOne)!
+    const convertedParamOneB = valueToParamLabel(paramOneB)!
+    const convertedParamTwo = valueToParamLabel(paramTwo)!
+    const convertedParamTwoB = valueToParamLabel(paramTwoB)!
     for (const suburb of suburbsUnique){
         if (!dataCityBySuburb[suburb]) dataCityBySuburb[suburb] = {suburb:suburb}
         dataCityBySuburb[suburb].param_one = sumOne[suburb] / sumOneB[suburb]
         dataCityBySuburb[suburb].param_two = sumTwo[suburb] / sumTwoB[suburb]
+        dataCityBySuburb[suburb][convertedParamOne] = sumOne[suburb]
+        dataCityBySuburb[suburb][convertedParamOneB] = sumOneB[suburb]
+        dataCityBySuburb[suburb][convertedParamTwo] = sumTwo[suburb]
+        dataCityBySuburb[suburb][convertedParamTwoB] = sumTwoB[suburb]
         // dataCityTotals['Canberra'].param_one += dataCityBySuburb[suburb].param_one
         // dataCityTotals['Canberra'].param_two += dataCityBySuburb[suburb].param_two
     }
@@ -402,6 +411,10 @@ export async function create_LOD0 (
                 data: {
                     Name: { value: "EnvironmentalData" },
                     Suburb: { value: bar_name },
+                    [convertedParamOne]: { value: formatNumber(set[convertedParamOne]) },
+                    [convertedParamOneB]: { value: formatNumber(set[convertedParamOneB]) },
+                    [convertedParamTwo]: { value: formatNumber(set[convertedParamTwo]) },
+                    [convertedParamTwoB]: { value: formatNumber(set[convertedParamTwoB]) },
                 }
             }
         }

@@ -8,7 +8,7 @@ import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { allMaterials, barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
-import { formatNumber, getArrowLineValue, normalizeParamOne, parseWKTPolygon } from './conversion'
+import { formatNumber, getArrowLineValue, normalizeParamOne, parseWKTPolygon, valueToParamLabel } from './conversion'
 import { readArrow } from './readArrow'
 import polygonClipping from 'polygon-clipping'
 
@@ -139,11 +139,18 @@ export async function create_LOD21 (
             param_two? : number,
             shape? : string,
             shapeHeight? : number,
+            [key:string]:unknown,
         }
         const dataOfBuildings: {[key:string] : buildingsDataType} = {}
-        let dataForBars: {[key:string] : buildingsDataType}
+        let dataForBars: {[key:string] : any}
         const col = arrowData.getChild(groupColumn.lod1);
         if (!col) throw new Error(`${groupColumn.lod1} column not found`);
+
+        const convertedParamOne = valueToParamLabel(paramOne)!
+        const convertedParamOneB = valueToParamLabel(paramOneB)!
+        const convertedParamTwo = valueToParamLabel(paramTwo)!
+        const convertedParamTwoB = valueToParamLabel(paramTwoB)!
+
         for (let i = 0; i < arrowData.numRows; i++) { //effettua la moltiplicazione per ogni riga
             if (Number(col.get(i)).toString() === name) {
                 const row = arrowData.get(i)
@@ -188,6 +195,10 @@ export async function create_LOD21 (
 
                 dataOfBuildings[buildingIdentfr].param_one = final_one / final_oneB
                 dataOfBuildings[buildingIdentfr].param_two = final_two / final_twoB
+                dataOfBuildings[buildingIdentfr][convertedParamOne] = final_one
+                dataOfBuildings[buildingIdentfr][convertedParamOneB] = final_oneB
+                dataOfBuildings[buildingIdentfr][convertedParamTwo] = final_two
+                dataOfBuildings[buildingIdentfr][convertedParamTwoB] = final_twoB
             }
         }
         
@@ -405,6 +416,10 @@ export async function create_LOD21 (
                     data: {
                         Name: { value: "EnvironmentalData" },
                         Suburb: { value: building_name },
+                        [convertedParamOne]: { value: formatNumber(set[convertedParamOne]) },
+                        [convertedParamOneB]: { value: formatNumber(set[convertedParamOneB]) },
+                        [convertedParamTwo]: { value: formatNumber(set[convertedParamTwo]) },
+                        [convertedParamTwoB]: { value: formatNumber(set[convertedParamTwoB]) },
                     }
                 }
             }

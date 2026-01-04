@@ -8,7 +8,7 @@ import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { allMaterials, barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
-import { formatNumber, getArrowLineValue, normalizeParamOne } from './conversion'
+import { formatNumber, getArrowLineValue, normalizeParamOne, valueToParamLabel } from './conversion'
 
 /**
  * Generates LOD-2 building bars for a selected LOD-1 section.
@@ -160,10 +160,17 @@ export async function create_LOD20 (
             param_one? : number,
             param_one_normalized? : number,
             param_two? : number,
+            [key:string]:unknown,
         }
         const dataOfBuildings: {[key:string] : buildingsDataType} = {}
         const col = arrowData.getChild(groupColumn.lod1);
         if (!col) throw new Error(`${groupColumn.lod1} column not found`);
+
+        const convertedParamOne = valueToParamLabel(paramOne)!
+        const convertedParamOneB = valueToParamLabel(paramOneB)!
+        const convertedParamTwo = valueToParamLabel(paramTwo)!
+        const convertedParamTwoB = valueToParamLabel(paramTwoB)!
+        
         for (let i = 0; i < arrowData.numRows; i++) { // cicla su ogni riga, cioe' ogni edificio
             if (Number(col.get(i)).toString() === name) {
                 const row = arrowData.get(i)
@@ -204,6 +211,10 @@ export async function create_LOD20 (
 
                 dataOfBuildings[buildingIdentfr].param_one = final_one / final_oneB
                 dataOfBuildings[buildingIdentfr].param_two = final_two / final_twoB
+                dataOfBuildings[buildingIdentfr][convertedParamOne] = final_one
+                dataOfBuildings[buildingIdentfr][convertedParamOneB] = final_oneB
+                dataOfBuildings[buildingIdentfr][convertedParamTwo] = final_two
+                dataOfBuildings[buildingIdentfr][convertedParamTwoB] = final_twoB
             }
         }
 
@@ -322,6 +333,10 @@ export async function create_LOD20 (
                     data: {
                         Name: { value: "EnvironmentalData" },
                         Suburb: { value: bar_name },
+                        [convertedParamOne]: { value: formatNumber(set[convertedParamOne]) },
+                        [convertedParamOneB]: { value: formatNumber(set[convertedParamOneB]) },
+                        [convertedParamTwo]: { value: formatNumber(set[convertedParamTwo]) },
+                        [convertedParamTwoB]: { value: formatNumber(set[convertedParamTwoB]) },
                     }
                 }
             }
