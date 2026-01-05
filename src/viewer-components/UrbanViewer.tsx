@@ -1277,6 +1277,16 @@ export function UrbanViewer () {
                 }}">
             </bim-checkbox>`
         )
+        const filterByName = BUI.Component.create<BUI.TextInput>(
+            () => BUI.html`
+            <bim-text-input
+                id="filter-by-suburbs",
+                placeholder="Separate by comma..."
+                label="Remove by name(s)"
+                icon='line-md:filter-remove'
+            >
+            </bim-text-input>`
+        )
         const materialsImpactsDropdownOne = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
             <bim-dropdown name="materials-impacts" icon='mdi:recycle' label='Materials impact' style="margin-left: 1.5rem">
@@ -1345,6 +1355,7 @@ export function UrbanViewer () {
                         ${paramTwoBDropdown}
                     </div>
                     ${materialsImpactsDropdownTwo}
+                    ${filterByName}
                     ${normalizationCheckbox}
                     <bim-label icon='solar:city-bold-duotone'>Urban Visualization Level</bim-label>
                     <div style='display:flex; flex-direction:row; gap:0.5rem; align-items:center'>
@@ -1365,7 +1376,7 @@ export function UrbanViewer () {
                                 paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
                                 paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
                             }
-                            [result_0,historyTable] = await create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,panelRight,paramOneFullNameLabel,paramTwoFullNameLabel);
+                            [result_0,historyTable] = await create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,panelRight,paramOneFullNameLabel,paramTwoFullNameLabel,filterByName.value);
                             if (result_0) {
                                 urbanTable = await createTable(panelDown,fragments,components,paramOneFullNameLabel,paramTwoFullNameLabel)
                                 if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
@@ -1394,7 +1405,7 @@ export function UrbanViewer () {
                                 paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
                                 paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
                             }
-                            const result_1 = await create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
+                            const result_1 = await create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value)
                             result_1 ? await onSetTransparencyWithColors(0) : ''
                             if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                 onSetLayout({target:'down'})
@@ -1419,7 +1430,7 @@ export function UrbanViewer () {
                                     paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
                                     paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
                                 }
-                                const result_2 = await create_LOD20(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable)
+                                const result_2 = await create_LOD20(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value)
                                 result_2 ? await onSetTransparencyWithColors(1) : ''
                                 if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                     onSetLayout({target:'down'})
@@ -1450,7 +1461,7 @@ export function UrbanViewer () {
                                                 paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
                                                 paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
                                             }
-                                            const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,paramChoice)
+                                            const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value,paramChoice)
                                             result_2 ? await onSetTransparencyWithColors(1) : ''
                                             if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                                 onSetLayout({target:'down'})
@@ -1473,7 +1484,7 @@ export function UrbanViewer () {
                                                 paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
                                                 paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
                                             }
-                                            const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,paramChoice)
+                                            const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value,paramChoice)
                                             result_2 ? await onSetTransparencyWithColors(1) : ''
                                             if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                                 onSetLayout({target:'down'})

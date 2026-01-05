@@ -58,6 +58,7 @@ export async function create_LOD0 (
         panelRight:BUI.Panel,
         paramOneFullNameLabel:string,
         paramTwoFullNameLabel:string,
+        filterByName:string,
     ): Promise<[boolean,BUI.Table<any>|null]> {
 
     if (!paramOne || !paramOneB || !paramTwo || !paramTwoB) {
@@ -286,6 +287,13 @@ export async function create_LOD0 (
         dataCityBySuburb[suburb][convertedParamTwoB] = sumTwoB[suburb]
         // dataCityTotals['Canberra'].param_one += dataCityBySuburb[suburb].param_one
         // dataCityTotals['Canberra'].param_two += dataCityBySuburb[suburb].param_two
+    }
+
+    if (filterByName){
+        const itemsToRemove = filterByName.split(',')
+        for (const s of itemsToRemove){
+            delete dataCityBySuburb[s]
+        }
     }
 
     dataForBars = normalizeParamOne(dataCityBySuburb)

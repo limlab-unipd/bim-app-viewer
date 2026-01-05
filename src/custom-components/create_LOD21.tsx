@@ -29,6 +29,7 @@ export async function create_LOD21 (
         paramTwoFullNameLabel:string,
         urbanTable:BUI.Table,
         historyTable:BUI.Table<any>|null,
+        filterByName:string,
         paramChoice:string,
     ): Promise<boolean> {
 
@@ -202,6 +203,13 @@ export async function create_LOD21 (
             }
         }
         
+        if (filterByName){
+            const itemsToRemove = filterByName.split(',')
+            for (const s of itemsToRemove){
+                delete dataOfBuildings[s]
+            }
+        }
+
         dataForBars = normalizeParamOne(dataOfBuildings)
         
         function appendGeometry(target: THREE.BufferGeometry, source: THREE.BufferGeometry) {

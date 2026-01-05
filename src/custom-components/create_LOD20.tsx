@@ -53,6 +53,7 @@ export async function create_LOD20 (
         paramTwoFullNameLabel:string,
         urbanTable:BUI.Table,
         historyTable:BUI.Table<any>|null,
+        filterByName:string,
     ): Promise<boolean> {
 
     
@@ -215,6 +216,13 @@ export async function create_LOD20 (
                 dataOfBuildings[buildingIdentfr][convertedParamOneB] = final_oneB
                 dataOfBuildings[buildingIdentfr][convertedParamTwo] = final_two
                 dataOfBuildings[buildingIdentfr][convertedParamTwoB] = final_twoB
+            }
+        }
+
+        if (filterByName){
+            const itemsToRemove = filterByName.split(',')
+            for (const s of itemsToRemove){
+                delete dataOfBuildings[s]
             }
         }
 

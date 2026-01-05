@@ -170,6 +170,7 @@ export async function sa1Boundaries(world:OBC.World, components:OBC.Components, 
     if (!arrow) return
     const marker = components.get(OBCF.Marker)
     marker.threshold = 1
+    const sa1Centroids: {[key:string]:{centr_x:number, centr_y:number}} = {}
 
     // Fattore di scala per adattare le coordinate a Three.js
     const scale = 1/coordinatesScaleFactor
@@ -224,6 +225,7 @@ export async function sa1Boundaries(world:OBC.World, components:OBC.Components, 
                     () => BUI.html`<bim-label style="font-size: 0.6rem; color:${markerColor}">${sa1_name}</bim-label>`,
                 );
                 marker.create(world, element, new THREE.Vector3(row.centroid_x - globalCentroid.x, 0, -(row.centroid_y - globalCentroid.y)));
+                sa1Centroids[sa1_name] = { centr_x: row.centroid_x - globalCentroid.x, centr_y: row.centroid_y - globalCentroid.y}
             })
         } catch (err) {
             console.warn('Errore nella riga', row, err)
@@ -231,4 +233,5 @@ export async function sa1Boundaries(world:OBC.World, components:OBC.Components, 
     }
     scene.three.add(group) //aggiunge tutte le linee alla scena, invece di aggiungerle una per volta
     window.dispatchEvent(new Event('resize'))
+    return sa1Centroids
 } 

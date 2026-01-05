@@ -56,7 +56,8 @@ export async function create_LOD1 (
         paramOneFullNameLabel:string,
         paramTwoFullNameLabel:string,
         urbanTable:BUI.Table,
-        historyTable:BUI.Table<any>|null
+        historyTable:BUI.Table<any>|null,
+        filterByName:string,
     ): Promise<boolean> {
 
     
@@ -105,8 +106,8 @@ export async function create_LOD1 (
             section?: string;
             param_one?: number;
             param_two?: number;
-            centroid_x_local?:number[];
-            centroid_y_local?:number[];
+            centroid_x_local?:number;
+            centroid_y_local?:number;
             [key:string]:unknown;
         }
         const dataSuburbBySection: {[key:string]:sectionObject} = {} //all buildings of single suburb
@@ -118,8 +119,9 @@ export async function create_LOD1 (
             previousLoadedSuburbs.push(name)
         }
 
+        let sa1Centroids: {[key:string]:{centr_x:number, centr_y:number}} | undefined = {}
         if (arrow) {
-            await sa1Boundaries(world, components, arrow, name)
+            sa1Centroids = await sa1Boundaries(world, components, arrow, name)
         } else {
             console.log('SA1 boundaries not loaded.')
         }
@@ -157,8 +159,10 @@ export async function create_LOD1 (
             dataSuburbBySection[section] ? '' : dataSuburbBySection[section] = {}
             dataSuburbBySection[section].suburb = name
             dataSuburbBySection[section].section = section
-            dataSuburbBySection[section].centroid_x_local ? dataSuburbBySection[section].centroid_x_local.push(row.centroid_x - globalCentroid.x) : dataSuburbBySection[section].centroid_x_local = [row.centroid_x - globalCentroid.x]
-            dataSuburbBySection[section].centroid_y_local ? dataSuburbBySection[section].centroid_y_local.push(row.centroid_y - globalCentroid.y) : dataSuburbBySection[section].centroid_y_local = [row.centroid_y - globalCentroid.y]
+        }
+        for (const [section,centroid] of Object.entries(sa1Centroids!)){
+            dataSuburbBySection[section].centroid_x_local = centroid.centr_x
+            dataSuburbBySection[section].centroid_y_local = centroid.centr_y
         }
         const colPop = populationArrowData.getChild(groupColumn.lod0_population)
         if (!colPop) throw new Error(`${groupColumn.lod0_population} column not found`)
@@ -308,6 +312,12 @@ export async function create_LOD1 (
             dataSuburbBySection[section][convertedParamTwoB] = final[section].TwoB
         }
     
+        if (filterByName){
+            const itemsToRemove = filterByName.split(',')
+            for (const s of itemsToRemove){
+                delete dataSuburbBySection[s]
+            }
+        }
         //add the column with the normalization always, then it is choosed below the normalized or the not normalized one
         dataForBars = normalizeParamOne(dataSuburbBySection)
         //console.log(dataForBars!)
@@ -344,10 +354,12 @@ export async function create_LOD1 (
                 const bar_base_dim2 = barsBase.lod1
                 const bar_base_dim1 = barsBase.lod1
                 const bar_height = normalizationCheckbox ? set.param_one_normalized*normalizationHeight.lod1 : Number(set.param_one)
-                const centr_x = (Math.max(...set.centroid_x_local)+Math.min(...set.centroid_x_local))/2
-                const centr_y = (Math.max(...set.centroid_y_local)+Math.min(...set.centroid_y_local))/2
-                const bar_position = new THREE.Vector3(centr_x/coordinatesScaleFactor,0,-centr_y/coordinatesScaleFactor)
+                //const centr_x = (Math.max(...set.centroid_x_local)+Math.min(...set.centroid_x_local))/2 //centro degli edifici
+                //const centr_y = (Math.max(...set.centroid_y_local)+Math.min(...set.centroid_y_local))/2
                 const bar_name = Number(set.section).toString()
+                const centr_x = set.centroid_x_local //centro del contorno
+                const centr_y = set.centroid_y_local
+                const bar_position = new THREE.Vector3(centr_x/coordinatesScaleFactor,0,-centr_y/coordinatesScaleFactor)
     
                 blocks.push(
                     {
