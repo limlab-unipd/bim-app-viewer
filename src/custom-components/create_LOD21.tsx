@@ -147,10 +147,10 @@ export async function create_LOD21 (
         const col = arrowData.getChild(groupColumn.lod1);
         if (!col) throw new Error(`${groupColumn.lod1} column not found`);
 
-        const convertedParamOne = valueToParamLabel(paramOne)!
-        const convertedParamOneB = valueToParamLabel(paramOneB)!
-        const convertedParamTwo = valueToParamLabel(paramTwo)!
-        const convertedParamTwoB = valueToParamLabel(paramTwoB)!
+        const convertedParamOne = `P1_${valueToParamLabel(paramOne)!}`
+        const convertedParamOneB = `P1_${valueToParamLabel(paramOneB)!}`
+        const convertedParamTwo = `P2_${valueToParamLabel(paramTwo)!}`
+        const convertedParamTwoB = `P2_${valueToParamLabel(paramTwoB)!}`
 
         for (let i = 0; i < arrowData.numRows; i++) { //effettua la moltiplicazione per ogni riga
             if (Number(col.get(i)).toString() === name) {
@@ -395,8 +395,25 @@ export async function create_LOD21 (
                         Section: { value: set.section ? set.section : 'None' },
                         ParamName: { value: paramChoiceFullNameLabel },
                         ParamValue: { value: set[pChoice] },
-                        //Aluminium: { value: getArrowLineValue(arrowData, 'Aluminm', 'identfr', set.identfr!) },
-                        //Concrete: { value: getArrowLineValue(arrowData, 'Concret', 'identfr', set.identfr!) },
+                        Building_height: { value: getArrowLineValue(arrowData, 'BLDGHEI', 'identfr', formatNumber(Number(building_name))) },
+                        Building_footprintArea: { value: getArrowLineValue(arrowData, 'grnd_fl', 'identfr', formatNumber(Number(building_name))) },
+                        Building_grossFloorArea: { value: getArrowLineValue(arrowData, 'grss_fl', 'identfr', formatNumber(Number(building_name))) },
+                        Building_NetFloorArea: { value: getArrowLineValue(arrowData, 'usbl_fl', 'identfr', formatNumber(Number(building_name))) },
+                        Building_weight: { value: getArrowLineValue(arrowData, 'Tonnes', 'identfr', formatNumber(Number(building_name))) },
+                        Aluminium: { value: getArrowLineValue(arrowData, 'Aluminm', 'identfr', formatNumber(Number(building_name))) },
+                        Bitumen: { value: getArrowLineValue(arrowData, 'Bitumen', 'identfr', formatNumber(Number(building_name))) },
+                        Carpet: { value: getArrowLineValue(arrowData, 'Carpet', 'identfr', formatNumber(Number(building_name))) },
+                        Ceramics: { value: getArrowLineValue(arrowData, 'Ceramcs', 'identfr', formatNumber(Number(building_name))) },
+                        Concrete: { value: getArrowLineValue(arrowData, 'Concret', 'identfr', formatNumber(Number(building_name))) },
+                        Copper: { value: getArrowLineValue(arrowData, 'Copper', 'identfr', formatNumber(Number(building_name))) },
+                        Glass: { value: getArrowLineValue(arrowData, 'Glass', 'identfr', formatNumber(Number(building_name))) },
+                        Insulation: { value: getArrowLineValue(arrowData, 'Insultn', 'identfr', formatNumber(Number(building_name))) },
+                        Paint: { value: getArrowLineValue(arrowData, 'Paint', 'identfr', formatNumber(Number(building_name))) },
+                        Plasterboard: { value: getArrowLineValue(arrowData, 'Plstrbr', 'identfr', formatNumber(Number(building_name))) },
+                        Plastics: { value: getArrowLineValue(arrowData, 'Plastcs', 'identfr', formatNumber(Number(building_name))) },
+                        SandAndStone: { value: getArrowLineValue(arrowData, 'Snd_nd_', 'identfr', formatNumber(Number(building_name))) },
+                        Steel: { value: getArrowLineValue(arrowData, 'Steel', 'identfr', formatNumber(Number(building_name))) },
+                        Timber: { value: getArrowLineValue(arrowData, 'Timber', 'identfr', formatNumber(Number(building_name))) },
                     },
                     globalTransform: tempObject.matrix.clone(),
                     samples: [

@@ -63,15 +63,16 @@ export function getArrowLineValue (arrowFile:Table<any>, columnToGetValue:string
     let result: number|string|undefined = undefined
     if (typeof valueForFilter == "string") {
         for (let i = 0; i < colFilter.length; i++) {
-            if (colFilter.get(i) === valueForFilter) {
+            if (colFilter.get(i) == valueForFilter) {
                 result = col.get(i); // otteniamo il valore corrispondente
                 return result
             }
         }
     } else {
         for (let i = 0; i < colFilter.length; i++) {
-            if (Number(colFilter.get(i)) === valueForFilter) {
+            if (Number(colFilter.get(i)) == valueForFilter) {
                 result = col.get(i); // otteniamo il valore corrispondente
+                console.log(result)
                 return result
             }
         }

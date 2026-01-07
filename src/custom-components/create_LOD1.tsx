@@ -125,6 +125,7 @@ export async function create_LOD1 (
         } else {
             console.log('SA1 boundaries not loaded.')
         }
+        //console.log('sa1Centroids:',sa1Centroids)
 
         //create new base model for geometries
         const bytes = FRAGS.EditUtils.newModel({ raw: true });
@@ -161,6 +162,7 @@ export async function create_LOD1 (
             dataSuburbBySection[section].section = section
         }
         for (const [section,centroid] of Object.entries(sa1Centroids!)){
+            if (!dataSuburbBySection[section]) continue //caso in cui non ci siano buildings in questa section
             dataSuburbBySection[section].centroid_x_local = centroid.centr_x
             dataSuburbBySection[section].centroid_y_local = centroid.centr_y
         }
@@ -298,10 +300,10 @@ export async function create_LOD1 (
             }
         }
     
-        const convertedParamOne = valueToParamLabel(paramOne)!
-        const convertedParamOneB = valueToParamLabel(paramOneB)!
-        const convertedParamTwo = valueToParamLabel(paramTwo)!
-        const convertedParamTwoB = valueToParamLabel(paramTwoB)!
+        const convertedParamOne = `P1_${valueToParamLabel(paramOne)!}`
+        const convertedParamOneB = `P1_${valueToParamLabel(paramOneB)!}`
+        const convertedParamTwo = `P2_${valueToParamLabel(paramTwo)!}`
+        const convertedParamTwoB = `P2_${valueToParamLabel(paramTwoB)!}`
     
         for (const section of Object.keys(final)){
             dataSuburbBySection[section].param_one = final[section].One / final[section].OneB

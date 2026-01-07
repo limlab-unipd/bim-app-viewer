@@ -273,10 +273,10 @@ export async function create_LOD0 (
     // } //calculated but not used. The totals are calculated directly from the createTable component.
     //console.log(dataCityTotals)
 
-    const convertedParamOne = valueToParamLabel(paramOne)!
-    const convertedParamOneB = valueToParamLabel(paramOneB)!
-    const convertedParamTwo = valueToParamLabel(paramTwo)!
-    const convertedParamTwoB = valueToParamLabel(paramTwoB)!
+    const convertedParamOne = `P1_${valueToParamLabel(paramOne)!}`
+    const convertedParamOneB = `P1_${valueToParamLabel(paramOneB)!}`
+    const convertedParamTwo = `P2_${valueToParamLabel(paramTwo)!}`
+    const convertedParamTwoB = `P2_${valueToParamLabel(paramTwoB)!}`
     for (const suburb of suburbsUnique){
         if (!dataCityBySuburb[suburb]) dataCityBySuburb[suburb] = {suburb:suburb}
         dataCityBySuburb[suburb].param_one = sumOne[suburb] / sumOneB[suburb]

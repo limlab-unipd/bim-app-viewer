@@ -146,7 +146,7 @@ export async function suburbsBoundaries(world: OBC.World, components: OBC.Compon
                 }
 
                 const element = BUI.Component.create(
-                    () => BUI.html`<bim-label style="font-size: 0.7rem; color:${lineColor}">${suburbName}</bim-label>`,
+                    () => BUI.html`<bim-label style="font-size: 0.4rem; color:${lineColor}">${suburbName}</bim-label>`,
                 )
                 marker.create(world, element, new THREE.Vector3(row.centroid_x - globalCentroid.x, 0, -(row.centroid_y - globalCentroid.y)))
             })
@@ -222,7 +222,7 @@ export async function sa1Boundaries(world:OBC.World, components:OBC.Components, 
 
                 //MARKER PER IL NOME
                 const element = BUI.Component.create(
-                    () => BUI.html`<bim-label style="font-size: 0.6rem; color:${markerColor}">${sa1_name}</bim-label>`,
+                    () => BUI.html`<bim-label style="font-size: 0.4rem; color:${markerColor}">${sa1_name}</bim-label>`,
                 );
                 marker.create(world, element, new THREE.Vector3(row.centroid_x - globalCentroid.x, 0, -(row.centroid_y - globalCentroid.y)));
                 sa1Centroids[sa1_name] = { centr_x: row.centroid_x - globalCentroid.x, centr_y: row.centroid_y - globalCentroid.y}

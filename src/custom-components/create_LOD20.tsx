@@ -167,10 +167,10 @@ export async function create_LOD20 (
         const col = arrowData.getChild(groupColumn.lod1);
         if (!col) throw new Error(`${groupColumn.lod1} column not found`);
 
-        const convertedParamOne = valueToParamLabel(paramOne)!
-        const convertedParamOneB = valueToParamLabel(paramOneB)!
-        const convertedParamTwo = valueToParamLabel(paramTwo)!
-        const convertedParamTwoB = valueToParamLabel(paramTwoB)!
+        const convertedParamOne = `P1_${valueToParamLabel(paramOne)!}`
+        const convertedParamOneB = `P1_${valueToParamLabel(paramOneB)!}`
+        const convertedParamTwo = `P2_${valueToParamLabel(paramTwo)!}`
+        const convertedParamTwoB = `P2_${valueToParamLabel(paramTwoB)!}`
         
         for (let i = 0; i < arrowData.numRows; i++) { // cicla su ogni riga, cioe' ogni edificio
             if (Number(col.get(i)).toString() === name) {
@@ -310,8 +310,25 @@ export async function create_LOD20 (
                         Suburb: { value: set.suburb ? set.suburb : 'None' },
                         Section: { value: set.section ? set.section : 'None' },
                         Height: { value: bar_height },
-                        Aluminium: { value: getArrowLineValue(arrowData, 'Aluminm', 'identfr', set.identfr) },
-                        Concrete: { value: getArrowLineValue(arrowData, 'Concret', 'identfr', set.identfr) },
+                        Building_height: { value: formatNumber(Number(getArrowLineValue(arrowData, 'BLDGHEI', 'identfr', Number(bar_name)))) },
+                        Building_footprintArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grnd_fl', 'identfr', Number(bar_name)))) },
+                        Building_grossFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grss_fl', 'identfr', Number(bar_name)))) },
+                        Building_NetFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'usbl_fl', 'identfr', Number(bar_name)))) },
+                        Building_weight: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Tonnes', 'identfr', Number(bar_name)))) },
+                        Aluminium: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Aluminm', 'identfr', Number(bar_name)))) },
+                        Bitumen: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Bitumen', 'identfr', Number(bar_name)))) },
+                        Carpet: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Carpet', 'identfr', Number(bar_name)))) },
+                        Ceramics: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Ceramcs', 'identfr', Number(bar_name)))) },
+                        Concrete: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Concret', 'identfr', Number(bar_name)))) },
+                        Copper: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Copper', 'identfr', Number(bar_name)))) },
+                        Glass: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Glass', 'identfr', Number(bar_name)))) },
+                        Insulation: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Insultn', 'identfr', Number(bar_name)))) },
+                        Paint: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Paint', 'identfr', Number(bar_name)))) },
+                        Plasterboard: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Plstrbr', 'identfr', Number(bar_name)))) },
+                        Plastics: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Plastcs', 'identfr', Number(bar_name)))) },
+                        SandAndStone: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Snd_nd_', 'identfr', Number(bar_name)))) },
+                        Steel: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Steel', 'identfr', Number(bar_name)))) },
+                        Timber: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Timber', 'identfr', Number(bar_name)))) },
                     },
                     globalTransform: tempObject.matrix.clone(),
                     samples: [
