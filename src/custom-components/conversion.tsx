@@ -125,13 +125,20 @@ export function parseWKTPolygon(wkt: string): [number, number][][] {
 }
 
 export function formatNumber(n: number): string {
-    if (Math.abs(n) < 0.001 && n !== 0) {
-        // scientifico: 3 cifre significative dopo la virgola
-        return n.toExponential(3);
-    } else {
-        // normale, con fino a 5 cifre decimali, ma senza zeri terminali
-        let s = n.toFixed(5);
-        // rimuove zeri finali
+    if (Math.abs(n) < 0.01 && n !== 0) { // se minore di 0.01
+        // formato scientifico: 2 cifre significative dopo la virgola
+        return n.toExponential(2);
+    } else { // se maggiore di 0.01
+        // formato normale, con n cifre decimali in base alla decina di grandezza
+        let s = n.toFixed(3) //se tra 0.01 e 1 compresi --> 3 decimali
+        if (Math.abs(n)>1 && Math.abs(n)<10) { // se tra 1 e 10 non compresi
+            s = n.toFixed(2) // --> 2 decimali
+        } else if (Math.abs(n)>=10 && Math.abs(n)<100) { //se tra 10 compreso e 100 non compreso
+            s = n.toFixed(1) // --> 1 decimale
+        } else if (Math.abs(n)>=100) { // se maggiore di 100 compreso
+            s = n.toFixed(0) // --> 0 decimali
+        }
+        // rimuove zeri finali dopo la virgola
         s = s.replace(/(\.\d*?[1-9])0+$/g, '$1');
         // se tutto dopo la virgola sono zeri, rimuove anche il punto
         s = s.replace(/\.0+$/, '');

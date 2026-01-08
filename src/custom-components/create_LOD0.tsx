@@ -411,6 +411,10 @@ export async function create_LOD0 (
                     Suburb: { value: bar_name },
                     [paramOneFullNameLabel]: { value: formatNumber(set.param_one) },
                     [paramTwoFullNameLabel]: { value: formatNumber(set.param_two) },
+                    [convertedParamOne]: { value: formatNumber(set[convertedParamOne]) },
+                    [convertedParamOneB]: { value: formatNumber(set[convertedParamOneB]) },
+                    [convertedParamTwo]: { value: formatNumber(set[convertedParamTwo]) },
+                    [convertedParamTwoB]: { value: formatNumber(set[convertedParamTwoB]) },
                 }
             }
             pSetsData[bar_name] = {
@@ -419,10 +423,6 @@ export async function create_LOD0 (
                 data: {
                     Name: { value: "EnvironmentalData" },
                     Suburb: { value: bar_name },
-                    [convertedParamOne]: { value: formatNumber(set[convertedParamOne]) },
-                    [convertedParamOneB]: { value: formatNumber(set[convertedParamOneB]) },
-                    [convertedParamTwo]: { value: formatNumber(set[convertedParamTwo]) },
-                    [convertedParamTwoB]: { value: formatNumber(set[convertedParamTwoB]) },
                 }
             }
         }
