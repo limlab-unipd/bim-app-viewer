@@ -1376,18 +1376,23 @@ export function UrbanViewer () {
                                 paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
                                 paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
                             }
-                            [result_0,historyTable] = await create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,panelRight,paramOneFullNameLabel,paramTwoFullNameLabel,filterByName.value);
-                            if (result_0) {
-                                urbanTable = await createTable(panelDown,fragments,components,paramOneFullNameLabel,paramTwoFullNameLabel)
-                                if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
-                                    onSetLayout({target:'down'})
+                            try {
+                                [result_0,historyTable] = await create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,panelRight,paramOneFullNameLabel,paramTwoFullNameLabel,filterByName.value);
+                                if (result_0) {
+                                    urbanTable = await createTable(panelDown,fragments,components,paramOneFullNameLabel,paramTwoFullNameLabel)
+                                    if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
+                                        onSetLayout({target:'down'})
+                                    }
+                                    if (floatingGrid.layout && !(floatingGrid.layout as string).includes('right')) {
+                                        onSetLayout({target:'right'})
+                                        panelRight.label = 'History of UVLs loadings'
+                                    }
                                 }
-                                if (floatingGrid.layout && !(floatingGrid.layout as string).includes('right')) {
-                                    onSetLayout({target:'right'})
-                                    panelRight.label = 'History of UVLs loadings'
-                                }
+                                target.loading = false
+                            } catch (error) {
+                                addOverlay(BUI.html`WARNING: an error occurred during the generation of geoemtries. Please, try again.`,'warning')
+                                target.loading = false
                             }
-                            target.loading = false
                         }}></bim-button>
                         <bim-label>></bim-label>
 
@@ -1405,13 +1410,18 @@ export function UrbanViewer () {
                                 paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
                                 paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
                             }
-                            const result_1 = await create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value)
-                            result_1 ? await onSetTransparencyWithColors(0) : ''
-                            if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
-                                onSetLayout({target:'down'})
+                            try {
+                                const result_1 = await create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value)
+                                result_1 ? await onSetTransparencyWithColors(0) : ''
+                                if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
+                                    onSetLayout({target:'down'})
+                                }
+                                //onSetCameraUVL(1)
+                                target.loading = false
+                            } catch (error) {
+                                addOverlay(BUI.html`WARNING: an error occurred during the generation of geoemtries. Please, try again.`,'warning')
+                                target.loading = false
                             }
-                            //onSetCameraUVL(1)
-                            target.loading = false
                         }}></bim-button>
                         <bim-label>></bim-label>
 
@@ -1430,13 +1440,18 @@ export function UrbanViewer () {
                                     paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
                                     paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
                                 }
-                                const result_2 = await create_LOD20(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value)
-                                result_2 ? await onSetTransparencyWithColors(1) : ''
-                                if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
-                                    onSetLayout({target:'down'})
+                                try {
+                                    const result_2 = await create_LOD20(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value)
+                                    result_2 ? await onSetTransparencyWithColors(1) : ''
+                                    if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
+                                        onSetLayout({target:'down'})
+                                    }
+                                    //onSetCameraUVL(2)
+                                    target.loading = false
+                                } catch (error) {
+                                    addOverlay(BUI.html`WARNING: an error occurred during the generation of geoemtries. Please, try again.`,'warning')
+                                    target.loading = false
                                 }
-                                //onSetCameraUVL(2)
-                                target.loading = false
                             }}></bim-button>
                             <bim-button label='2.1' tootltip='Load UVL-2.1' @click=${async ({target}:{target:BUI.Button})=>{
                                 const contextMenu = target.querySelector<BUI.ContextMenu>('bim-context-menu')
@@ -1461,13 +1476,18 @@ export function UrbanViewer () {
                                                 paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
                                                 paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
                                             }
-                                            const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value,paramChoice)
-                                            result_2 ? await onSetTransparencyWithColors(1) : ''
-                                            if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
-                                                onSetLayout({target:'down'})
+                                            try {
+                                                const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value,paramChoice)
+                                                result_2 ? await onSetTransparencyWithColors(1) : ''
+                                                if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
+                                                    onSetLayout({target:'down'})
+                                                }
+                                                onSetCameraUVL(2)
+                                                target.loading = false
+                                            } catch (error) {
+                                                addOverlay(BUI.html`WARNING: an error occurred during the generation of geoemtries. Please, try again.`,'warning')
+                                                target.loading = false
                                             }
-                                            onSetCameraUVL(2)
-                                            target.loading = false
                                         }}></bim-button>
                                         <bim-button style='flex:0' label="Param2" @click=${async ({target}:{target:BUI.Button})=>{
                                             target.loading = true
@@ -1484,13 +1504,18 @@ export function UrbanViewer () {
                                                 paramOneFullNameLabel = `P1_${paramOneFullNameLabel}`
                                                 paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
                                             }
-                                            const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value,paramChoice)
-                                            result_2 ? await onSetTransparencyWithColors(1) : ''
-                                            if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
-                                                onSetLayout({target:'down'})
+                                            try {
+                                                const result_2 = await create_LOD21(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value,paramChoice)
+                                                result_2 ? await onSetTransparencyWithColors(1) : ''
+                                                if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
+                                                    onSetLayout({target:'down'})
+                                                }
+                                                onSetCameraUVL(2)
+                                                target.loading = false
+                                            } catch (error) {
+                                                addOverlay(BUI.html`WARNING: an error occurred during the generation of geoemtries. Please, try again.`,'warning')
+                                                target.loading = false
                                             }
-                                            onSetCameraUVL(2)
-                                            target.loading = false
                                         }}></bim-button>
                                     </div>
                                 </bim-context-menu>

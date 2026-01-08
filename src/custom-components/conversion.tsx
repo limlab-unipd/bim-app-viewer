@@ -72,7 +72,7 @@ export function getArrowLineValue (arrowFile:Table<any>, columnToGetValue:string
         for (let i = 0; i < colFilter.length; i++) {
             if (Number(colFilter.get(i)) == valueForFilter) {
                 result = col.get(i); // otteniamo il valore corrispondente
-                console.log(result)
+                //console.log(result)
                 return result
             }
         }
