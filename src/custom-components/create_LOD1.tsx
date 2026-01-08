@@ -355,7 +355,7 @@ export async function create_LOD1 (
             for (const [key,set] of Object.entries(dataForBars)) {
                 const bar_base_dim2 = barsBase.lod1
                 const bar_base_dim1 = barsBase.lod1
-                const bar_height = normalizationCheckbox ? set.param_one_normalized*normalizationHeight.lod1 : Number(set.param_one)
+                const bar_height = normalizationCheckbox.checked ? set.param_one_normalized*normalizationHeight.lod1 : Number(set.param_one)
                 //const centr_x = (Math.max(...set.centroid_x_local)+Math.min(...set.centroid_x_local))/2 //centro degli edifici
                 //const centr_y = (Math.max(...set.centroid_y_local)+Math.min(...set.centroid_y_local))/2
                 const bar_name = Number(set.section).toString()
