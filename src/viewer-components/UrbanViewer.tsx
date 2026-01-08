@@ -345,7 +345,7 @@ export function UrbanViewer () {
             const visibility = target.icon == 'mdi:eye'
             target.loading = true
             for (const [modelName,model] of fragments.list.entries()) {
-                if (model.isDeltaModel) continue
+                //if (model.isDeltaModel) continue --> na nascosto anche il delta model altrimenti il raytracer del mouse seleziona l'item invisibile del delta model
                 if (modelName.includes(`LOD_${uvl}_`)) {
                     if (visibility) {
                         await model.setVisible(undefined, false)
@@ -360,6 +360,11 @@ export function UrbanViewer () {
         }
         const onHide = async () => {
             hider.set(false, highlighter.selection.select)
+            for (const [,model] of fragments.list.entries()) {
+                if (model.isDeltaModel) {
+                    await model.setVisible(undefined, false)
+                }
+            }
         }
         const onIsolate = () => {
             hider.isolate(highlighter.selection.select)
