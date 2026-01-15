@@ -1796,6 +1796,14 @@ export function UrbanViewer () {
                                 console.log(highlighter.selection.select)
                             }}
                     ></bim-button>
+                    <bim-button
+                        label='Highlighter'
+                        tooltip-title="Print highlighter"
+                        @click=${() => {
+                            const highlighter = components.get(OBCF.Highlighter)
+                            console.log(highlighter.selection)
+                            }}
+                    ></bim-button>
                 </bim-toolbar-section>
             </bim-toolbar>
             `;
@@ -1936,7 +1944,7 @@ export function UrbanViewer () {
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer() //set the viewer, devMode default = false
+        setViewer(true) //set the viewer, devMode default = false
         return () => {
             if (components) {
                 components.dispose()

@@ -57,10 +57,12 @@ export async function colorBar (
     let model: FRAGS.FragmentsModel
     let modelName: string
     for (const [mName,m] of fragments.list.entries()){
-        if (mName.includes(name.concat('-DELTA'))) continue //skippa il modello delta
-        if (mName.includes(name)) {
+        if (m.isDeltaModel) continue //skippa il modello delta
+        //*** NEW IMPLEMENTATION *** questo name è il nome del suburb, quindi creando le barre nel model uvl-0 è ovvio che non trova il modello che contiene il nome del suburb
+        if (mName.includes('LOD_0')) {
             model = m
             modelName = mName
+            break
         }
     }
 
@@ -72,6 +74,7 @@ export async function colorBar (
     const map_id_identfr: {[key:string]:number} = {}
     for (const id of ids) {
         const item = await model!.getItemsData([id])
+        if ((item[0]._category as FRAGS.ItemAttribute).value != 'IfcBuildingElementProxy') continue //per non considerare id di altri elementi come pset ecc..
         const identfr = (item[0].Name as FRAGS.ItemAttribute).value
         map_id_normValue[id] = map_identfr_normValue[identfr]
         map_id_identfr[id] = identfr
