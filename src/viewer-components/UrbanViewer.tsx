@@ -1395,7 +1395,7 @@ export function UrbanViewer () {
                                 }
                                 target.loading = false
                             } catch (error) {
-                                addOverlay(BUI.html`WARNING: an error occurred during the generation of geoemtries. Please, try again.`,'warning')
+                                addOverlay(BUI.html`WARNING: an error occurred during the generation of geometries. Please, try again.`,'warning')
                                 target.loading = false
                             }
                         }}></bim-button>
@@ -1424,7 +1424,7 @@ export function UrbanViewer () {
                                 //onSetCameraUVL(1)
                                 target.loading = false
                             } catch (error) {
-                                addOverlay(BUI.html`WARNING: an error occurred during the generation of geoemtries. Please, try again.`,'warning')
+                                addOverlay(BUI.html`WARNING: an error occurred during the generation of geometries. Please, try again.`,'warning')
                                 target.loading = false
                             }
                         }}></bim-button>
@@ -1454,7 +1454,7 @@ export function UrbanViewer () {
                                     //onSetCameraUVL(2)
                                     target.loading = false
                                 } catch (error) {
-                                    addOverlay(BUI.html`WARNING: an error occurred during the generation of geoemtries. Please, try again.`,'warning')
+                                    addOverlay(BUI.html`WARNING: an error occurred during the generation of geometries. Please, try again.`,'warning')
                                     target.loading = false
                                 }
                             }}></bim-button>
@@ -1490,7 +1490,7 @@ export function UrbanViewer () {
                                                 onSetCameraUVL(2)
                                                 target.loading = false
                                             } catch (error) {
-                                                addOverlay(BUI.html`WARNING: an error occurred during the generation of geoemtries. Please, try again.`,'warning')
+                                                addOverlay(BUI.html`WARNING: an error occurred during the generation of geometries. Please, try again.`,'warning')
                                                 target.loading = false
                                             }
                                         }}></bim-button>
@@ -1518,7 +1518,7 @@ export function UrbanViewer () {
                                                 onSetCameraUVL(2)
                                                 target.loading = false
                                             } catch (error) {
-                                                addOverlay(BUI.html`WARNING: an error occurred during the generation of geoemtries. Please, try again.`,'warning')
+                                                addOverlay(BUI.html`WARNING: an error occurred during the generation of geometries. Please, try again.`,'warning')
                                                 target.loading = false
                                             }
                                         }}></bim-button>

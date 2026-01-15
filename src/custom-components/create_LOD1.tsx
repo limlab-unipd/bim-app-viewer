@@ -128,14 +128,14 @@ export async function create_LOD1 (
         //console.log('sa1Centroids:',sa1Centroids)
 
         //create new base model for geometries
-        const bytes = FRAGS.EditUtils.newModel({ raw: true });
-        const newModel = await fragments.core.load(bytes, {
-            modelId: `LOD_${lod}_${name}`,
-            camera: world.camera.three,
-            raw: true,
-        });
-        world.scene.three.add(newModel.object);
-        await fragments.core.update(true);
+        // const bytes = FRAGS.EditUtils.newModel({ raw: true });
+        // const newModel = await fragments.core.load(bytes, {
+        //     modelId: `LOD_${lod}_${name}`,
+        //     camera: world.camera.three,
+        //     raw: true,
+        // });
+        // world.scene.three.add(newModel.object);
+        // await fragments.core.update(true);
     
         //filter arrow data
         const col = arrowData.getChild(groupColumn.lod0)
@@ -331,6 +331,17 @@ export async function create_LOD1 (
         // building generation logic
         let processing = false;
         const blocks: any[] = []
+        
+        let newModel: FRAGS.FragmentsModel|null = null
+        for (const [modelId,model] of fragments.list.entries()) {
+            if (model.isDeltaModel) continue
+            if (modelId.includes('LOD_0')){
+                newModel = model
+                break
+            }
+        }
+        if (!newModel) return false
+
         const regenerateFragments = async () => {
             const elementsData: FRAGS.NewElementData[] = [];
             const pSets: {[key:string]:FRAGS.RawItemData} = {}
