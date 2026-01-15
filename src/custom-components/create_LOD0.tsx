@@ -375,7 +375,7 @@ export async function create_LOD0 (
             //proprietà dell'oggetto appena creato (qui andranno inserite le eventuali proprietà IFC)
             elementsData.push({
                 attributes: {
-                    _category: { value: "IfcBar" },
+                    _category: { value: "IfcBuildingElementProxy" },
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
                 },

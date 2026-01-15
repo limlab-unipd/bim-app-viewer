@@ -57,7 +57,7 @@ export async function colorBar (
     let model: FRAGS.FragmentsModel
     let modelName: string
     for (const [mName,m] of fragments.list.entries()){
-        if (mName.includes(name.concat('-DELTA'))) continue //skippa il modello delta
+        if (m.isDeltaModel) continue //skippa il modello delta
         if (mName.includes(name)) {
             model = m
             modelName = mName
@@ -72,6 +72,7 @@ export async function colorBar (
     const map_id_identfr: {[key:string]:number} = {}
     for (const id of ids) {
         const item = await model!.getItemsData([id])
+        if ((item[0]._category as FRAGS.ItemAttribute).value != 'IfcBuildingElementProxy') continue //per non considerare item che non siano le barre
         const identfr = (item[0].Name as FRAGS.ItemAttribute).value
         map_id_normValue[id] = map_identfr_normValue[identfr]
         map_id_identfr[id] = identfr
