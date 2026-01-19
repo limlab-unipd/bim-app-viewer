@@ -8,15 +8,15 @@ import { urbanMapToColor } from './colors'
  * Computes and applies a color scale to all fragments of a selected model,
  * based on normalized values derived from an external dataset. The function
  * extracts the relevant numerical parameter, normalizes it, maps each model
- * element (`identfr`) to its corresponding normalized value, identifies the
+ * element (`Id`) to its corresponding normalized value, identifies the
  * correct fragment model by name, retrieves all its local IDs, and assigns a
  * color to each object using the chosen color scale.  
  *
  * @param components The OBC.Components instance providing access to fragment utilities.
  * @param dataForBars Dataset containing the parameters used for normalization and coloring.
- * @param LOD Level of detail defining which key to use for association (suburb, section, identfr).
+ * @param LOD Level of detail defining which key to use for association (suburb, section, Id).
  * @param name Base name of the model whose fragments should be colored.
- * @returns An array containing the color map for IDs, the ID-to-identfr map,
+ * @returns An array containing the color map for IDs, the ID-to-Id map,
  *          and the resolved model name.
  */
 export async function colorBar (
@@ -24,6 +24,7 @@ export async function colorBar (
         dataForBars:any,
         LOD:number,
         name:string,
+        createdBars:(boolean | null)[] | FRAGS.Element[],
         paramChoice:'param_one'|'param_two'='param_two', //default param two for all uvl but you can choose for 2.1 or 3 and on
     ) {
 
@@ -45,11 +46,11 @@ export async function colorBar (
         return (v - min) / (max - min);
     });
 
-    // crea mappa identfr da dati Ray - valore normalizzato del parametro scelto
-    const map_identfr_normValue: Record<string, number> = {};
+    // crea mappa Id da dati Ray - valore normalizzato del parametro scelto
+    const map_Id_normValue: Record<string, number> = {};
     for (let i = 0; i < rows.length; i++) {
-        const key = LOD==0 ? String(rows[i].suburb) : LOD==1 ? String(rows[i].section) : String(rows[i].identfr);
-        map_identfr_normValue[key] = normalized[i];
+        const key = LOD==0 ? String(rows[i].suburb) : LOD==1 ? String(rows[i].section) : String(rows[i].Id);
+        map_Id_normValue[key] = normalized[i];
     }
 
     const fragments = components.get(OBC.FragmentsManager)
@@ -68,16 +69,15 @@ export async function colorBar (
 
     // prende tutti gli id creati e crea le mappe:
     // localId - valore normalizzato
-    // localId - identfr
-    const ids = await model!.getLocalIds()
+    // localId - Id
     const map_id_normValue: {[key:string]:number} = {}
-    const map_id_identfr: {[key:string]:number} = {}
-    for (const id of ids) {
+    const map_id_Id: {[key:string]:number} = {}
+    for (const [,element] of Object.entries(createdBars)) {
+        const id = element.localId
         const item = await model!.getItemsData([id])
-        if ((item[0]._category as FRAGS.ItemAttribute).value != 'IfcBuildingElementProxy') continue //per non considerare id di altri elementi come pset ecc..
-        const identfr = (item[0].Name as FRAGS.ItemAttribute).value
-        map_id_normValue[id] = map_identfr_normValue[identfr]
-        map_id_identfr[id] = identfr
+        const Id = (item[0].Name as FRAGS.ItemAttribute).value
+        map_id_normValue[id] = map_Id_normValue[Id]
+        map_id_Id[id] = Id
     }
 
     // crea la ModelIdMap da inserire nell'highlighter con il nome del modello e i localId degli oggetti
@@ -88,5 +88,5 @@ export async function colorBar (
     const colorScaleDropdown = document.getElementById('color-scale-dropdown') as BUI.Dropdown
     const map_color_ids = urbanMapToColor(components, map_id_normValue, colorScaleDropdown.value[0], modelName!, LOD)
 
-    return [map_color_ids,map_id_identfr,modelName!]
+    return [map_color_ids,map_id_Id,modelName!]
 }

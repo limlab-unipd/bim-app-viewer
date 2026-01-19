@@ -415,6 +415,7 @@ export async function create_LOD1 (
                         },
                         _guid: { value: generateUUID() },
                         Name: { value: bar_name },
+                        UVL: { value: 1 },
                         Suburb: { value: set.suburb },
                         Height: { value: bar_height },
                     },
@@ -471,11 +472,13 @@ export async function create_LOD1 (
             await fragments.core.editor.save(newModel.modelId)
             await fragments.core.update(true);
             processing = false;
+
+            return createdBars
         };
         
-        await regenerateFragments();
+        const createdBars = await regenerateFragments();
     
-        const [map_color_ids,map_id_name,modelName]: any[] = await colorBar(components,dataForBars!,lod,name)
+        const [map_color_ids,map_id_name,modelName]: any[] = await colorBar(components,dataForBars!,lod,name,createdBars)
     
         const endTime = performance.now() // End timer
         const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds

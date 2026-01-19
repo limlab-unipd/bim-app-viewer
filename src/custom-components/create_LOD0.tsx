@@ -378,6 +378,7 @@ export async function create_LOD0 (
                     _category: { value: "IfcBuildingElementProxy" },
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
+                    UVL: { value: 0 }
                 },
                 globalTransform: tempObject.matrix.clone(),
                 samples: [
@@ -427,6 +428,7 @@ export async function create_LOD0 (
             }
         }
         const createdBars = await fragments.core.editor.createElements(newModel.modelId, elementsData) //crea la geometria delle barre
+        
         if (!createdBars) return [false,null]
         for (const bar of createdBars){
             const barData = await bar.getData()
@@ -442,11 +444,13 @@ export async function create_LOD0 (
         await fragments.core.editor.applyChanges(newModel.modelId)
         await fragments.core.editor.save(newModel.modelId)
         await fragments.core.update(true)
+
+        return createdBars
     };
     
-    await regenerateFragments();
+    const createdBars = await regenerateFragments();
 
-    await colorBar(components,dataForBars!,lod,name)
+    await colorBar(components,dataForBars!,lod,name,createdBars)
 
     const endTime = performance.now() // End timer
     const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
