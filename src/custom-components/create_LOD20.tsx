@@ -345,7 +345,7 @@ export async function create_LOD20 (
                         Name: { value: "EnvironmentalData" },
                         Description: { value: "Original data" },
                         Suburb: { value: bar_name },
-                        Building_height: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Dev_Ht', 'Id', Number(bar_name)))) },
+                        Building_height: { value: formatNumber(Number(getArrowLineValue(arrowData, 'A_H_AGL', 'Id', Number(bar_name)))) },
                         Building_footprintArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grnd_fl', 'Id', Number(bar_name)))) },
                         Building_grossFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grs_fl', 'Id', Number(bar_name)))) },
                         Building_NetFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'usbl_fl', 'Id', Number(bar_name)))) },

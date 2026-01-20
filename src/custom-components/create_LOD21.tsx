@@ -164,7 +164,7 @@ export async function create_LOD21 (
                 dataOfBuildings[buildingId].centroid_x = parseFloat(row.centroid_x)
                 dataOfBuildings[buildingId].centroid_y = parseFloat(row.centroid_y)
                 dataOfBuildings[buildingId].shape = row.geometry_wkt
-                dataOfBuildings[buildingId].shapeHeight = row.Dev_Ht
+                dataOfBuildings[buildingId].shapeHeight = row.A_H_AGL
                 
                 let allMaterialsImpactOne = 0, allMaterialsImpactTwo = 0
                 if ([paramOne,paramOneB].includes('All materials')){ //se uno qualsiasi dei parametri e' all materials allora calcola:
@@ -427,7 +427,7 @@ export async function create_LOD21 (
                         Name: { value: "EnvironmentalData" },
                         Description: { value: "Original data" },
                         Suburb: { value: building_name },
-                        Building_height: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Dev_Ht', 'Id', Number(building_name)))) },
+                        Building_height: { value: formatNumber(Number(getArrowLineValue(arrowData, 'A_H_AGL', 'Id', Number(building_name)))) },
                         Building_footprintArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grnd_fl', 'Id', Number(building_name)))) },
                         Building_grossFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grs_fl', 'Id', Number(building_name)))) },
                         Building_NetFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'usbl_fl', 'Id', Number(building_name)))) },
