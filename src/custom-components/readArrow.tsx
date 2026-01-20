@@ -2,17 +2,17 @@ import { tableFromIPC } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import * as BUI from '@thatopen/ui'
 
-type ArrowFile = 'materials' | 'boundaries' | 'population' | 'environmental' | 'buildings' | 'boundaries_sa1'
+type ArrowFile = 'materials' | 'boundaries' | 'population' | 'environmental' | 'boundaries_sa1'
 
 /**
  * Loads an Arrow file corresponding to one of the available datasets
- * (materials, boundaries, population, environmental) and returns it as
+ * (materials, boundaries, population, environmental, 'boundaries_sa1') and returns it as
  * an Arrow Table. The function selects the appropriate file based on the
  * input parameter, downloads it, displays loading status through an overlay,
  * measures the loading time, and finally returns the decoded table.
  *
  * @param file Type of Arrow file to load. Allowed values: 'materials',
- *             'boundaries', 'population', 'environmental'. Default: 'materials'.
+ *             'boundaries', 'boundaries_sa1', 'population', 'environmental'. Default: 'materials'.
  * @returns A Promise resolving to an Arrow Table containing the loaded data.
  * @throws Error if the fetch fails or if the provided file type is invalid.
  */
@@ -37,9 +37,6 @@ export async function readArrow(file: ArrowFile = 'materials') {
     } else if (file=='materials') {
         loadedFile = 'Materials quantities'
         resp = await fetch('/ARROW/ACT_materials.arrow')
-    } else if (file=='buildings') {
-        loadedFile = 'Buildings shape'
-        resp = await fetch('/ARROW/ACT_buildings.arrow')
     } else {
         console.warn('Arrow file not found')
         return

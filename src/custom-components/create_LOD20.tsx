@@ -7,7 +7,7 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
-import { allMaterials, barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { allMaterials, at_2015_conversion, barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 import { formatNumber, getArrowLineValue, normalizeParamOne, valueToParamLabel } from './conversion'
 
 /**
@@ -155,7 +155,7 @@ export async function create_LOD20 (
         type buildingsDataType = {
             suburb? : string,
             section? : string,
-            identfr? : string,
+            Id? : string,
             centroid_x? : number,
             centroid_y? : number,
             param_one? : number,
@@ -176,13 +176,13 @@ export async function create_LOD20 (
             if (Number(col.get(i)).toString() === name) {
                 const row = arrowData.get(i)
                 if (!row) continue
-                const buildingIdentfr = Number(row.identfr).toString()
-                if (!dataOfBuildings[buildingIdentfr]) dataOfBuildings[buildingIdentfr] = {}
-                dataOfBuildings[buildingIdentfr].suburb = row[groupColumn.lod0]
-                dataOfBuildings[buildingIdentfr].section = Number(row[groupColumn.lod1]).toString()
-                dataOfBuildings[buildingIdentfr].identfr = buildingIdentfr
-                dataOfBuildings[buildingIdentfr].centroid_x = parseFloat(row.centroid_x)
-                dataOfBuildings[buildingIdentfr].centroid_y = parseFloat(row.centroid_y)
+                const buildingId = Number(row.Id).toString()
+                if (!dataOfBuildings[buildingId]) dataOfBuildings[buildingId] = {}
+                dataOfBuildings[buildingId].suburb = row[groupColumn.lod0]
+                dataOfBuildings[buildingId].section = Number(row[groupColumn.lod1]).toString()
+                dataOfBuildings[buildingId].Id = buildingId
+                dataOfBuildings[buildingId].centroid_x = parseFloat(row.centroid_x)
+                dataOfBuildings[buildingId].centroid_y = parseFloat(row.centroid_y)
                 let allMaterialsImpactOne = 0, allMaterialsImpactTwo = 0
                 if ([paramOne,paramOneB].includes('All materials')){ //se uno qualsiasi dei parametri e' all materials allora calcola:
                     // qui viene solo effettuata la somma, poi l'assegnazione al parametro corretto viene fatta sotto
@@ -210,12 +210,12 @@ export async function create_LOD20 (
                 const final_two = paramTwo=='All materials' ? allMaterialsImpactTwo : paramTwo=='1' ? 1 : Number(row[paramTwo] * coeffTwo)
                 const final_twoB = paramTwoB=='All materials' ? allMaterialsImpactTwo : paramTwoB=='1' ? 1 : Number(row[paramTwoB] * coeffTwoB)
 
-                dataOfBuildings[buildingIdentfr].param_one = final_one / final_oneB
-                dataOfBuildings[buildingIdentfr].param_two = final_two / final_twoB
-                dataOfBuildings[buildingIdentfr][convertedParamOne] = final_one
-                dataOfBuildings[buildingIdentfr][convertedParamOneB] = final_oneB
-                dataOfBuildings[buildingIdentfr][convertedParamTwo] = final_two
-                dataOfBuildings[buildingIdentfr][convertedParamTwoB] = final_twoB
+                dataOfBuildings[buildingId].param_one = final_one / final_oneB
+                dataOfBuildings[buildingId].param_two = final_two / final_twoB
+                dataOfBuildings[buildingId][convertedParamOne] = final_one
+                dataOfBuildings[buildingId][convertedParamOneB] = final_oneB
+                dataOfBuildings[buildingId][convertedParamTwo] = final_two
+                dataOfBuildings[buildingId][convertedParamTwoB] = final_twoB
             }
         }
 
@@ -264,7 +264,7 @@ export async function create_LOD20 (
                 const centr_y = set.centroid_y - globalCentroid.y / coordinatesScaleFactor
                 const bar_height = normalizationCheckbox.checked ? set.param_one_normalized*normalizationHeight.lod2 : set.param_one
                 const bar_position = new THREE.Vector3(centr_x,0,-centr_y)
-                const bar_name = Number(set.identfr).toString()
+                const bar_name = Number(set.Id).toString()
                 
                 buildings.push(
                     {
@@ -310,7 +310,7 @@ export async function create_LOD20 (
                         Suburb: { value: set.suburb ? set.suburb : 'None' },
                         Section: { value: set.section ? set.section : 'None' },
                         Height: { value: formatNumber(bar_height) },
-                        MB_Function: { value: getArrowLineValue(arrowData, 'MB_CAT1', 'identfr', Number(bar_name)) },
+                        Function: { value: at_2015_conversion[getArrowLineValue(arrowData, 'at_2015', 'Id', Number(bar_name)) as string].explicit },
                     },
                     globalTransform: tempObject.matrix.clone(),
                     samples: [
@@ -345,25 +345,25 @@ export async function create_LOD20 (
                         Name: { value: "EnvironmentalData" },
                         Description: { value: "Original data" },
                         Suburb: { value: bar_name },
-                        Building_height: { value: formatNumber(Number(getArrowLineValue(arrowData, 'BLDGHEI', 'identfr', Number(bar_name)))) },
-                        Building_footprintArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grnd_fl', 'identfr', Number(bar_name)))) },
-                        Building_grossFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grss_fl', 'identfr', Number(bar_name)))) },
-                        Building_NetFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'usbl_fl', 'identfr', Number(bar_name)))) },
-                        Building_weight: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Tonnes', 'identfr', Number(bar_name)))) },
-                        Aluminium: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Aluminm', 'identfr', Number(bar_name)))) },
-                        Bitumen: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Bitumen', 'identfr', Number(bar_name)))) },
-                        Carpet: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Carpet', 'identfr', Number(bar_name)))) },
-                        Ceramics: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Ceramcs', 'identfr', Number(bar_name)))) },
-                        Concrete: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Concret', 'identfr', Number(bar_name)))) },
-                        Copper: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Copper', 'identfr', Number(bar_name)))) },
-                        Glass: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Glass', 'identfr', Number(bar_name)))) },
-                        Insulation: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Insultn', 'identfr', Number(bar_name)))) },
-                        Paint: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Paint', 'identfr', Number(bar_name)))) },
-                        Plasterboard: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Plstrbr', 'identfr', Number(bar_name)))) },
-                        Plastics: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Plastcs', 'identfr', Number(bar_name)))) },
-                        SandAndStone: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Snd_nd_', 'identfr', Number(bar_name)))) },
-                        Steel: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Steel', 'identfr', Number(bar_name)))) },
-                        Timber: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Timber', 'identfr', Number(bar_name)))) },
+                        Building_height: { value: formatNumber(Number(getArrowLineValue(arrowData, 'A_H_AGL', 'Id', Number(bar_name)))) },
+                        Building_footprintArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grnd_fl', 'Id', Number(bar_name)))) },
+                        Building_grossFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grs_fl', 'Id', Number(bar_name)))) },
+                        Building_NetFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'usbl_fl', 'Id', Number(bar_name)))) },
+                        Building_weight: { value: formatNumber(Number(getArrowLineValue(arrowData, 'T_stock', 'Id', Number(bar_name)))) },
+                        Aluminium: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Aluminm', 'Id', Number(bar_name)))) },
+                        Bitumen: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Bitumen', 'Id', Number(bar_name)))) },
+                        Carpet: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Carpet', 'Id', Number(bar_name)))) },
+                        Ceramics: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Ceramcs', 'Id', Number(bar_name)))) },
+                        Concrete: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Concret', 'Id', Number(bar_name)))) },
+                        Copper: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Copper', 'Id', Number(bar_name)))) },
+                        Glass: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Glass', 'Id', Number(bar_name)))) },
+                        Insulation: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Insultn', 'Id', Number(bar_name)))) },
+                        Paint: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Paint', 'Id', Number(bar_name)))) },
+                        Plasterboard: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Plstrbr', 'Id', Number(bar_name)))) },
+                        Plastics: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Plastcs', 'Id', Number(bar_name)))) },
+                        SandAndStone: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Snd_nd_', 'Id', Number(bar_name)))) },
+                        Steel: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Steel', 'Id', Number(bar_name)))) },
+                        Timber: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Timber', 'Id', Number(bar_name)))) },
                     }
                 }
             }

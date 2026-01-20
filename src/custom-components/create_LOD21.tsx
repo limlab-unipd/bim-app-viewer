@@ -7,9 +7,8 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
-import { allMaterials, barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { allMaterials, at_2015_conversion, barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 import { formatNumber, getArrowLineValue, normalizeParamOne, parseWKTPolygon, valueToParamLabel } from './conversion'
-import { readArrow } from './readArrow'
 import polygonClipping from 'polygon-clipping'
 
 export async function create_LOD21 (
@@ -132,7 +131,7 @@ export async function create_LOD21 (
         type buildingsDataType = {
             suburb? : string,
             section? : string,
-            identfr? : string,
+            Id? : string,
             centroid_x? : number,
             centroid_y? : number,
             param_one? : number,
@@ -157,15 +156,15 @@ export async function create_LOD21 (
                 const row = arrowData.get(i)
     
                 if (!row) continue
-                const buildingIdentfr = Number(row.identfr).toString()
-                if (!dataOfBuildings[buildingIdentfr]) dataOfBuildings[buildingIdentfr] = {}
-                dataOfBuildings[buildingIdentfr].suburb = row[groupColumn.lod0]
-                dataOfBuildings[buildingIdentfr].section = Number(row[groupColumn.lod1]).toString()
-                dataOfBuildings[buildingIdentfr].identfr = buildingIdentfr
-                dataOfBuildings[buildingIdentfr].centroid_x = parseFloat(row.centroid_x)
-                dataOfBuildings[buildingIdentfr].centroid_y = parseFloat(row.centroid_y)
-                dataOfBuildings[buildingIdentfr].shape = row.geometry_wkt
-                dataOfBuildings[buildingIdentfr].shapeHeight = row.BLDGHEI
+                const buildingId = Number(row.Id).toString()
+                if (!dataOfBuildings[buildingId]) dataOfBuildings[buildingId] = {}
+                dataOfBuildings[buildingId].suburb = row[groupColumn.lod0]
+                dataOfBuildings[buildingId].section = Number(row[groupColumn.lod1]).toString()
+                dataOfBuildings[buildingId].Id = buildingId
+                dataOfBuildings[buildingId].centroid_x = parseFloat(row.centroid_x)
+                dataOfBuildings[buildingId].centroid_y = parseFloat(row.centroid_y)
+                dataOfBuildings[buildingId].shape = row.geometry_wkt
+                dataOfBuildings[buildingId].shapeHeight = row.A_H_AGL
                 
                 let allMaterialsImpactOne = 0, allMaterialsImpactTwo = 0
                 if ([paramOne,paramOneB].includes('All materials')){ //se uno qualsiasi dei parametri e' all materials allora calcola:
@@ -194,12 +193,12 @@ export async function create_LOD21 (
                 const final_two = paramTwo=='All materials' ? allMaterialsImpactTwo : paramTwo=='1' ? 1 : Number(row[paramTwo] * coeffTwo)
                 const final_twoB = paramTwoB=='All materials' ? allMaterialsImpactTwo : paramTwoB=='1' ? 1 : Number(row[paramTwoB] * coeffTwoB)
 
-                dataOfBuildings[buildingIdentfr].param_one = final_one / final_oneB
-                dataOfBuildings[buildingIdentfr].param_two = final_two / final_twoB
-                dataOfBuildings[buildingIdentfr][convertedParamOne] = final_one
-                dataOfBuildings[buildingIdentfr][convertedParamOneB] = final_oneB
-                dataOfBuildings[buildingIdentfr][convertedParamTwo] = final_two
-                dataOfBuildings[buildingIdentfr][convertedParamTwoB] = final_twoB
+                dataOfBuildings[buildingId].param_one = final_one / final_oneB
+                dataOfBuildings[buildingId].param_two = final_two / final_twoB
+                dataOfBuildings[buildingId][convertedParamOne] = final_one
+                dataOfBuildings[buildingId][convertedParamOneB] = final_oneB
+                dataOfBuildings[buildingId][convertedParamTwo] = final_two
+                dataOfBuildings[buildingId][convertedParamTwoB] = final_twoB
             }
         }
         
@@ -318,7 +317,7 @@ export async function create_LOD21 (
             //creation of each building
             for (const [key,set] of Object.entries(dataForBars)) {
                 //const building_position = new THREE.Vector3(0,0,0)
-                const building_name = Number(set.identfr).toString()
+                const building_name = Number(set.Id).toString()
                 const building_height = set.shapeHeight
                 const centr_x = set.centroid_x! - globalCentroid.x / coordinatesScaleFactor
                 const centr_y = set.centroid_y! - globalCentroid.y / coordinatesScaleFactor
@@ -393,7 +392,7 @@ export async function create_LOD21 (
                         Name: { value: building_name },
                         Suburb: { value: set.suburb ? set.suburb : 'None' },
                         Section: { value: set.section ? set.section : 'None' },
-                        MB_Function: { value: getArrowLineValue(arrowData, 'MB_CAT1', 'identfr', Number(building_name)) },
+                        Function: { value: at_2015_conversion[getArrowLineValue(arrowData, 'at_2015', 'Id', Number(building_name)) as string].explicit },
                         ParamName: { value: paramChoiceFullNameLabel },
                         ParamValue: { value: set[pChoice] },
                     },
@@ -428,25 +427,25 @@ export async function create_LOD21 (
                         Name: { value: "EnvironmentalData" },
                         Description: { value: "Original data" },
                         Suburb: { value: building_name },
-                        Building_height: { value: formatNumber(Number(getArrowLineValue(arrowData, 'BLDGHEI', 'identfr', Number(building_name)))) },
-                        Building_footprintArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grnd_fl', 'identfr', Number(building_name)))) },
-                        Building_grossFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grss_fl', 'identfr', Number(building_name)))) },
-                        Building_NetFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'usbl_fl', 'identfr', Number(building_name)))) },
-                        Building_weight: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Tonnes', 'identfr', Number(building_name)))) },
-                        Aluminium: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Aluminm', 'identfr', Number(building_name)))) },
-                        Bitumen: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Bitumen', 'identfr', Number(building_name)))) },
-                        Carpet: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Carpet', 'identfr', Number(building_name)))) },
-                        Ceramics: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Ceramcs', 'identfr', Number(building_name)))) },
-                        Concrete: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Concret', 'identfr', Number(building_name)))) },
-                        Copper: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Copper', 'identfr', Number(building_name)))) },
-                        Glass: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Glass', 'identfr', Number(building_name)))) },
-                        Insulation: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Insultn', 'identfr', Number(building_name)))) },
-                        Paint: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Paint', 'identfr', Number(building_name)))) },
-                        Plasterboard: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Plstrbr', 'identfr', Number(building_name)))) },
-                        Plastics: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Plastcs', 'identfr', Number(building_name)))) },
-                        SandAndStone: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Snd_nd_', 'identfr', Number(building_name)))) },
-                        Steel: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Steel', 'identfr', Number(building_name)))) },
-                        Timber: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Timber', 'identfr', Number(building_name)))) },
+                        Building_height: { value: formatNumber(Number(getArrowLineValue(arrowData, 'A_H_AGL', 'Id', Number(building_name)))) },
+                        Building_footprintArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grnd_fl', 'Id', Number(building_name)))) },
+                        Building_grossFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'grs_fl', 'Id', Number(building_name)))) },
+                        Building_NetFloorArea: { value: formatNumber(Number(getArrowLineValue(arrowData, 'usbl_fl', 'Id', Number(building_name)))) },
+                        Building_weight: { value: formatNumber(Number(getArrowLineValue(arrowData, 'T_stock', 'Id', Number(building_name)))) },
+                        Aluminium: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Aluminm', 'Id', Number(building_name)))) },
+                        Bitumen: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Bitumen', 'Id', Number(building_name)))) },
+                        Carpet: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Carpet', 'Id', Number(building_name)))) },
+                        Ceramics: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Ceramcs', 'Id', Number(building_name)))) },
+                        Concrete: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Concret', 'Id', Number(building_name)))) },
+                        Copper: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Copper', 'Id', Number(building_name)))) },
+                        Glass: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Glass', 'Id', Number(building_name)))) },
+                        Insulation: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Insultn', 'Id', Number(building_name)))) },
+                        Paint: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Paint', 'Id', Number(building_name)))) },
+                        Plasterboard: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Plstrbr', 'Id', Number(building_name)))) },
+                        Plastics: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Plastcs', 'Id', Number(building_name)))) },
+                        SandAndStone: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Snd_nd_', 'Id', Number(building_name)))) },
+                        Steel: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Steel', 'Id', Number(building_name)))) },
+                        Timber: { value: formatNumber(Number(getArrowLineValue(arrowData, 'Timber', 'Id', Number(building_name)))) },
                     }
                 }
             }

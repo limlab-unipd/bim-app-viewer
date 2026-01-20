@@ -48,9 +48,11 @@ export async function suburbsBoundaries(world: OBC.World, components: OBC.Compon
     if (!arrow) return
     const marker = components.get(OBCF.Marker)
     marker.threshold = 1;
-    const data_suburbs_names = arrowData.getChild(groupColumn.lod0)
+    const data_suburbs_names = [...new Set<string>(arrowData.getChild(groupColumn.lod0))]
 
     // CARICAMENTO 1
+    // per velocità di caricamento i boundaries vengono creati col metodo 2, scaricati e inseriti nella cartella public.
+    // se è necessario aggiornare i boundaries è necessario eseguire il caricamento 2 con il download del file finale e reinserirlo in public
     try {
         // caricamento boundaries precreati
         const fullGroup = await loadSuburbsFromGLB('/MAP/boundaries-sa2.glb')
@@ -67,7 +69,7 @@ export async function suburbsBoundaries(world: OBC.World, components: OBC.Compon
             const suburbName = row[groupColumn.lod0_boundaries]
             const isAnalyzed = data_suburbs_names!.includes(suburbName)
             if (!isAnalyzed) {
-                lineColor = 'rgba(98, 98, 98, 1)'
+                lineColor = 'rgb(98, 98, 98)'
             }
             const element = BUI.Component.create(
                 () => BUI.html`<bim-label style="font-size: 0.7rem; color:${lineColor}">${suburbName}</bim-label>`,
@@ -158,7 +160,7 @@ export async function suburbsBoundaries(world: OBC.World, components: OBC.Compon
     scene.three.add(group)
     window.dispatchEvent(new Event('resize'))
     // Download dei boundaries se necessario
-    //setTimeout(() => exportGroupToGLB(group, groupNotAnalyzed), 100)
+    // setTimeout(() => exportGroupToGLB(group, groupNotAnalyzed), 100)
     const meshMapLayer = await mapLayer(world)
     return meshMapLayer
 }

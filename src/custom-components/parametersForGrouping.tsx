@@ -49,3 +49,22 @@ export const allMaterials = [
     'Steel',
     'Timber',
 ]
+
+export const at_2015_conversion: { [key: string]: { explicit: string; category: string } } = {
+    'SH': { explicit: "Single House", category: "Residential" },
+    'SD': { explicit: "Semi-Detached House", category: "Residential" },
+    'F0': { explicit: "Flat - Ground Level", category: "Residential" },
+    'F3': { explicit: "Flat - 3 Storey", category: "Residential" },
+    'F4': { explicit: "Flat - 4+ Storey", category: "Residential" },
+    'CF13': { explicit: "Community Facility - 1-3 Storey", category: "Community Facility" },
+    'CF47': { explicit: "Community Facility - 4-7 Storey", category: "Community Facility" },
+    'C13': { explicit: "Commercial - 1-3 Storey", category: "Commercial" },
+    'C36': { explicit: "Commercial - 3-6 Storey", category: "Commercial" },
+    'C47': { explicit: "Commercial - 4-7 Storey", category: "Commercial" },
+    'C835': { explicit: "Commercial - 8-35 Storey", category: "Commercial" },
+    'DES13': { explicit: "Designated Use - 1-3 Storey", category: "Designated" },
+    'DES47': { explicit: "Designated Use - 4-7 Storey", category: "Designated" },
+    'DES835': { explicit: "Designated Use - 8-35 Storey", category: "Designated" },
+    'I1': { explicit: "Industrial - Type 1", category: "Industrial" },
+    'I2': { explicit: "Industrial - Type 2", category: "Industrial" },
+}
