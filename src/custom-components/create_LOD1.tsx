@@ -143,7 +143,7 @@ export async function create_LOD1 (
         for (let i = 0; i < arrowData.numRows; i++) {
             if (col.get(i) === name) {
                 const row = arrowData.get(i)
-                dataOfSuburb[Number(row!.identfr).toString()] = row
+                dataOfSuburb[Number(row!.Id).toString()] = row
             }
         }
         const sum: { [key: string]: { sumOne:number; sumOneB:number; sumTwo:number; sumTwoB:number } } = {}

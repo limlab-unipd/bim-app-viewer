@@ -163,7 +163,7 @@ export async function createTable (
                     for (const [mId,model] of fragments.list.entries()){
                         if (model.isDeltaModel) continue
                         if (mId.includes(value)) {
-                            highlighter.highlightByID('select',{[mId]:new Set(await model.getLocalIds())},true,false)
+                            highlighter.highlightByID('select',{[mId]:new Set(await model.getLocalIds())},true,true)
                             return
                         }
                     }
