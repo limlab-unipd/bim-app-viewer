@@ -128,7 +128,7 @@ export function UrbanViewer () {
         await ifcLoader.setup({
             autoSetWasm: false,
             wasm: {
-                path: "https://unpkg.com/web-ifc@0.0.74/",
+                path: "https://unpkg.com/web-ifc@0.0.72/",
                 absolute: true,
             },
         });
@@ -552,7 +552,7 @@ export function UrbanViewer () {
         
         //#region geometry creation
         const api = new WEBIFC.IfcAPI();
-        api.SetWasmPath("https://unpkg.com/web-ifc@0.0.74/", true);
+        api.SetWasmPath("https://unpkg.com/web-ifc@0.0.72/", true);
         await api.Init();
         const geometryEngine = new FRAGS.GeometryEngine(api);
         // #endregion
