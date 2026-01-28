@@ -2018,8 +2018,8 @@ export function MainViewer () {
                     let row: BUI.TableGroupData<PriceAnalysisTableData> = {
                         data: {},
                     }
-                    row.data.Name = component['Description'].value
-                    row.data.Category = component['Category'].value
+                    row.data.Name = component['Name'] ? component['Name'].value : component['Description'] ? component['Description'].value : 'nd'
+                    row.data.Category = component['Category'] ? component['Category'].value : 'nd'
                     const valueComponent = component['AppliedValue'][0]['ValueComponent'].value
                     const unitComponent = component['AppliedValue'][0]['UnitComponent'][0]['Currency'].value
                     row.data.Cost = `${Math.round(valueComponent*1000)/1000} ${convertCurrency(unitComponent)}`
