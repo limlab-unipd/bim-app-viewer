@@ -1358,6 +1358,14 @@ export function MainViewer () {
                     <div style="display: flex; gap: 0.5rem;">
                         <bim-button @click=${() => onLoadTable(updatePropertiesTable)} label="Load" style="max-width:fit-content"></bim-button>
                         <bim-button @click=${(e:Event) => onExpandTable(e,propertiesTable)} label=${propertiesTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                        <bim-button @click=${async () => {
+                            const guid = await fragments.modelIdMapToGuids(highlighter.selection.select)
+                            if (guid.length==1){
+                                await navigator.clipboard.writeText(guid[0])
+                            } else {
+                                await navigator.clipboard.writeText(guid.join(','))
+                            }
+                        }} label="Guids" tooltip-text="Copy IfcGuids to clipboard. Multiple Guids are separated by a comma." style="max-width:fit-content; z-index:1000"></bim-button>
                         <bim-text-input @input=${(e:Event)=>{onSearch(e,propertiesTable)}} placeholder="Search..." debounce="200"></bim-text-input>
                     </div>
                     ${propertiesTable}
