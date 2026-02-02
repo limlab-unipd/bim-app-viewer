@@ -233,6 +233,18 @@ export function MainViewer () {
         }
 
         // handle fragment files
+        const loadFragmentFile = async (path:string) => {
+            const startTime = performance.now() // Start timer
+            const modelId = path.split("/").pop()?.split(".").shift()
+            if (modelId) {
+                const file = await fetch(path)
+                const buffer = await file.arrayBuffer()
+                await fragments.core.load(buffer, { modelId: modelId })
+            }
+            const endTime = performance.now() // End timer
+            const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
+            console.log(`Fragments loaded in ${loadTime} seconds`)
+        }
         const onFragmentsExport = async () => {
             for (const [, model] of fragments.list) {
                 const fragsBuffer = await model.getBuffer(false);
@@ -1221,7 +1233,7 @@ export function MainViewer () {
                         icon="material-symbols:sound-sampler-rounded"
                         tooltip-title="Load sample IFC model"
                         @click=${() => {
-                            loadIfcFile("/IFC/Sample_with costs.ifc")
+                            loadFragmentFile("/FRAG/Sample_partial.frag")
                             }}>
                     </bim-button>
                     <bim-button
