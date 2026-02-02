@@ -83,7 +83,7 @@ export function MainViewer () {
         await ifcLoader.setup({
             autoSetWasm: false,
             wasm: {
-                path: "https://unpkg.com/web-ifc@0.0.69/",
+                path: "https://unpkg.com/web-ifc@0.0.72/",
                 absolute: true,
             },
         });
