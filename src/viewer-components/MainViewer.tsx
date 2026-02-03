@@ -2078,18 +2078,9 @@ export function MainViewer () {
                         <bim-option>
                             <bim-button
                                 icon="fluent:building-48-regular"
-                                label="Only total costs"
+                                label="Sample Partial Building"
                                 @click=${() => {
-                                        loadFragmentFile("/FRAG/Sample_totalCost.frag")
-                                    }}>
-                            </bim-button>
-                        </bim-option>
-                        <bim-option>
-                            <bim-button
-                                icon="ph:house"
-                                label="With price analysis"
-                                @click=${() => {
-                                        loadFragmentFile("/FRAG/Sample_priceAnalysis.frag")
+                                        loadFragmentFile("/FRAG/Sample_totalCostAndPriceAnalysis.frag")
                                     }}>
                             </bim-button>
                         </bim-option>
