@@ -61,16 +61,16 @@ export async function suburbsBoundaries(world: OBC.World, components: OBC.Compon
         world.scene.three.add(fullGroup)
         // li rende visibili
         window.dispatchEvent(new Event('resize'))
-        console.log(data_suburbs_names)
+        //console.log(data_suburbs_names)
         // crea i marker
         for (let i = 0; i < arrow.numRows; i++) {
             let lineColor = 'rgba(142, 142, 142, 1)'
             const row = arrow.get(i)
             if (!row) continue
             const suburbName = row[groupColumn.lod0_boundaries]
-            console.log(suburbName)
+            //console.log(suburbName)
             const isAnalyzed = data_suburbs_names!.includes(suburbName)
-            console.log(isAnalyzed)
+            //console.log(isAnalyzed)
             if (!isAnalyzed) {
                 lineColor = 'rgb(98, 98, 98)'
             }
