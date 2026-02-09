@@ -1662,6 +1662,14 @@ export function UrbanViewer () {
                             console.log('Camera target', world.camera.controls.getTarget(new THREE.Vector3))
                         }}
                     ></bim-button>
+                    <bim-button
+                        style="display:${devElementsVisibility}"
+                        tooltip-title="Center View"
+                        icon="material-symbols:center-focus-weak"
+                        @click=${async ()=>{
+                            await world.camera.controls.setLookAt(8347.85,28563.5,30258.05,6289.1,19237.85,22961.89)
+                        }}
+                    ></bim-button>
                 </bim-toolbar-section>
                 <bim-toolbar-section label="Samples">
                     <bim-dropdown verical placeholder="Load...">
@@ -1944,7 +1952,7 @@ export function UrbanViewer () {
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer() //set the viewer, devMode default = false
+        setViewer(true) //set the viewer, devMode default = false
         return () => {
             if (components) {
                 components.dispose()
