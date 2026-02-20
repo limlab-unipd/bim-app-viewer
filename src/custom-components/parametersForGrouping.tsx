@@ -18,6 +18,13 @@ export const normalizationHeight = {
     lod1 : 1000,
     lod2 : 300,
 }
+// height to use to divide data per each lod
+export const divisionHeight = {
+    notNormalized : 1, // this value only divide the not normalized value by this number, to not have bars too high
+    lod0 : 1,
+    lod1 : 1,
+    lod2 : 1,
+}
 
 // side length of the base square of bars
 export const barsBase = {

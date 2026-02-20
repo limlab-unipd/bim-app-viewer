@@ -7,7 +7,7 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
-import { allMaterials, at_2015_conversion, barsBase, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { allMaterials, at_2015_conversion, barsBase, coordinatesScaleFactor, divisionHeight, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 import { formatNumber, getArrowLineValue, normalizeParamOne, valueToParamLabel } from './conversion'
 
 /**
@@ -262,7 +262,7 @@ export async function create_LOD20 (
                 const bar_base_dim1 = barsBase.lod2
                 const centr_x = set.centroid_x - globalCentroid.x / coordinatesScaleFactor
                 const centr_y = set.centroid_y - globalCentroid.y / coordinatesScaleFactor
-                const bar_height = normalizationCheckbox.checked ? set.param_one_normalized*normalizationHeight.lod2 : set.param_one
+                const bar_height = normalizationCheckbox.checked ? set.param_one_normalized*normalizationHeight.lod2 : set.param_one/divisionHeight.lod2
                 const bar_position = new THREE.Vector3(centr_x,0,-centr_y)
                 const bar_name = Number(set.Id).toString()
                 

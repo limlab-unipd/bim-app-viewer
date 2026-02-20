@@ -18,7 +18,7 @@ import { create_LOD20 } from '../custom-components/create_LOD20'
 import { create_LOD3 } from '../custom-components/create_LOD3'
 import Stats from 'stats.js'
 import { create_LOD21 } from '../custom-components/create_LOD21'
-import { normalizationHeight } from '../custom-components/parametersForGrouping'
+import { normalizationHeight, divisionHeight } from '../custom-components/parametersForGrouping'
 import { onNormalizeColorScale, paramLabelToValue } from '../custom-components/conversion'
 
 
@@ -596,6 +596,7 @@ export function UrbanViewer () {
             NormColors: string,
             ColorScale: string,
             NormHeight: number | string,
+            DivHeight: number | string,
         }
         const uvlVisualizationTable = document.createElement("bim-table") as BUI.Table<uvlVisualizationTableType>
         uvlVisualizationTable.id = 'uvl-visualization-table'
@@ -606,6 +607,7 @@ export function UrbanViewer () {
                 Opacity: '',
                 ColorScale: '',
                 NormHeight: 5000,
+                DivHeight: 1,
             }
         },{
             data: {
@@ -615,6 +617,7 @@ export function UrbanViewer () {
                 NormColors: '',
                 ColorScale: '',
                 NormHeight: 1000,
+                DivHeight: 1,
             }
         },{
             data: {
@@ -624,6 +627,7 @@ export function UrbanViewer () {
                 NormColors: '',
                 ColorScale: '',
                 NormHeight: 300,
+                DivHeight: 1,
             }
         },{
             data: {
@@ -633,6 +637,7 @@ export function UrbanViewer () {
                 NormColors: '',
                 ColorScale: '',
                 NormHeight: '',
+                DivHeight: '',
             }
         },{
             data: {
@@ -641,6 +646,7 @@ export function UrbanViewer () {
                 Opacity: '',
                 ColorScale: '',
                 NormHeight: '',
+                DivHeight: '',
             }
         }]
         const columns: (keyof uvlVisualizationTableType | BUI.ColumnData)[] = [
@@ -650,6 +656,7 @@ export function UrbanViewer () {
             { name:'NormColors', width:'4.5rem'},
             { name:'ColorScale', width:'1fr'},
             { name:'NormHeight', width:'4.5rem'},
+            { name:'DivHeight', width:'4.5rem'},
         ]
         uvlVisualizationTable.columns = columns;
         uvlVisualizationTable.style.width = 'max-content'
@@ -744,6 +751,31 @@ export function UrbanViewer () {
                     </bim-number-input>`
             }
             else {
+                return ''
+            }
+        }
+        uvlVisualizationTable.dataTransform.DivHeight = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+            const { UVL } = rowData
+            if (!UVL) return value
+            if (UVL=='0' || UVL=='1' || UVL=='2.0') {
+                return BUI.html`
+                    <bim-number-input 
+                        id="division-height-uvl-${UVL}" slider step="100" value="1" min="1" max="5000"
+                        @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                            switch (UVL) {
+                                case '0':
+                                    divisionHeight.lod0 = target.value
+                                    break
+                                case '1':
+                                    divisionHeight.lod1 = target.value
+                                    break
+                                case '2.0':
+                                    divisionHeight.lod2 = target.value
+                                    break
+                            }
+                        }}">
+                    </bim-number-input>`
+            } else {
                 return ''
             }
         }
