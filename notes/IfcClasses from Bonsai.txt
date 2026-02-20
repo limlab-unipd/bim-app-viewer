@@ -1,0 +1,135 @@
+IfcActuatorType / IfcActuator
+IfcAirTerminalBoxType / IfcAirTerminalBox
+IfcAirTerminalType / IfcAirTerminal
+IfcAirToAirHeatRecoveryType / IfcAirToAirHeatRecovery
+IfcAlarmType / IfcAlarm
+IfcAudioVisualApplianceType / IfcAudioVisualAppliance
+IfcBeamType / IfcBeam
+IfcBearingType / IfcBearing
+IfcBoilerType / IfcBoiler
+IfcBorehole
+IfcBuildingElementPartType / IfcBuildingElementPart
+IfcBuildingElementProxyType / IfcBuildingElementProxy
+IfcBuiltElementType / IfcBuiltElement / IfcEarthworksElement / IfcEarthworksFill / IfcReinforcedSoil
+IfcBurnerType / IfcBurner
+IfcCableCarrierFittingType / IfcCableCarrierFitting
+IfcCableCarrierSegmentType / IfcCableCarrierSegment
+IfcCableFittingType / IfcCableFitting
+IfcCableSegmentType / IfcCableSegment
+IfcCaissonFoundationType / IfcCaissonFoundation
+IfcChillerType / IfcChiller
+IfcChimneyType / IfcChimney
+IfcCivilElementType / IfcCivilElement
+IfcCoilType / IfcCoil
+IfcColumnType / IfcColumn
+IfcCommunicationsApplianceType / IfcCommunicationsAppliance
+IfcCompressorType / IfcCompressor
+IfcCondenserType / IfcCondenser
+IfcControllerType / IfcController
+IfcConveyorSegmentType / IfcConveyorSegment
+IfcCooledBeamType / IfcCooledBeam
+IfcCoolingTowerType / IfcCoolingTower
+IfcCourseType / IfcCourse
+IfcCoveringType / IfcCovering
+IfcCurtainWallType / IfcCurtainWall
+IfcDamperType / IfcDamper
+IfcDeepFoundationType / IfcDeepFoundation
+IfcDiscreteAccessoryType / IfcDiscreteAccessory
+IfcDistributionBoardType / IfcDistributionBoard
+IfcDistributionChamberElementType / IfcDistributionChamberElement
+IfcDistributionElementType / IfcDistributionControlElement / IfcDistributionElement / IfcDistributionFlowElement / IfcEnergyConversionDevice / IfcFlowController / IfcFlowFitting / IfcFlowMovingDevice / IfcFlowSegment / IfcFlowStorageDevice / IfcFlowTerminal / IfcFlowTreatmentDevice
+IfcDoorType / IfcDoor
+IfcDuctFittingType / IfcDuctFitting
+IfcDuctSegmentType / IfcDuctSegment
+IfcDuctSilencerType / IfcDuctSilencer
+IfcEarthworksCut
+IfcElectricApplianceType / IfcElectricAppliance
+IfcElectricDistributionBoardType / IfcElectricDistributionBoard
+IfcElectricFlowStorageDeviceType / IfcElectricFlowStorageDevice
+IfcElectricFlowTreatmentDeviceType / IfcElectricFlowTreatmentDevice
+IfcElectricGeneratorType / IfcElectricGenerator
+IfcElectricMotorType / IfcElectricMotor
+IfcElectricTimeControlType / IfcElectricTimeControl
+IfcElementAssemblyType / IfcElementAssembly
+IfcEngineType / IfcEngine
+IfcEvaporativeCoolerType / IfcEvaporativeCooler
+IfcEvaporatorType / IfcEvaporator
+IfcFanType / IfcFan
+IfcFastenerType / IfcFastener
+IfcFilterType / IfcFilter
+IfcFireSuppressionTerminalType / IfcFireSuppressionTerminal
+IfcFlowInstrumentType / IfcFlowInstrument
+IfcFlowMeterType / IfcFlowMeter
+IfcFootingType / IfcFooting
+IfcFurnishingElementType / IfcFurnishingElement
+IfcFurnitureType / IfcFurniture
+IfcGeographicElementType / IfcGeographicElement
+IfcGeomodel
+IfcGeoslice
+IfcGeotechnicalStratum
+IfcHeatExchangerType / IfcHeatExchanger
+IfcHumidifierType / IfcHumidifier
+IfcImpactProtectionDeviceType / IfcImpactProtectionDevice
+IfcInterceptorType / IfcInterceptor
+IfcJunctionBoxType / IfcJunctionBox
+IfcKerbType / IfcKerb
+IfcLampType / IfcLamp
+IfcLightFixtureType / IfcLightFixture
+IfcLiquidTerminalType / IfcLiquidTerminal
+IfcMechanicalFastenerType / IfcMechanicalFastener
+IfcMedicalDeviceType / IfcMedicalDevice
+IfcMemberType / IfcMember
+IfcMobileTelecommunicationsApplianceType / IfcMobileTelecommunicationsAppliance
+IfcMooringDeviceType / IfcMooringDevice
+IfcMotorConnectionType / IfcMotorConnection
+IfcNavigationElementType / IfcNavigationElement
+IfcOpeningElement
+IfcOutletType / IfcOutlet
+IfcPavementType / IfcPavement
+IfcPileType / IfcPile
+IfcPipeFittingType / IfcPipeFitting
+IfcPipeSegmentType / IfcPipeSegment
+IfcPlateType / IfcPlate
+IfcProjectionElement
+IfcProtectiveDeviceTrippingUnitType / IfcProtectiveDeviceTrippingUnit
+IfcProtectiveDeviceType / IfcProtectiveDevice
+IfcPumpType / IfcPump
+IfcRailType / IfcRail
+IfcRailingType / IfcRailing
+IfcRampFlightType / IfcRampFlight
+IfcRampType / IfcRamp
+IfcReinforcingBarType / IfcReinforcingBar
+IfcReinforcingMeshType / IfcReinforcingMesh
+IfcRoofType / IfcRoof
+IfcSanitaryTerminalType / IfcSanitaryTerminal
+IfcSensorType / IfcSensor
+IfcShadingDeviceType / IfcShadingDevice
+IfcSignType / IfcSign
+IfcSignalType / IfcSignal
+IfcSlabType / IfcSlab
+IfcSolarDeviceType / IfcSolarDevice
+IfcSpaceHeaterType / IfcSpaceHeater
+IfcStackTerminalType / IfcStackTerminal of a rainwater downpipe to catch rainwater from guttering.
+IfcStairFlightType / IfcStairFlight
+IfcStairType / IfcStair
+IfcSurfaceFeature
+IfcSwitchingDeviceType / IfcSwitchingDevice
+IfcSystemFurnitureElementType / IfcSystemFurnitureElement
+IfcTankType / IfcTank
+IfcTendonAnchorType / IfcTendonAnchor
+IfcTendonConduitType / IfcTendonConduit
+IfcTendonType / IfcTendon
+IfcTrackElementType / IfcTrackElement
+IfcTransformerType / IfcTransformer
+IfcTransportElementType / IfcTransportElement
+IfcTubeBundleType / IfcTubeBundle
+IfcUnitaryControlElementType / IfcUnitaryControlElement
+IfcUnitaryEquipmentType / IfcUnitaryEquipment
+IfcValveType / IfcValve
+IfcVehicleType / IfcVehicle
+IfcVibrationDamperType / IfcVibrationDamper
+IfcVibrationIsolatorType / IfcVibrationIsolator
+IfcVirtualElement
+IfcVoidingFeature
+IfcWallType / IfcWall / IfcWallStandardCase
+IfcWasteTerminalType / IfcWasteTerminal

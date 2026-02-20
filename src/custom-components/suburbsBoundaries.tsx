@@ -47,7 +47,7 @@ export async function suburbsBoundaries(world: OBC.World, components: OBC.Compon
     const arrow = await readArrow('boundaries')
     if (!arrow) return
     const marker = components.get(OBCF.Marker)
-    marker.threshold = 1;
+    marker.threshold = 0
     const data_suburbs_names = [...new Set<string>(arrowData.getChild(groupColumn.lod0))]
 
     // CARICAMENTO 1
@@ -174,7 +174,7 @@ export async function sa1Boundaries(world:OBC.World, components:OBC.Components, 
     const scene = world.scene
     if (!arrow) return
     const marker = components.get(OBCF.Marker)
-    marker.threshold = 1
+    marker.threshold = 0
     const sa1Centroids: {[key:string]:{centr_x:number, centr_y:number}} = {}
 
     // Fattore di scala per adattare le coordinate a Three.js

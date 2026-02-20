@@ -1623,12 +1623,16 @@ export function UrbanViewer () {
                         tooltip-title="Hide Markers"
                         icon="mdi:map-marker-remove-outline"
                         @click=${(e:Event)=>{
+                            const target = e.target as BUI.Button
                             marker.list.forEach((entry)=>{
                                 entry.forEach((marker) => {
-                                    marker.label.visible = marker.label.visible ? false : true
+                                    if (target.tooltipTitle == 'Show Markers' && !marker.label.visible) {
+                                        marker.label.visible = true
+                                    } else if (target.tooltipTitle == 'Hide Markers' && marker.label.visible) {
+                                        marker.label.visible = false
+                                    }
                                 })
                             })
-                            const target = e.target as BUI.Button
                             target.icon = target.icon=="mdi:map-marker-remove-outline" ? "mdi:map-marker-outline" : "mdi:map-marker-remove-outline"
                             target.tooltipTitle = target.tooltipTitle=='Hide Markers' ? 'Show Markers' : 'Hide Markers'
                         }}
