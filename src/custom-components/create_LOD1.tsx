@@ -7,7 +7,7 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
-import { allMaterials, barsBase, coordinatesScaleFactor, divisionHeight, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { allMaterials, barsBase, barsIfcCategory, coordinatesScaleFactor, divisionHeight, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 import { formatNumber, getArrowLineValue, normalizeParamOne, valueToParamLabel } from './conversion'
 import { sa1Boundaries } from './suburbsBoundaries'
 import { readArrow } from './readArrow'
@@ -399,9 +399,7 @@ export async function create_LOD1 (
                 //proprietà dell'oggetto appena creato (qui andranno inserite le eventuali proprietà IFC)
                 elementsData.push({
                     attributes: {
-                        _category: {
-                            value: "IfcBuildingElementProxy",
-                        },
+                        _category: { value: barsIfcCategory },
                         _guid: { value: generateUUID() },
                         Name: { value: bar_name },
                         Suburb: { value: set.suburb },

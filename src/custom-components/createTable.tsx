@@ -3,6 +3,7 @@ import * as BUI from '@thatopen/ui'
 import * as OBCF from '@thatopen/components-front'
 import type { Identifier, ItemAttribute, ItemData } from '@thatopen/fragments';
 import { formatNumber } from './conversion';
+import { barsIfcCategory } from './parametersForGrouping';
 
 
 const onSearch = (e: Event, table:BUI.Table<any>) => {
@@ -163,7 +164,15 @@ export async function createTable (
                     for (const [mId,model] of fragments.list.entries()){
                         if (model.isDeltaModel) continue
                         if (mId.includes(value)) {
-                            highlighter.highlightByID('select',{[mId]:new Set(await model.getLocalIds())},true,true)
+                            const filteredLocalIds = new Set<number>()
+                            const localIds = await model.getLocalIds()
+                            const itemsData = await model.getItemsData(localIds)
+                            itemsData.forEach(item => {
+                                if ((item._category as ItemAttribute).value == barsIfcCategory) {
+                                    //all the columns are IfcBuildingElementProxy, so all the other elements are excluded
+                                    filteredLocalIds.add((item._localId as ItemAttribute).value)
+                                }})
+                            highlighter.highlightByID('select',{[mId]:filteredLocalIds},true,true)
                             return
                         }
                     }

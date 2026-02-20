@@ -8,6 +8,9 @@ export const groupColumn = {
     lod1_boundaries : 'SA1_MAIN16',
 }
 
+// IFC category for generated bars
+export const barsIfcCategory = 'IfcBuildingElementProxy'
+
 // scale factor to scale the map
 export const coordinatesScaleFactor = 1 //it is a reducing factor, so it reduce the scale by the factor
 
