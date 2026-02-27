@@ -112,6 +112,19 @@ export async function create_LOD1 (
         }
         const dataSuburbBySection: {[key:string]:sectionObject} = {} //all buildings of single suburb
 
+        //metodo per eliminare un modello e ricrearlo senza dover ricaricare la pagina
+        //funziona ma non va bene del tutto perchè alla ri-creazione non associa correttamente i property set
+        //console.log(Array.from(fragments.list.keys()))
+        //const alreadyCreatedModel = Array.from(fragments.list.keys()).some(modelId => {
+        //    if (modelId.includes(`${name}`) && !modelId.includes(`DELTA`)) {
+        //        return true // stop iteration and return true to indicate that the model was already loaded
+        //    }
+        //})
+        //if (alreadyCreatedModel) {
+        //    addOverlay(BUI.html`<b>WARNING: UVL-1 of ${name} already loaded.</b>`,'warning')
+        //    continue
+        //}
+
         if (previousLoadedSuburbs.includes(name)) {
             addOverlay(BUI.html`<b>WARNING: UVL-1 of ${name} already loaded.</b>`,'warning')
             continue
