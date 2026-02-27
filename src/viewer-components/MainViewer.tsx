@@ -627,7 +627,12 @@ export function MainViewer () {
                             if (!pac['Category']) continue //checks if the component has a category
                             if (pac['Category'].value == resource){ //checks the correspondance between components resource category and the one selected
                                 const resourceDescription = pac['Description'].value //description of the resource
-                                const resourceUnitCost = pac['AppliedValue'][0]['ValueComponent'].value //unit cost of the resource
+                                let resourceUnitCost
+                                try {
+                                    resourceUnitCost = pac['AppliedValue'][0]['ValueComponent'].value //unit cost of the resource
+                                } catch (error) {
+                                    continue
+                                }
                                 resourceCurrency = convertCurrency(pac['AppliedValue'][0]['UnitComponent'][0]['Currency'].value) //currency of the resource unit cost
                                 resourceValuesArray.push(resourceUnitCost*elemQuantity) //multiply the single resource with the quantity to obtain the element specific resource cost
                                 elem_resourcesDetails_Map[elemId].push({ //save in the object the details of the single resource
