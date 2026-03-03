@@ -18,7 +18,7 @@ import { create_LOD20 } from '../custom-components/create_LOD20'
 import { create_LOD3 } from '../custom-components/create_LOD3'
 import Stats from 'stats.js'
 import { create_LOD21 } from '../custom-components/create_LOD21'
-import { normalizationHeight, divisionHeight } from '../custom-components/parametersForGrouping'
+import { normalizationHeight } from '../custom-components/parametersForGrouping'
 import { onNormalizeColorScale, paramLabelToValue } from '../custom-components/conversion'
 
 
@@ -596,7 +596,6 @@ export function UrbanViewer () {
             NormColors: string,
             ColorScale: string,
             NormHeight: number | string,
-            DivHeight: number | string,
         }
         const uvlVisualizationTable = document.createElement("bim-table") as BUI.Table<uvlVisualizationTableType>
         uvlVisualizationTable.id = 'uvl-visualization-table'
@@ -607,7 +606,6 @@ export function UrbanViewer () {
                 Opacity: '',
                 ColorScale: '',
                 NormHeight: 5000,
-                DivHeight: 1,
             }
         },{
             data: {
@@ -617,7 +615,6 @@ export function UrbanViewer () {
                 NormColors: '',
                 ColorScale: '',
                 NormHeight: 1000,
-                DivHeight: 1,
             }
         },{
             data: {
@@ -627,7 +624,6 @@ export function UrbanViewer () {
                 NormColors: '',
                 ColorScale: '',
                 NormHeight: 300,
-                DivHeight: 1,
             }
         },{
             data: {
@@ -637,7 +633,6 @@ export function UrbanViewer () {
                 NormColors: '',
                 ColorScale: '',
                 NormHeight: '',
-                DivHeight: '',
             }
         },{
             data: {
@@ -646,7 +641,6 @@ export function UrbanViewer () {
                 Opacity: '',
                 ColorScale: '',
                 NormHeight: '',
-                DivHeight: '',
             }
         }]
         const columns: (keyof uvlVisualizationTableType | BUI.ColumnData)[] = [
@@ -656,7 +650,6 @@ export function UrbanViewer () {
             { name:'NormColors', width:'4.5rem'},
             { name:'ColorScale', width:'1fr'},
             { name:'NormHeight', width:'4.5rem'},
-            { name:'DivHeight', width:'4.5rem'},
         ]
         uvlVisualizationTable.columns = columns;
         uvlVisualizationTable.style.width = 'max-content'
@@ -751,31 +744,6 @@ export function UrbanViewer () {
                     </bim-number-input>`
             }
             else {
-                return ''
-            }
-        }
-        uvlVisualizationTable.dataTransform.DivHeight = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-            const { UVL } = rowData
-            if (!UVL) return value
-            if (UVL=='0' || UVL=='1' || UVL=='2.0') {
-                return BUI.html`
-                    <bim-number-input 
-                        id="division-height-uvl-${UVL}" slider step="100" value="1" min="1" max="5000"
-                        @change="${async ({ target }: { target: BUI.NumberInput }) => {
-                            switch (UVL) {
-                                case '0':
-                                    divisionHeight.lod0 = target.value
-                                    break
-                                case '1':
-                                    divisionHeight.lod1 = target.value
-                                    break
-                                case '2.0':
-                                    divisionHeight.lod2 = target.value
-                                    break
-                            }
-                        }}">
-                    </bim-number-input>`
-            } else {
                 return ''
             }
         }
@@ -1314,13 +1282,26 @@ export function UrbanViewer () {
 
         const normalizationCheckbox = BUI.Component.create<BUI.Checkbox>(
             () => BUI.html`
-            <bim-checkbox checked label='Normalize bars height' icon='fluent:column-triple-20-filled' id='normalization-checkbox' style="border-bottom: 1px solid var(--bim-ui_bg-contrast-20); padding-bottom:0.5rem"
+            <bim-checkbox checked label='Normalize bars height' icon='fluent:column-triple-20-filled' id='normalization-checkbox'
                 @change="${(e:Event) => {
                     if (!e.target) return
-                    const chekcbox = e.target as BUI.Checkbox   
-                    chekcbox.icon = chekcbox.checked ? 'fluent:column-triple-20-filled' : 'heroicons:chart-bar-16-solid'
+                    const checkbox = e.target as BUI.Checkbox
+                    checkbox.icon = checkbox.checked ? 'fluent:column-triple-20-filled' : 'heroicons:chart-bar-16-solid'
+                    checkbox.checked ? nonNormalizedHeight.style.display='none' : nonNormalizedHeight.style.display=''
                 }}">
             </bim-checkbox>`
+        )
+        const nonNormalizedHeight = BUI.Component.create<BUI.NumberInput>(
+            () => BUI.html`
+            <bim-number-input 
+                checked
+                label='Divide height by'
+                id='non-normalized-height'
+                style="
+                    display:none;
+                    margin-left: 1.5rem;"
+                value="1"
+            </bim-number-input>`
         )
         const filterByName = BUI.Component.create<BUI.TextInput>(
             () => BUI.html`
@@ -1402,7 +1383,8 @@ export function UrbanViewer () {
                     ${materialsImpactsDropdownTwo}
                     ${filterByName}
                     ${normalizationCheckbox}
-                    <bim-label icon='solar:city-bold-duotone'>Urban Visualization Level</bim-label>
+                    ${nonNormalizedHeight}
+                    <bim-label icon='solar:city-bold-duotone' style='border-top:1px solid var(--bim-ui_bg-contrast-20); padding-top:0.5rem'>Urban Visualization Level</bim-label>
                     <div style='display:flex; flex-direction:row; gap:0.5rem; align-items:center'>
                         <bim-label style="display:flex; white-space:normal">Load:</bim-label>
 
@@ -1422,7 +1404,7 @@ export function UrbanViewer () {
                                 paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
                             }
                             try {
-                                [result_0,historyTable] = await create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,panelRight,paramOneFullNameLabel,paramTwoFullNameLabel,filterByName.value);
+                                [result_0,historyTable] = await create_LOD0(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,panelRight,paramOneFullNameLabel,paramTwoFullNameLabel,filterByName.value,nonNormalizedHeight.value);
                                 if (result_0) {
                                     urbanTable = await createTable(panelDown,fragments,components,paramOneFullNameLabel,paramTwoFullNameLabel)
                                     if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
@@ -1456,7 +1438,7 @@ export function UrbanViewer () {
                                 paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
                             }
                             try {
-                                const result_1 = await create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value)
+                                const result_1 = await create_LOD1(world,components,geometryEngine,arrowData!,populationArrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value,nonNormalizedHeight.value)
                                 result_1 ? await onSetTransparencyWithColors(0) : ''
                                 if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                     onSetLayout({target:'down'})
@@ -1486,7 +1468,7 @@ export function UrbanViewer () {
                                     paramTwoFullNameLabel = `P2_${paramTwoFullNameLabel}`
                                 }
                                 try {
-                                    const result_2 = await create_LOD20(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value)
+                                    const result_2 = await create_LOD20(world,components,geometryEngine,arrowData!,environmentalArrowData!,paramOne,paramOneB,paramTwo,paramTwoB,paramEnvOne!,paramEnvTwo!,previousLoadedSuburbs,paramOneFullNameLabel,paramTwoFullNameLabel,urbanTable,historyTable,filterByName.value,nonNormalizedHeight.value)
                                     result_2 ? await onSetTransparencyWithColors(1) : ''
                                     if (floatingGrid.layout && !(floatingGrid.layout as string).includes('down')) {
                                         onSetLayout({target:'down'})

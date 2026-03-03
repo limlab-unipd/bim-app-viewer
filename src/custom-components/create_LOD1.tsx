@@ -7,7 +7,7 @@ import { generateUUID } from 'three/src/math/MathUtils.js'
 import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
-import { allMaterials, barsBase, barsIfcCategory, coordinatesScaleFactor, divisionHeight, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { allMaterials, barsBase, barsIfcCategory, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 import { formatNumber, getArrowLineValue, normalizeParamOne, valueToParamLabel } from './conversion'
 import { sa1Boundaries } from './suburbsBoundaries'
 import { readArrow } from './readArrow'
@@ -58,6 +58,7 @@ export async function create_LOD1 (
         urbanTable:BUI.Table,
         historyTable:BUI.Table<any>|null,
         filterByName:string,
+        nonNormalizedHeight:number,
     ): Promise<boolean> {
 
     
@@ -368,7 +369,7 @@ export async function create_LOD1 (
             for (const [key,set] of Object.entries(dataForBars)) {
                 const bar_base_dim2 = barsBase.lod1
                 const bar_base_dim1 = barsBase.lod1
-                const bar_height = normalizationCheckbox.checked ? set.param_one_normalized*normalizationHeight.lod1 : Number(set.param_one)/divisionHeight.lod1
+                const bar_height = normalizationCheckbox.checked ? set.param_one_normalized*normalizationHeight.lod1 : Number(set.param_one)/nonNormalizedHeight
                 //const centr_x = (Math.max(...set.centroid_x_local)+Math.min(...set.centroid_x_local))/2 //centro degli edifici
                 //const centr_y = (Math.max(...set.centroid_y_local)+Math.min(...set.centroid_y_local))/2
                 const bar_name = Number(set.section).toString()

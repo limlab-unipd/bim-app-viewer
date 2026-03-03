@@ -8,7 +8,7 @@ import { colorBar } from './colorBar'
 import type { Table } from 'apache-arrow'
 import { addOverlay } from './addOverlay'
 import { readArrow } from './readArrow'
-import { allMaterials, barsBase, barsIfcCategory, coordinatesScaleFactor, divisionHeight, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
+import { allMaterials, barsBase, barsIfcCategory, coordinatesScaleFactor, globalCentroid, groupColumn, normalizationHeight } from './parametersForGrouping'
 import { formatNumber, getArrowLineValue, normalizeParamOne, valueToParamLabel } from './conversion'
 
 /**
@@ -59,6 +59,7 @@ export async function create_LOD0 (
         paramOneFullNameLabel:string,
         paramTwoFullNameLabel:string,
         filterByName:string,
+        nonNormalizedHeight:number,
     ): Promise<[boolean,BUI.Table<any>|null]> {
 
     if (!paramOne || !paramOneB || !paramTwo || !paramTwoB) {
@@ -341,7 +342,7 @@ export async function create_LOD0 (
         for (const [key,set] of Object.entries(dataForBars)) {
             const bar_base_dim1 = barsBase.lod0
             const bar_base_dim2 = barsBase.lod0
-            const bar_height = normalizationCheckbox.checked ? set.param_one_normalized*normalizationHeight.lod0 : set.param_one/divisionHeight.lod0
+            const bar_height = normalizationCheckbox.checked ? set.param_one_normalized*normalizationHeight.lod0 : set.param_one/nonNormalizedHeight
             const bar_name = set.suburb
             let bar_position
             try {
