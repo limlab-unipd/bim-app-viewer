@@ -379,6 +379,7 @@ export async function create_LOD0 (
                     _category: { value: barsIfcCategory },
                     _guid: { value: generateUUID() },
                     Name: { value: bar_name },
+                    Height: { value: bar_height },
                 },
                 globalTransform: tempObject.matrix.clone(),
                 samples: [

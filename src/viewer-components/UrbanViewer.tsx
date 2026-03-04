@@ -273,9 +273,9 @@ export function UrbanViewer () {
         }
 
         // handle fragment files
-        const loadFragmentFile = async (path:string): Promise<FRAGS.FragmentsModel> => {
+        const loadFragmentFile = async (path:string,id?:string): Promise<FRAGS.FragmentsModel> => {
             const startTime = performance.now() // Start timer
-            const modelId = path.split("/").pop()?.split(".").shift()
+            const modelId = id ? id : path.split("/").pop()?.split(".").shift()
             let model: FRAGS.FragmentsModel
             if (modelId) {
                 const file = await fetch(path)
