@@ -67,7 +67,7 @@ export function UrbanViewer () {
         //SCENE
         world.scene = new OBC.SimpleScene(components)
         world.scene.setup()
-        world.scene.three.background = null
+        world.scene.three.background = new THREE.Color('rgb(53, 53, 70)')
         //RENDERER
         const container = document.getElementById("main-viewer")! as HTMLElement
         world.renderer = new OBCF.PostproductionRenderer(components, container)
@@ -541,11 +541,11 @@ export function UrbanViewer () {
             }
         }
         function takeScreenshot() {
-            if (!world.renderer) return
-            const dataURL = world.renderer.three.domElement.toDataURL("image/png");
+            if (!world.renderer) return;
+            world.renderer.three.render(world.scene.three, world.camera.three);
             const link = document.createElement("a");
-            link.href = dataURL;
             link.download = "screenshot.png";
+            link.href = world.renderer.three.domElement.toDataURL();
             link.click();
         }
 
@@ -1627,9 +1627,8 @@ export function UrbanViewer () {
                     </bim-button>
                     <bim-button
                         id='screenshot'
-                        style="display:none"
                         icon="streamline-flex:screenshot-solid"
-                        tooltip-title="Take screenshot"
+                        tooltip-title="Screenshot"
                         @click=${takeScreenshot}>
                     </bim-button>
                     ${centerViewButton}
@@ -1970,7 +1969,7 @@ export function UrbanViewer () {
 
     // #region FINAL PART
     React.useEffect(() => {
-        setViewer(true) //set the viewer, devMode default = false
+        setViewer() //set the viewer, devMode default = false
         return () => {
             if (components) {
                 components.dispose()
