@@ -49,7 +49,7 @@ export function MainViewer () {
         //SCENE
         world.scene = new OBC.SimpleScene(components)
         world.scene.setup()
-        world.scene.three.background = null
+        world.scene.three.background = new THREE.Color('rgb(53, 53, 70)')
         //RENDERER
         const container = document.getElementById("main-viewer")! as HTMLElement
         world.renderer = new OBCF.PostproductionRenderer(components, container)
@@ -488,6 +488,14 @@ export function MainViewer () {
                 const volumes = await model.getItemsVolume(selection)
                 console.log(volumes)
             }
+        }
+        function takeScreenshot() {
+            if (!world.renderer) return;
+            world.renderer.three.render(world.scene.three, world.camera.three);
+            const link = document.createElement("a");
+            link.download = "screenshot.png";
+            link.href = world.renderer.three.domElement.toDataURL();
+            link.click();
         }
         const addOverlay = (sentence:BUI.TemplateResult=BUI.html`Overlay <b>example</b>`) => {
             const overlay = document.getElementById("overlay");
@@ -2069,6 +2077,12 @@ export function MainViewer () {
                         icon="tabler:world-cog"
                         tooltip-title="Scene Visibility Settings"
                         @click=${onSetLayout}>
+                    </bim-button>
+                    <bim-button
+                        id='screenshot'
+                        icon="streamline-flex:screenshot-solid"
+                        tooltip-title="Screenshot"
+                        @click=${takeScreenshot}>
                     </bim-button>
                     <bim-button
                         tooltip-title="Center View"
