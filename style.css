@@ -5,6 +5,7 @@
     --primary: #760000;
     --background: rgba(59, 60, 79, 0.89);
     --background-100: rgba(94, 95, 131, 0.95);
+    --background-200: rgba(47, 48, 123, 0.95);
     --hover: rgba(255,255,255,0.1);
     --text: white;
     --text-title: rgb(4, 0, 255);
@@ -14,6 +15,7 @@
     --sidebar_width: 250px;
 
     --bim-icon--fz: 20px;
+    --bim-label--c: rgb(240, 240, 240);
 }
 
 /* Background Colors */
@@ -247,4 +249,10 @@ input[type="range"]::-moz-range-thumb {
 }
 .survey-card-coming-soon:hover {
     background-color: #6b6b6b;
+}
+
+.blur-background-container {
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
