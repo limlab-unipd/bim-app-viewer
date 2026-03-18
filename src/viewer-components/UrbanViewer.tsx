@@ -565,7 +565,8 @@ export function UrbanViewer () {
             <bim-panel
                 id='panel-left'
                 label="BIM PANEL"
-                style="background-color:rgba(0,0,0,0.85); z-index:200">
+                class="blur-background-container"
+                style="z-index:200">
             </bim-panel>
             `;
         })
@@ -574,7 +575,8 @@ export function UrbanViewer () {
             <bim-panel
                 id="panel-right"
                 label="Right Panel"
-                style="background-color:rgba(0,0,0,0.85); z-index:200">
+                class="blur-background-container"
+                style="z-index:200">
             </bim-panel>
             `;
         })
@@ -583,7 +585,8 @@ export function UrbanViewer () {
             <bim-panel
                 id = "panel-down"
                 label="Down Panel"
-                style="background-color:rgba(0,0,0,0.85); display:flex; z-index:200">
+                class="blur-background-container"
+                style="display:flex; z-index:200">
             </bim-panel>
             `;
         })
@@ -779,7 +782,8 @@ export function UrbanViewer () {
             return BUI.html`
                 <bim-panel
                     label="World Visibility Settings"
-                    style="background-color:rgba(0, 0, 0, 0.65); z-index:200">
+                    class="blur-background-container"
+                    style="z-index:200">
                     <bim-panel-section style='display:${devElementsVisibility}'>
                         <bim-number-input
                             slider step="0.001" label="scale X" value="1" min="0.5" max="1.5"
@@ -1617,7 +1621,7 @@ export function UrbanViewer () {
         //TOOLBAR COMPONENT
         const toolbar = BUI.Component.create<BUI.Toolbar>(() => {
             return BUI.html`
-            <bim-toolbar style="justify-self: center; z-index:200">
+            <bim-toolbar style="justify-self: center; z-index:200" class="blur-background-container">
                 <bim-toolbar-section label="Scene">
                     <bim-button
                         id='world'

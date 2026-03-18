@@ -248,3 +248,9 @@ input[type="range"]::-moz-range-thumb {
 .survey-card-coming-soon:hover {
     background-color: #6b6b6b;
 }
+
+.blur-background-container{
+    background-color: rgba(0,0,0,0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}

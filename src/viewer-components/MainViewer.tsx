@@ -408,54 +408,77 @@ export function MainViewer () {
             button.label = table.expanded ? "Collapse" : "Expand";
         }
         
-        const onSortTable = (table:BUI.Table<any>, field:string, ascending:boolean=true) => {
-            function parseValue(value: string): number | string {
-                const numericPart = value.split(' ')[0]
+        const onSortDynamicTable = (table:BUI.Table<any>, field:string, ascending:boolean=true, totalCostPerGroupedTable: {[group: string]: {cost: number}}) => {
+            function parseValue(value: string | number): number | string {
+                const normalizedValue = String(value ?? '')
+                const numericPart = normalizedValue.split(' ')[0]
                 const parsed = Number(numericPart)
-                // Se il valore è numerico e la stringa inizia con quel numero, trattalo come numero
-                if (!isNaN(parsed) && value.trim().startsWith(numericPart)) { return parsed }
-                // Altrimenti trattalo come stringa (case-insensitive)
-                return value.toLowerCase()
+                if (!isNaN(parsed) && normalizedValue.trim().startsWith(numericPart)) { return parsed }
+                return normalizedValue.toLowerCase()
+            }
+            function getSortSourceValue(row: BUI.TableGroupData<any>) {
+                // se il criterio è Cost allora prende i valori di uno di quei tre campi (ElementName, CostItemName o ElementIfcClass) 
+                // per identificare a quale gruppo di costo appartiene e prende il costo totale di quel gruppo dalla totalCostPerGroupedTable 
+                // invece di prendere il valore del campo Cost che è vuoto nelle row raggruppate della table
+                if (field === 'Cost') {
+                    const groupKey =
+                        row.data.ElementName ||
+                        row.data.CostItemName ||
+                        row.data.ElementIfcClass
+                    if (groupKey && totalCostPerGroupedTable[groupKey]) {
+                        return totalCostPerGroupedTable[groupKey].cost
+                    }
+                }
+                // se il criterio è qualsiasi altro prende direttamente il suo valore
+                return row.data[field] ?? ''
             }
             const direction = ascending ? 1 : -1
-            table.data.sort((a, b) => {
-                const valA = parseValue(a.data[field] || '')
-                const valB = parseValue(b.data[field] || '')
-                // Se entrambi sono numeri
+            table.value.sort((a, b) => {
+                const valA = parseValue(getSortSourceValue(a))
+                const valB = parseValue(getSortSourceValue(b))
                 if (typeof valA === 'number' && typeof valB === 'number') {
                     return (valA - valB) * direction
                 }
-                // Ordinamento alfabetico
                 return valA.toString().localeCompare(valB.toString()) * direction
             })
             table.requestUpdate()
         }
-        
-        let originalDataWithCategories: any = null //needed here otherwise within the function will be initilized each time so will be impossibile to store the previous value
-        const onChangeLevelTable = (e: Event, table:BUI.Table<any>) => {
-            const button = e.target as BUI.Button
-            if (button.label == 'Item'){
-                if (!originalDataWithCategories){
-                    originalDataWithCategories = structuredClone(table.data)
-                }
-                const flattenedData: BUI.TableGroupData<any>[] = []
-                for (const categoryRow of table.data) {
-                    if (!categoryRow.children) continue
-                    for (const elementRow of categoryRow.children) {
-                        // ogni elementRow è già nel formato giusto (con eventuali children)
-                        flattenedData.push(elementRow)
+        const onSortDynamicResourceTable = (table:BUI.Table<any>, field:string, ascending:boolean=true, totalCostPerGroupedTable: {[group: string]: {resourceCost: number}}) => {
+            function parseValue(value: string | number): number | string {
+                const normalizedValue = String(value ?? '')
+                const numericPart = normalizedValue.split(' ')[0]
+                const parsed = Number(numericPart)
+                if (!isNaN(parsed) && normalizedValue.trim().startsWith(numericPart)) { return parsed }
+                return normalizedValue.toLowerCase()
+            }
+            function getSortSourceValue(row: BUI.TableGroupData<any>) {
+                // se il criterio è Cost allora prende i valori di uno di quei tre campi (ElementName, CostItemName o ElementIfcClass) 
+                // per identificare a quale gruppo di costo appartiene e prende il costo totale di quel gruppo dalla totalCostPerGroupedTable 
+                // invece di prendere il valore del campo Cost che è vuoto nelle row raggruppate della table
+                if (field === 'Cost') {
+                    const groupKey =
+                        row.data.ElementName ||
+                        row.data.ResourceName ||
+                        row.data.ElementIfcClass
+                    if (groupKey && totalCostPerGroupedTable[groupKey]) {
+                        return totalCostPerGroupedTable[groupKey].resourceCost
                     }
                 }
-                table.data = flattenedData
-                button.label = 'Category'
-            } else if (button.label == 'Category') {
-                if (originalDataWithCategories){
-                    table.data = structuredClone(originalDataWithCategories)
-                    originalDataWithCategories = null
-                }
-                button.label = 'Item'
+                // se il criterio è qualsiasi altro prende direttamente il suo valore
+                return row.data[field] ?? ''
             }
+            const direction = ascending ? 1 : -1
+            table.value.sort((a, b) => {
+                const valA = parseValue(getSortSourceValue(a))
+                const valB = parseValue(getSortSourceValue(b))
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    return (valA - valB) * direction
+                }
+                return valA.toString().localeCompare(valB.toString()) * direction
+            })
+            table.requestUpdate()
         }
+
         const onLoadTable = (updateFunction:BUI.UpdateFunction<any>) => {
             updateFunction({ modelIdMap: highlighter.selection.select })
         }
@@ -596,7 +619,7 @@ export function MainViewer () {
                 const model_resources_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
                 const model_costCount_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
                 const category_elements_map: {[key:string]:any} = {} //map to associate to each category the related elements
-                const elem_resourcesDetails_Map: {[key:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string}[]} = {} //resource details object
+                const elem_resourcesDetails_Map: {[key:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string, resourceName:string}[]} = {} //resource details object
 
                 for (const [model,costItems] of Object.entries(filteredCostItems)){ //loop over each model
                     let resourceCurrency = 'nd' //default value, here because is supposed that is used always the same currency in the same project
@@ -635,6 +658,7 @@ export function MainViewer () {
                             if (!pac['Category']) continue //checks if the component has a category
                             if (pac['Category'].value == resource){ //checks the correspondance between components resource category and the one selected
                                 const resourceDescription = pac['Description'].value //description of the resource
+                                const resourceName = pac['Name'].value //name of the resource
                                 let resourceUnitCost
                                 try {
                                     resourceUnitCost = pac['AppliedValue'][0]['ValueComponent'].value //unit cost of the resource
@@ -647,6 +671,7 @@ export function MainViewer () {
                                     resourceUnitCost: `${resourceUnitCost} ${resourceCurrency}`,
                                     elemQuantity: `${Math.round(elemQuantity*100)/100} ${elemQuantityUnitMeasure}`, //round the quantity to 2 decimal places
                                     resourceDescription: resourceDescription,
+                                    resourceName: resourceName,
                                 })
                             }
                         }
@@ -689,30 +714,36 @@ export function MainViewer () {
 
                 //step 5: RESOURCE TABLE CREATION
                 //table type for resource table
-                type ResourceTableData = {
-                    itemModel?: string,
-                    itemId?: number, //optional because it is not needed in the first row
-                    Name: string,
+                type dynamicResourceTableData = {
+                    Model?: string,
+                    ItemId?: number, //optional because it is not needed in the first row
+                    ElementName: string,
+                    ElementIfcClass: string,
+                    ResourceName: string,
+                    ResourceDescription: string,
                     ResourceCost: string,
-                    NormalizedValue: string,
                     ResourceUnitCost: string,
                     ElementQuantity: string,
+                    NormalizedValue: string,
                 }
                 //resource table
-                const resourceTable = document.createElement("bim-table") as BUI.Table<ResourceTableData>
-                resourceTable.data = [{
+                const dynamicResourceTable = document.createElement("bim-table") as BUI.Table<dynamicResourceTableData>
+                dynamicResourceTable.data = [{
                     data: {
-                        Name: '',
+                        ElementName: '',
+                        ElementIfcClass: '',
+                        ResourceName: '',
+                        ResourceDescription: '',
                         ResourceCost: '',
                         NormalizedValue: '',
                         ResourceUnitCost: '',
                         ElementQuantity: '',
                     }
                 }]
-                resourceTable.data = [] //initialize the table and some settings
-                resourceTable.preserveStructureOnFilter = true
-                resourceTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
-                resourceTable.hiddenColumns = ['itemId','itemModel']
+                dynamicResourceTable.data = [] //initialize the table and some settings
+                dynamicResourceTable.preserveStructureOnFilter = true
+                dynamicResourceTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
+                dynamicResourceTable.hiddenColumns = ['Model','ItemId']
                 //create the table as:
                 // category
                 //    |--- elements
@@ -722,46 +753,29 @@ export function MainViewer () {
                 //this works with more models because this map does not divide items by model
                 //so the table is correctly created
                 for (const [cat,elements] of Object.entries(category_elements_map)) {
-                    const tempChildren = []
-                    let totalCategoryCost = 0
-                    let totalCategoryCurrency = 'nd'
                     for (const elem of elements) {
                         if (!Object.keys(colorMap).includes(elem.elemId.toString())) continue //checks if the item id is outside of the selected form the range or not
                         countItems += 1
                         countCostItems += model_costCount_Map_flat[elem.elemId] //sum all the count of cost items only of the items within the range
-                        const tempResourceDetailsChildren = []
+                        
                         for (const resourceDetails of elem_resourcesDetails_Map[elem.elemId]){
                             countResources += 1
-                            tempResourceDetailsChildren.push({
+                            dynamicResourceTable.data.push({
                                 data: {
-                                    Name: resourceDetails.resourceDescription,
+                                    Model: elem.elemModel,
+                                    ItemId: elem.elemId,
+                                    ElementName: elem.elemName,
+                                    ElementIfcClass: cat,
+                                    ResourceName: resourceDetails.resourceName,
+                                    ResourceDescription: resourceDetails.resourceDescription,
+                                    ResourceCost: `${Math.round((Number(resourceDetails.resourceUnitCost.split(' ')[0])*Number(resourceDetails.elemQuantity.split(' ')[0]))*100)/100} ${elem.currency}`,
                                     ResourceUnitCost: resourceDetails.resourceUnitCost,
                                     ElementQuantity: resourceDetails.elemQuantity,
+                                    NormalizedValue: '',
                                 }
                             })
                         }
-                        const row: BUI.TableGroupData<ResourceTableData> = {
-                            data: {
-                                itemModel: elem.elemModel,
-                                itemId: elem.elemId,
-                                Name: elem.elemName,
-                                ResourceCost: `${Math.round(elem.totalResourceCost*100)/100} ${elem.currency}`,
-                                NormalizedValue: '',
-                            },
-                            children: tempResourceDetailsChildren
-                        }
-                        tempChildren.push(row)
-                        totalCategoryCost += elem.totalResourceCost
-                        totalCategoryCurrency = elem.currency
                     }
-                    if (totalCategoryCost==0) continue
-                    resourceTable.data.push({
-                        data: {
-                            Name: cat,
-                            ResourceCost: `${Math.round(totalCategoryCost*100)/100} ${totalCategoryCurrency}`,
-                        },
-                        children: tempChildren
-                    })
                 }
 
                 const allSelectedItemsModelIdMap = Object.fromEntries(
@@ -774,7 +788,6 @@ export function MainViewer () {
                 //step 6: highlight or color element
                 //color rows indipendentely from models
                 if (btn == 'Color'){
-                    
                     //6.1: color model before table creation
                     //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
                     //here things comes different because to highlight and color elements the model is needed
@@ -791,42 +804,21 @@ export function MainViewer () {
 
                     //step 6.2: add the normalized value to the table, pay attention: it is only a render value, it will not be saved in the table
                     //changing this value here is independent from model
-                    resourceTable.dataTransform.NormalizedValue = (value, rowData) => {
-                        const { itemId } = rowData
-                        if (!itemId) return value //if itemId is not defined, return the original value
-                        return Math.round(normalizedValue[itemId]*1000)/1000
-                    }
-                    resourceTable.dataTransform.ResourceCost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-                        const { itemId } = rowData
-                        if (!itemId) return value //if itemId is not defined, return the original value
-                        return BUI.html`
-                            <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
-                                <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; background-color:${colorMap[Number(itemId)]}; color:${colorMap[Number(itemId)]};">.</div>
-                                <bim-label>${value}</bim-label>
-                            </div>
-                        `
-                    }
-                    resourceTable.dataTransform.Name = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-                        const { itemModel, itemId } = rowData
-                        if (!itemId) return value //if itemId is not defined, return the original value
-                        return BUI.html`
-                            <bim-label
-                                @click=${() => {highlighter.highlightByID("select", {[itemModel as string]: new Set<number>([itemId as number])}, false, true)}}
-                                @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
-                                @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
-                            >${value}</bim-label>
-                        `
+                    dynamicResourceTable.dataTransform.NormalizedValue = (value, rowData) => {
+                        const { ItemId } = rowData
+                        if (!ItemId) return value //if ItemId is not defined, return the original value
+                        return Math.round(normalizedValue[ItemId]*1000)/1000
                     }
 
                 } else if (btn == 'Select') { //if select button is clicked
                     highlighter.highlightByID("select", allSelectedItemsModelIdMap, false, false) //only select elements removing colors
                 }
 
-                sortbyResourcesDropdown.addEventListener('change', (e) => {
+                sortbyResourceDropdown.addEventListener('change', (e) => {
                     if (!e.target) return
                     const field = (e.target as BUI.Dropdown).value[0]
                     const ascending = sortbyDirectionResourceCost.icon=='meteor-icons:arrow-up' ? false : true
-                    onSortTable(resourceTable, field, ascending)}
+                    onSortDynamicResourceTable(dynamicResourceTable, field, ascending, resourceCostPerGroupedTable)}
                 )
                 const sortbyDirectionResourceCost = BUI.Component.create<BUI.Dropdown>(
                     () => BUI.html`
@@ -836,9 +828,152 @@ export function MainViewer () {
                                 const button = e.target as BUI.Button
                                 button.icon = button.icon=='meteor-icons:arrow-up' ? 'meteor-icons:arrow-down' : 'meteor-icons:arrow-up'
                                 const ascending = button.icon=='meteor-icons:arrow-up' ? false : true
-                                onSortTable(resourceTable, sortbyResourcesDropdown.value[0], ascending)}}">
-                        </bim-button>`,
+                                onSortDynamicResourceTable(dynamicResourceTable, sortbyResourceDropdown.value[0], ascending, resourceCostPerGroupedTable)}}">
+                    </bim-button>`,
                 )
+                const resourceCostPerGroupedTable: {[group: string]: {resourceCost: number, currency: string, resourceDescription?: string, resourceUnitCost?: string, model?:string, itemId?: number}} = {}
+                
+                // #region
+                // tutto ciò serve solo per far tornare a bianco il colore della label quando il context menu con le informazioni della risorsa viene chiuso cliccando fuori,
+                // altrimenti rimarrebbe evidenziata la riga della tabella anche dopo la chiusura del menu
+                const resourceMenuOutsideClickHandlers = new WeakMap<BUI.Label, EventListener>()
+                const clearResourceMenuHighlight = (label: BUI.Label) => {
+                    label.style.removeProperty('color')
+                    const registeredHandler = resourceMenuOutsideClickHandlers.get(label)
+                    if (registeredHandler) {
+                        document.removeEventListener('click', registeredHandler, true)
+                        resourceMenuOutsideClickHandlers.delete(label)
+                    }
+                }
+                const registerResourceMenuOutsideClick = (label: BUI.Label) => {
+                    const previousHandler = resourceMenuOutsideClickHandlers.get(label)
+                    if (previousHandler) {
+                        document.removeEventListener('click', previousHandler, true)
+                    }
+                    const outsideClickHandler: EventListener = (event) => {
+                        const target = event.target as Node | null
+                        if (target && label.contains(target)) return
+                        clearResourceMenuHighlight(label)
+                    }
+                    resourceMenuOutsideClickHandlers.set(label, outsideClickHandler)
+                    document.addEventListener('click', outsideClickHandler, true)
+                }
+                // #endregion
+
+                for (const row of dynamicResourceTable.data){
+                    const groupCategory = row.data.ElementIfcClass
+                    const groupElement = row.data.ElementName
+                    const groupResourceName = row.data.ResourceName
+                    if (!groupCategory || !groupElement || !groupResourceName) continue
+                    const cost = Number((row.data.ResourceCost as string).split(' ')[0])
+                    const currency = (row.data.ResourceCost as string).split(' ')[1]
+                    const itemId = row.data.ItemId
+                    const model = row.data.Model
+
+                    if (!resourceCostPerGroupedTable[groupCategory]) {
+                        resourceCostPerGroupedTable[groupCategory] = { resourceCost: 0, currency, model }
+                    }
+                    resourceCostPerGroupedTable[groupCategory].resourceCost += cost
+
+                    if (!resourceCostPerGroupedTable[groupElement]) {
+                        resourceCostPerGroupedTable[groupElement] = { resourceCost: 0, currency, model, itemId}
+                    }
+                    resourceCostPerGroupedTable[groupElement].resourceCost += cost
+
+                    if (!resourceCostPerGroupedTable[groupResourceName]) {
+                        resourceCostPerGroupedTable[groupResourceName] = { resourceCost: 0, currency, model, resourceDescription: row.data.ResourceDescription, resourceUnitCost: row.data.ResourceUnitCost}
+                    }
+                    resourceCostPerGroupedTable[groupResourceName].resourceCost += cost
+                }
+                dynamicResourceTable.dataTransform = {
+                    ResourceCost: (value, rowData) => {
+                        const { ElementName, ElementIfcClass, ResourceName } = rowData
+                        if (!ElementName && !ResourceName && ElementIfcClass) {
+                            if (value!='') return value
+                            return Math.round(resourceCostPerGroupedTable[ElementIfcClass]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ElementIfcClass]?.currency
+                        } else if (!ElementName && ResourceName && !ElementIfcClass) {
+                            if (value!='') return value
+                            return Math.round(resourceCostPerGroupedTable[ResourceName]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ResourceName]?.currency
+                        } else if (ElementName && !ResourceName && !ElementIfcClass) {
+                            if (value!='') return value
+                            if (colorMap) {
+                                return BUI.html`
+                                    <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
+                                        <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; 
+                                            background-color:${colorMap[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};
+                                            color:${colorMap[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
+                                        <bim-label>${Math.round(resourceCostPerGroupedTable[ElementName]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ElementName]?.currency}</bim-label>
+                                    </div>
+                                `
+                            } else {
+                                return Math.round(resourceCostPerGroupedTable[ElementName]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ElementName]?.currency
+                            }
+                        } else {
+                            return value
+                        }
+                    },
+                    ResourceDescription: (value, rowData) => {
+                        const { ElementName, ElementIfcClass, ResourceName } = rowData
+                        if (!ElementName && ResourceName && !ElementIfcClass) {
+                            if (value!='') return value
+                            return resourceCostPerGroupedTable[ResourceName]?.resourceDescription ? resourceCostPerGroupedTable[ResourceName].resourceDescription : value
+                        } else {
+                            return value
+                        }
+                    },
+                    ElementName: (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+                        const { Model, ItemId } = rowData
+                        let id = ItemId
+                        let m = Model
+                        // grouped rows do not have Model and ItemId, so I need to get them from the resourceCostPerGroupedTable using the group name (value)
+                        if (!ItemId) id = Number(resourceCostPerGroupedTable[value]?.itemId)
+                        if (!Model) m = resourceCostPerGroupedTable[value]?.model
+                        return BUI.html`
+                            <bim-label
+                                @click=${async () => {
+                                    highlighter.highlightByID("select", {[m as string]: new Set<number>([id as number])}, false, true)
+                                    const guid = await fragments.modelIdMapToGuids({[m as string]: new Set<number>([id as number])})
+                                    await navigator.clipboard.writeText(guid[0])
+                                    }}
+                                @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
+                                @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
+                            >${value}</bim-label>`
+                    },
+                    ResourceName: (value, rowData) => {
+                        const { ElementIfcClass, ElementName } = rowData
+                        if (!ElementName && !ElementIfcClass) {
+                            return BUI.html`
+                                <bim-label
+                                    @mouseover=${({target}:{target:BUI.Label}) => {
+                                        const contextMenu = target.querySelector<BUI.ContextMenu>('bim-context-menu')
+                                        if (!contextMenu) return
+                                        contextMenu.visible = true
+                                        target.style.color = "rgba(36, 241, 234, 1)"
+                                        registerResourceMenuOutsideClick(target)
+                                    }}
+                                    @mouseleave=${({target}:{target:BUI.Label}) => {
+                                        // target.style.removeProperty('color')
+                                    }}>
+                                    ${value}
+                                    <bim-context-menu id="bim-context-menu-resource" style="max-width: 30rem; padding: 0.75rem;">
+                                        <bim-label style="display: block; width:20rem; white-space: normal; overflow-wrap: break-word;">
+                                            ${resourceCostPerGroupedTable[value]?.resourceUnitCost ? `Unit Cost: ${resourceCostPerGroupedTable[value].resourceUnitCost}` : 'No unit cost available'}
+                                        </bim-label>
+                                        <bim-label style="display: block; width:20rem; white-space: normal; overflow-wrap: break-word;">
+                                            ${resourceCostPerGroupedTable[value]?.resourceDescription ? `Description: ${resourceCostPerGroupedTable[value].resourceDescription}` : 'No description available'}
+                                        </bim-label>
+                                    </bim-context-menu>
+                                </bim-label>`
+                        } else {
+                            return value
+                        }
+                    }
+                }
+
+                dynamicResourceTable.groupedBy = ['ElementName']
+                dynamicResourceTable.columns = ['ElementName']
+                dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
+
                 //step 7: create the panel component to show the table
                 const categoryXResourcePanel = BUI.Component.create<BUI.Panel>(() => {
                     //return the UI of the component
@@ -847,11 +982,40 @@ export function MainViewer () {
                             style="display:flex; flex-direction:column; gap:10px; margin:10px; background-color:transparent; flex:1;">
                             <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px'})}>
                                 <div style="display: flex; gap: 0.5rem;">
-                                    <bim-button @click=${(e:Event) => onExpandTable(e,resourceTable)} label=${resourceTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                                    <bim-button @click=${(e:Event) => onExpandTable(e,dynamicResourceTable)} label=${dynamicResourceTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
                                     <bim-label>Group by:</bim-label>
-                                    <bim-button @click=${(e:Event) => onChangeLevelTable(e,resourceTable)} label="Item" style="max-width:fit-content"></bim-button>
+                                    <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                        target.style.backgroundColor = 'var(--background-200)';
+                                        document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
+                                        sortbyResourceDropdown_optionOne.label = 'ElementIfcClass'
+                                        sortbyResourceDropdown.value = []
+                                        dynamicResourceTable.groupedBy = ['ElementIfcClass','ElementName']
+                                        dynamicResourceTable.columns = ['ElementIfcClass','ElementName']
+                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
+                                    }} id="resource_groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
+                                    <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                        target.style.backgroundColor = 'var(--background-200)';
+                                        document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
+                                        sortbyResourceDropdown_optionOne.label = 'ElementName'
+                                        sortbyResourceDropdown.value = []
+                                        dynamicResourceTable.groupedBy = ['ElementName']
+                                        dynamicResourceTable.columns = ['ElementName']
+                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
+                                    }} id="resource_groupby_element"  label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
+                                    <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                        target.style.backgroundColor = 'var(--background-200)';
+                                        document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
+                                        sortbyResourceDropdown_optionOne.label = 'ResourceName'
+                                        sortbyResourceDropdown.value = []
+                                        dynamicResourceTable.groupedBy = ['ResourceName']
+                                        dynamicResourceTable.columns = ['ResourceName']
+                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ResourceName','NormalizedValue','ResourceDescription','ResourceUnitCost']
+                                    }} id="resource_groupby_resource"  label="Resource" style="max-width:fit-content"></bim-button>
                                     <bim-label>Sort by:</bim-label>
-                                    ${sortbyResourcesDropdown}
+                                    ${sortbyResourceDropdown}
                                     ${sortbyDirectionResourceCost}
                                     <bim-label>Ghost mode:</bim-label>
                                     <bim-button 
@@ -876,10 +1040,10 @@ export function MainViewer () {
                                             await highlighter.updateColors()
                                         }}">
                                     </bim-number-input>
-                                    <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,resourceTable)}}></bim-text-input>
+                                    <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,dynamicResourceTable)}}></bim-text-input>
                                     <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                                 </div>
-                                ${resourceTable ? resourceTable : 'Any resource cost found for this cateogory.'}
+                                ${dynamicResourceTable ? dynamicResourceTable : 'Any resource cost found for this cateogory.'}
                             </div>
                         </bim-panel>
                     `
@@ -1009,24 +1173,14 @@ export function MainViewer () {
                     
                     const startTime_5 = performance.now(); // Start timer
                     const norm = normalization == 'Volume' ? true : false
-                    await onOpenElementXCostPanel(allSelectedItemsModelIdMap,norm)
+                    await onOpenElementXCostPanel(allSelectedItemsModelIdMap,norm,colorMap)
                     const endTime_5 = performance.now(); // End timer
                     const loadTime_5 = ((endTime_5 - startTime_5) / 1000).toFixed(2); // seconds
                     console.log(`TIME ${loadTime_5} s: total time to create and render cost table`);
 
-                    const elementXCostTable = document.getElementById('elementXCostTable') as BUI.Table
+                    const dynamicCostTable = document.getElementById('dynamicCostTable') as BUI.Table
                     if (normalization == 'Volume') {
-                        elementXCostTable.dataTransform.Cost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-                            const { ItemId } = rowData
-                            if (!ItemId) return value //if ItemId is not defined, return the original value
-                            return BUI.html`
-                                <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
-                                    <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; background-color:${colorMap[Number(ItemId)]}; color:${colorMap[Number(ItemId)]};">.</div>
-                                    <bim-label>${value}</bim-label>
-                                </div>
-                            `
-                        }
-                        elementXCostTable.dataTransform.ItemVolume = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+                        dynamicCostTable.dataTransform.ItemVolume = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
                             const { ItemId } = rowData
                             if (!ItemId) return value //if ItemId is not defined, return the original value
                             const volume = model_volume_map_flat[Number(ItemId)]
@@ -1035,7 +1189,7 @@ export function MainViewer () {
                                 <bim-label>${Math.round(volume*1000)/1000} m³</bim-label>
                             `
                         }
-                        elementXCostTable.dataTransform.NormalizedCost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+                        dynamicCostTable.dataTransform.NormalizedCost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
                             const { ItemId, Currency } = rowData
                             if (!ItemId) return value //if ItemId is not defined, return the original value
                             const normCost = normalized_cost[Number(ItemId)]
@@ -1043,17 +1197,6 @@ export function MainViewer () {
                             if(normCost==null || normValue==null) return value
                             return BUI.html`
                                 <bim-label>${Math.round(normCost*100)/100} ${Currency}/m³ (${Math.round(normValue*100)/100})</bim-label>
-                            `
-                        }
-                    } else {
-                        elementXCostTable.dataTransform.Cost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-                            const { Model, ItemId } = rowData
-                            if (!ItemId) return value //if ItemId is not defined, return the original value
-                            return BUI.html`
-                                <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
-                                    <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; background-color:${colorMap[Number(ItemId)]}; color:${colorMap[Number(ItemId)]};">.</div>
-                                    <bim-label>${value}</bim-label>
-                                </div>
                             `
                         }
                     }
@@ -1075,7 +1218,7 @@ export function MainViewer () {
             return BUI.html`
             <bim-panel
                 label="BIM PANEL"
-                style="background-color:rgba(0,0,0,0.85);">
+                class="blur-background-container">
             </bim-panel>
             `;
         })
@@ -1083,7 +1226,7 @@ export function MainViewer () {
             return BUI.html`
             <bim-panel
                 label="Right Panel"
-                style="background-color:rgba(0,0,0,0.85);">
+                class="blur-background-container">
             </bim-panel>
             `;
         })
@@ -1091,7 +1234,7 @@ export function MainViewer () {
             return BUI.html`
             <bim-panel
                 label="Down Panel"
-                style="background-color:rgba(0,0,0,0.85); display:flex">
+                class="blur-background-container">
             </bim-panel>
             `;
         })
@@ -1100,7 +1243,7 @@ export function MainViewer () {
             return BUI.html`
                 <bim-panel
                     label="Scene Visibility Settings"
-                    style="background-color:rgba(0, 0, 0, 0.45);">
+                    class="blur-background-container">
                     <bim-panel-section label='Preset Styles'>
                         <bim-button label='Basic'
                             @click="${async () => {
@@ -1455,17 +1598,24 @@ export function MainViewer () {
             </bim-dropdown>`,
         )
         //sort by resources dropdown menu
-        const sortbyResourcesDropdown = BUI.Component.create<BUI.Dropdown>(
+        const sortbyResourceDropdown_optionOne = BUI.Component.create<BUI.Option>(
+            () => BUI.html`<bim-option label='ElementName' style="padding:0 10px 0 10px" icon='qlementine-icons:rename-16'></bim-option>`
+        )
+        const sortbyResourceDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`<bim-dropdown name="sortbyResources" style="max-width:fit-content">
-                <bim-option label='Name' style="padding:0 10px 0 10px" icon='qlementine-icons:rename-16'></bim-option>
-                <bim-option label='ResourceCost' style="padding:0 10px 0 10px" icon='solar:dollar-linear'></bim-option>
+                ${sortbyResourceDropdown_optionOne}
+                <bim-option id="sortbyResourceCostDropdown-cost" label='Cost' style="padding:0 10px 0 10px" icon='solar:dollar-linear'></bim-option>
             </bim-dropdown>`,
         )
         //sort by total cost dropdown menu
+        const sortbyTotalCostDropdown_optionOne = BUI.Component.create<BUI.Option>(
+            () => BUI.html`<bim-option label='ElementName' style="padding:0 10px 0 10px" icon='qlementine-icons:rename-16'></bim-option>`
+        )
         const sortbyTotalCostDropdown = BUI.Component.create<BUI.Dropdown>(
-            () => BUI.html`<bim-dropdown name="sortbyTotalCost" style="max-width:fit-content">
-                <bim-option label='Name' style="padding:0 10px 0 10px" icon='qlementine-icons:rename-16'></bim-option>
-                <bim-option label='Cost' style="padding:0 10px 0 10px" icon='solar:dollar-linear'></bim-option>
+            () => BUI.html`
+            <bim-dropdown name="sortbyTotalCost" style="max-width:fit-content">
+                ${sortbyTotalCostDropdown_optionOne}
+                <bim-option id="sortbyTotalCostDropdown-cost" label='Cost' style="padding:0 10px 0 10px" icon='solar:dollar-linear'></bim-option>
             </bim-dropdown>`,
         )
         //resources dropdown menu
@@ -1648,7 +1798,7 @@ export function MainViewer () {
         panelLeft.appendChild(colorResourcesPanelSection)
 
         //advanced costs functions and components
-        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined,normalization:boolean=false) => {
+        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined,normalization:boolean=false,colorMap?:Record<string, string>) => {
             //clean panel
             panelDown.innerHTML=''
             panelDown.appendChild(loadingLabel)
@@ -1687,66 +1837,41 @@ export function MainViewer () {
             const startTime_6 = performance.now(); // Start timer
             // #region INITIALIZE TABLES
             //tables types
-            type costXelementTableData = {
-                Class: string,
-                Name: string,
-                Cost: string,
-                UnitCost: string,
-                Quantity: string,
-            }
-            type elementXcostTableData = {
+            type dynamicCostTableData = {
+                ElementName: string,
+                ElementIfcClass: string,
+                Cost: number|string,
+                Quantity: number|string,
+                Currency: string,
+                CostItemName: string,
+                CostItemDescription: string,
+                CostItemUnitCost: number|string,
+                ComponentsCostValues: any,
+                Model?: string,
                 ItemId?: number,
                 ItemVolume?: number,
                 NormalizedCost?: number,
-                Currency: string,
-                Name: string,
-                Description: string,
-                Cost: string,
-                UnitCost: string,
-                Quantity: string,
-                ComponentsCostValues: any,
-                IfcClass: string,
-                Model?: string,
             }
             //tables
-            const costXelementTable = document.createElement("bim-table") as BUI.Table<costXelementTableData>
-            costXelementTable.data = [{
-                data: {
-                    Class: '',
-                    Name: '',
-                    Cost: '',
-                    UnitCost: '',
-                    Quantity: ''
-                }
-            }]
-            costXelementTable.data = []
-            costXelementTable.preserveStructureOnFilter = true
-
-            const elementXcostTable = document.createElement("bim-table") as BUI.Table<elementXcostTableData>
-            elementXcostTable.id = 'elementXCostTable'
-            elementXcostTable.data = [{
-                data: {
-                    Name: '',
-                    Description: '',
-                    Cost: '',
-                    NormalizedCost: 0,
-                    ItemVolume: 0,
-                    UnitCost: '',
-                    Quantity: '',
-                    ComponentsCostValues: '',
-                    Currency: '',
-                    IfcClass: '',
-                }
-            }]
-            elementXcostTable.data = []
-            elementXcostTable.preserveStructureOnFilter = true
-            elementXcostTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
-            
-            if (normalization){
-                elementXcostTable.hiddenColumns = ['ComponentsCostValues','ItemId','Currency','IfcClass','Model']
-            } else {
-                elementXcostTable.hiddenColumns = ['ComponentsCostValues','ItemId','ItemVolume', 'NormalizedCost', 'Currency', 'IfcClass', 'Model']
-            }
+            const dynamicCostTable = document.createElement("bim-table") as BUI.Table<dynamicCostTableData>
+            dynamicCostTable.id = 'dynamicCostTable'
+            dynamicCostTable.data = [{
+                    data: {
+                        ElementName: '',
+                        ElementIfcClass: '',
+                        Cost: '',
+                        NormalizedCost: 0,
+                        ItemVolume: 0,
+                        Quantity: '',
+                        Currency: '',
+                        CostItemName: '',
+                        CostItemDescription: '',
+                        CostItemUnitCost: '',
+                        ComponentsCostValues: '',
+                    }}]
+            dynamicCostTable.data = []
+            dynamicCostTable.preserveStructureOnFilter = true
+            dynamicCostTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
             // #endregion
 
             //get cost data
@@ -1763,15 +1888,18 @@ export function MainViewer () {
                         itemIfcClass = (item['_category'] as FRAGS.ItemAttribute).value ? (item['_category'] as FRAGS.ItemAttribute).value : 'nd'
                         let itemTotalCost: number = 0
                         let itemTotalCurrency: string = ''
-                        const childrenTable: BUI.TableGroupData<elementXcostTableData>[] = []
                         for (const [a,costItem] of Object.entries(item['HasAssignments'])){ //loop over each assignment of item
-                            let row: BUI.TableGroupData<elementXcostTableData> = {
+                            let dynamicRow: BUI.TableGroupData<dynamicCostTableData> = {
                                 data: {},
                             }
+                            dynamicRow.data.ElementName = itemName
+                            dynamicRow.data.ElementIfcClass = itemIfcClass
+                            dynamicRow.data.Model = model
+                            dynamicRow.data.ItemId = itemId
                             if (costItem['_category'].value != 'IFCCOSTITEM') continue //checks if the assignment is of IfcCostItem else go to the next one
                             //cost item identity data
-                            costItemName = row.data.Name = costItem['Name'].value ? costItem['Name'].value : 'nd'
-                            costItemDescription = row.data.Description = costItem['Description'].value ? costItem['Description'].value : 'nd'
+                            costItemName = dynamicRow.data.CostItemName = costItem['Name'].value ? costItem['Name'].value : 'nd'
+                            costItemDescription = dynamicRow.data.CostItemDescription = costItem['Description'].value ? costItem['Description'].value : 'nd'
                             costItemObjectType = costItem['ObjectType'].value ? costItem['ObjectType'].value : 'nd'
 
                             //here I have to do what I said before: get the single cost item without relations, otherwise it will get relations also of related elements such as walls ecc
@@ -1804,112 +1932,49 @@ export function MainViewer () {
                                 const costValueAppliedValue = (valueComponent !== undefined && valueComponent !== null) ? valueComponent : 'nd'
                                 const costValueUnitComponent = costValue['AppliedValue'][0]['UnitComponent'][0]['Currency'].value ? costValue['AppliedValue'][0]['UnitComponent'][0]['Currency'].value : 'nd'
                                 const currency = convertCurrency(costValueUnitComponent)
-                                costItemTotalCost = row.data.Cost = `${Math.round(costValueAppliedValue*100)/100} ${currency}`
+                                costItemTotalCost = dynamicRow.data.Cost = `${Math.round(costValueAppliedValue*100)/100} ${currency}`
                                 //quantity of item
                                 const unitComponent = costValue['UnitBasis'][0]['ValueComponent'].value
                                 const costValueUnitBasis = (unitComponent !== undefined && unitComponent !== null) ? unitComponent : 'nd'
                                 const costValueUnitMeasure = costValue['UnitBasis'][0]['UnitComponent'][0]['Name'].value ? costValue['UnitBasis'][0]['UnitComponent'][0]['Name'].value : 'nd'
                                 const unitMeasure = convertUnits(costValueUnitMeasure)
-                                costItemUnitBasis = row.data.Quantity = `${Math.round(costValueUnitBasis*1000)/1000} ${unitMeasure}`
+                                costItemUnitBasis = dynamicRow.data.Quantity = `${Math.round(costValueUnitBasis*1000)/1000} ${unitMeasure}`
                                 //unit cost of cost item
                                 try {
                                     if (costValue['Components'] && costValue['Components'][0]['Category'].value == 'Unit cost'){
                                         const costValueUnitCostAppliedValue = costValue['Components'][0]['AppliedValue'][0]['ValueComponent'].value ? costValue['Components'][0]['AppliedValue'][0]['ValueComponent'].value : 'nd'
                                         const costValueUnitCostUnitComponent = costValue['Components'][0]['AppliedValue'][0]['UnitComponent'][0]['Currency'].value ? costValue['Components'][0]['AppliedValue'][0]['UnitComponent'][0]['Currency'].value : 'nd'
                                         const currency = convertCurrency(costValueUnitCostUnitComponent)
-                                        costItemUnitCost = row.data.UnitCost = `${Math.round(costValueUnitCostAppliedValue*100)/100} ${currency}/${unitMeasure}`
-                                        row.data.ComponentsCostValues = costValue['Components'][0]['Components']
+                                        costItemUnitCost = dynamicRow.data.CostItemUnitCost = `${Math.round(costValueUnitCostAppliedValue*100)/100} ${currency}/${unitMeasure}`
+                                        dynamicRow.data.ComponentsCostValues = costValue['Components'][0]['Components']
                                     } else {
-                                        row.data.UnitCost = 'nd'
-                                        row.data.ComponentsCostValues = 'nd'
+                                        dynamicRow.data.CostItemUnitCost = 'nd'
+                                        dynamicRow.data.ComponentsCostValues = dynamicRow.data.ComponentsCostValues = 'nd'
                                     }
                                 } catch (error) {
                                     console.warn('Error in finding unit cost. Error:\n',error)
-                                    row.data.UnitCost = 'nd'
-                                    row.data.ComponentsCostValues = 'nd'
+                                    dynamicRow.data.CostItemUnitCost = 'nd'
+                                    dynamicRow.data.ComponentsCostValues = dynamicRow.data.ComponentsCostValues = 'nd'
                                 }
                                 itemTotalCost += costValueAppliedValue //element total cost: sum of all cost item related
                                 itemTotalCurrency = currency
                             }
-                            childrenTable.push(row)
+                            dynamicRow.data.NormalizedCost = 0
+                            dynamicRow.data.ItemVolume = 0
+                            dynamicCostTable.data.push(dynamicRow)
                         }
-                        
-                        elementXcostTable.data.push({
-                            data: {
-                                ItemId: itemId,
-                                Name: `${itemName}`,
-                                Cost: `${Math.round(itemTotalCost*100)/100} ${itemTotalCurrency}`,
-                                ItemVolume: 0,
-                                NormalizedCost: 0,
-                                Currency: itemTotalCurrency,
-                                IfcClass: itemIfcClass,
-                                Model: model
-                            },
-                            children: [...childrenTable]
-                        })
-                        elementXcostTable.dataTransform.UnitCost = (value, rowData) => {
-                            const { ComponentsCostValues, Name, Description, UnitCost } = rowData
-                            if (UnitCost == 'nd' || !UnitCost) return value
-                            return BUI.html`
-                            <bim-button
-                                label=${value}
-                                @click=${() => {onOpenPriceAnalysis(ComponentsCostValues, Name, Description, UnitCost)}}
-                                >
-                            </bim-button>
-                            `
-                        }
-                        elementXcostTable.dataTransform.Name = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-                            const { Model, ItemId } = rowData
-                            if (!ItemId) return value //if ItemId is not defined, return the original value
-                            return BUI.html`
-                                <bim-label
-                                    @click=${() => {highlighter.highlightByID("select", {[Model as string]: new Set<number>([ItemId as number])}, false, true)}}
-                                    @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
-                                    @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
-                                >${value}</bim-label>
-                            `
-                        }
-
                     } catch (error) {
                         console.warn(error)
                         continue //go to the next item of loop, do not interrupt the loop
                     }
                 }
             }
-            
-            // Raggruppa le righe per IfcClass
-            const groupedByIfcClass: { [ifcClass: string]: BUI.TableGroupData<any>[] } = {}
-            for (const row of elementXcostTable.data) {
-                const ifcClass = row.data.IfcClass || 'Undefined'
-                if (!groupedByIfcClass[ifcClass]) { groupedByIfcClass[ifcClass] = [] }
-                groupedByIfcClass[ifcClass].push(row)
-            }
-            // Ricostruisci la tabella con i gruppi
-            const groupedTableData: BUI.TableGroupData<any>[] = []
-            for (const [ifcClass, rows] of Object.entries(groupedByIfcClass)) {
-                let totalCost = 0
-                let totalCurrency = ''
-                for (const row of rows){
-                    const cost = Number((row.data.Cost).split(' ')[0])
-                    totalCost += cost
-                    totalCurrency = row.data.Currency
-                }
-                groupedTableData.push({
-                    data: {
-                        Name: ifcClass,
-                        Cost: `${Math.round(totalCost*100)/100} ${totalCurrency}`,
-                        IfcClass: ifcClass,
-                    },
-                    children: rows
-                })
-            }
-            elementXcostTable.data = groupedTableData
 
             sortbyTotalCostDropdown.addEventListener('change', (e) => {
                 if (!e.target) return
                 const field = (e.target as BUI.Dropdown).value[0]
                 const ascending = sortbyDirectionTotalCost.icon=='meteor-icons:arrow-up' ? false : true
-                onSortTable(elementXcostTable, field, ascending)}
+                onSortDynamicTable(dynamicCostTable, field, ascending, totalCostPerGroupedTable)}
             )
             const sortbyDirectionTotalCost = BUI.Component.create<BUI.Dropdown>(
                 () => BUI.html`
@@ -1919,18 +1984,162 @@ export function MainViewer () {
                             const button = e.target as BUI.Button
                             button.icon = button.icon=='meteor-icons:arrow-up' ? 'meteor-icons:arrow-down' : 'meteor-icons:arrow-up'
                             const ascending = button.icon=='meteor-icons:arrow-up' ? false : true
-                            onSortTable(elementXcostTable, sortbyTotalCostDropdown.value[0], ascending)}}">
+                            onSortDynamicTable(dynamicCostTable, sortbyTotalCostDropdown.value[0], ascending,totalCostPerGroupedTable)}}">
                     </bim-button>`,
             )
+
+            const totalCostPerGroupedTable: {[group: string]: {cost: number, currency: string, model?:string, itemId?: number, costItemUnitCost?: string|number, costItemDescription?: string, ComponentsValue?: any}} = {}
+            for (const row of dynamicCostTable.data){
+                const groupCategory = row.data.ElementIfcClass
+                const groupElement = row.data.ElementName
+                const groupCostItem = row.data.CostItemName
+                if (!groupCategory || !groupElement || !groupCostItem) continue
+                const cost = Number((row.data.Cost as string).split(' ')[0])
+                const currency = (row.data.Cost as string).split(' ')[1]
+                const itemId = row.data.ItemId
+                const model = row.data.Model
+
+                if (!totalCostPerGroupedTable[groupCategory]) {
+                    totalCostPerGroupedTable[groupCategory] = { cost: 0, currency, model }
+                }
+                totalCostPerGroupedTable[groupCategory].cost += cost
+
+                if (!totalCostPerGroupedTable[groupElement]) {
+                    totalCostPerGroupedTable[groupElement] = { cost: 0, currency, model, itemId}
+                }
+                totalCostPerGroupedTable[groupElement].cost += cost
+
+                if (!totalCostPerGroupedTable[groupCostItem]) {
+                    totalCostPerGroupedTable[groupCostItem] = { cost: 0, currency, model, costItemUnitCost: row.data.CostItemUnitCost, costItemDescription: row.data.CostItemDescription, ComponentsValue: row.data.ComponentsCostValues }
+                }
+                totalCostPerGroupedTable[groupCostItem].cost += cost
+            }
+            dynamicCostTable.dataTransform = {
+                Cost: (value, rowData) => {
+                    const { ElementName, ElementIfcClass, CostItemName } = rowData
+                    if (!ElementName && !CostItemName && ElementIfcClass) {
+                        if (value!='') return value
+                        return Math.round(totalCostPerGroupedTable[ElementIfcClass]?.cost*100)/100+' '+totalCostPerGroupedTable[ElementIfcClass]?.currency
+                    } else if (!ElementName && CostItemName && !ElementIfcClass) {
+                        if (value!='') return value
+                        return Math.round(totalCostPerGroupedTable[CostItemName]?.cost*100)/100+' '+totalCostPerGroupedTable[CostItemName]?.currency
+                    } else if (ElementName && !CostItemName && !ElementIfcClass) {
+                        if (value!='') return value
+                        if (colorMap) {
+                            return BUI.html`
+                                <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
+                                    <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; 
+                                        background-color:${colorMap[Number(totalCostPerGroupedTable[ElementName]?.itemId)]};
+                                        color:${colorMap[Number(totalCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
+                                    <bim-label>${Math.round(totalCostPerGroupedTable[ElementName]?.cost*100)/100+' '+totalCostPerGroupedTable[ElementName]?.currency}</bim-label>
+                                </div>
+                            `
+                        } else {
+                            return Math.round(totalCostPerGroupedTable[ElementName]?.cost*100)/100+' '+totalCostPerGroupedTable[ElementName]?.currency
+                        }
+                    } else {
+                        return value
+                    }
+                },
+                CostItemUnitCost: (value, rowData) => {
+                    const { ComponentsCostValues, CostItemName, CostItemDescription, CostItemUnitCost } = rowData
+                    if (CostItemUnitCost == 'nd' || !CostItemUnitCost) return value
+                    return BUI.html`
+                    <bim-button
+                        label=${value}
+                        style="background-color:rgba(0,0,0,0.1)"
+                        @click=${() => {
+                            onOpenPriceAnalysis(ComponentsCostValues, CostItemName, CostItemDescription, CostItemUnitCost)
+                            }}
+                        >
+                    </bim-button>
+                    `
+                },
+                ElementName: (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+                    const { Model, ItemId } = rowData
+                    let id = ItemId
+                    let m = Model
+                    // grouped rows do not have Model and ItemId, so I need to get them from the totalCostPerGroupedTable using the group name (value)
+                    if (!ItemId) id = Number(totalCostPerGroupedTable[value]?.itemId)
+                    if (!Model) m = totalCostPerGroupedTable[value]?.model
+                    return BUI.html`
+                        <bim-label
+                            @click=${async () => {
+                                highlighter.highlightByID("select", {[m as string]: new Set<number>([id as number])}, false, true)
+                                const guid = await fragments.modelIdMapToGuids({[m as string]: new Set<number>([id as number])})
+                                await navigator.clipboard.writeText(guid[0])
+                                }}
+                            @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
+                            @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
+                        >${value}</bim-label>`
+                },
+                CostItemName: (value, rowData) => {
+                    const { ElementIfcClass, ElementName } = rowData
+                    if (!ElementName && !ElementIfcClass) {
+                        return BUI.html`
+                            <bim-label
+                                @click=${async () => { 
+                                    onOpenPriceAnalysis(totalCostPerGroupedTable[value].ComponentsValue, value, totalCostPerGroupedTable[value].costItemDescription, totalCostPerGroupedTable[value].costItemUnitCost)
+                                }}
+                                @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
+                                @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
+                            >${value}</bim-label>`
+                    } else {
+                        return value
+                    }
+                }
+            }
+            
+            dynamicCostTable.groupedBy = ['ElementName']
+            dynamicCostTable.columns = ['ElementName']
+            normalization ? 
+                dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency'] :
+                dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','ItemVolume','NormalizedCost']
+
             const elementXCostPanel = BUI.Component.create<BUI.Panel>(() => {
                 return BUI.html`
                 <bim-panel
                     style="display:flex; flex-direction:column; gap:10px; margin:10px; background-color:transparent; flex:1;">
                     <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px'})}>
                         <div style="display: flex; gap: 0.5rem;">
-                            <bim-button @click=${(e:Event) => onExpandTable(e,elementXcostTable)} label=${elementXcostTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                            <bim-button @click=${(e:Event) => onExpandTable(e,dynamicCostTable)} label=${dynamicCostTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
                             <bim-label>Group by:</bim-label>
-                            <bim-button @click=${(e:Event) => onChangeLevelTable(e,elementXcostTable)} label="Item" style="max-width:fit-content"></bim-button>
+                            <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                target.style.backgroundColor = 'var(--background-200)';
+                                document.getElementById('groupby_element')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
+                                sortbyTotalCostDropdown_optionOne.label = 'ElementIfcClass'
+                                sortbyTotalCostDropdown.value = []
+                                dynamicCostTable.groupedBy = ['ElementIfcClass','ElementName']
+                                dynamicCostTable.columns = ['ElementIfcClass','ElementName']
+                                normalization ?
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName'] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName','ItemVolume','NormalizedCost']
+                            }} id="groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
+                            <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                target.style.backgroundColor = 'var(--background-200)';
+                                document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
+                                sortbyTotalCostDropdown_optionOne.label = 'ElementName'
+                                sortbyTotalCostDropdown.value = []
+                                dynamicCostTable.groupedBy = ['ElementName']
+                                dynamicCostTable.columns = ['ElementName']
+                                normalization ? 
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency'] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','ItemVolume','NormalizedCost']
+                            }} id="groupby_element"  label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
+                            <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                target.style.backgroundColor = 'var(--background-200)';
+                                document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_element')!.style.removeProperty('background-color');
+                                sortbyTotalCostDropdown_optionOne.label = 'CostItemName'
+                                sortbyTotalCostDropdown.value = []
+                                dynamicCostTable.groupedBy = ['CostItemName']
+                                dynamicCostTable.columns = ['CostItemName']
+                                normalization ?
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency'] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','ItemVolume','NormalizedCost']
+                            }} id="groupby_costitem"  label="Cost Item" style="max-width:fit-content"></bim-button>
                             <bim-label>Sort by:</bim-label>
                             ${sortbyTotalCostDropdown}
                             ${sortbyDirectionTotalCost}
@@ -1957,11 +2166,11 @@ export function MainViewer () {
                                     await highlighter.updateColors()
                                 }}">
                             </bim-number-input>
-                            <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,elementXcostTable)}}></bim-text-input>
+                            <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,dynamicCostTable)}}></bim-text-input>
                             <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-button tooltip-text="Click on item's name to add it to the selection" icon='majesticons:lightbulb-shine' style="max-width:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
                         </div>
-                        ${elementXcostTable}
+                        ${dynamicCostTable}
                     </div>
                 </bim-panel>`
             })
@@ -2057,16 +2266,17 @@ export function MainViewer () {
         const floatingGrid = BUI.Component.create<BUI.Grid>(() => {
             return BUI.html`
                 <bim-grid
-                floating
-                style="padding: 10px">
+                    floating
+                    style="padding: 10px">
                 </bim-grid>
             `;
         })
+        floatingGrid.resizeableAreas = true
 
         //TOOLBAR COMPONENT
         const toolbar = BUI.Component.create<BUI.Toolbar>(() => {
             return BUI.html`
-            <bim-toolbar style="justify-self: center">
+            <bim-toolbar style="justify-self:center; align-content:center; background: rgba(0,0,0,0.5);" class="blur-background-container">
                 <bim-toolbar-section label="Scene">
                     <bim-button
                         id='world'
