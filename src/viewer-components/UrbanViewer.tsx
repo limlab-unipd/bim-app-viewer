@@ -1613,15 +1613,34 @@ export function UrbanViewer () {
             return BUI.html`
                 <bim-grid
                     floating
-                    style="padding: 0.5rem">
+                    style="padding: 0.5rem; padding:5px; gap:5px">
                 </bim-grid>
             `;
         })
+        floatingGrid.resizeableAreas = true
 
         //TOOLBAR COMPONENT
         const toolbar = BUI.Component.create<BUI.Toolbar>(() => {
             return BUI.html`
-            <bim-toolbar style="justify-self: center; z-index:200" class="blur-background-container">
+            <bim-toolbar style="justify-self:center; align-content:center; background: rgba(0,0,0,0.5); z-index:250" class="blur-background-container">
+                <bim-toolbar-section id="test-section" label="TEST" style="display:${devElementsVisibility}">
+                    <bim-button
+                        label="Sample"
+                        tooltip-title="Load sample IFC models."
+                        @click=${() => {
+                            loadIfcFile("/assets/Sample_with costs.ifc")
+                            //loadIfcFile("/assets/SFH_with costs.ifc")
+                            }}>
+                    </bim-button>
+                    <bim-button
+                        label='Volume'
+                        tooltip-title="Print volume of selected item"
+                        @click=${() => {
+                                //getVolume
+                                console.log(highlighter.selection.select)
+                            }}
+                    ></bim-button>
+                </bim-toolbar-section>
                 <bim-toolbar-section label="Scene">
                     <bim-button
                         id='world'
@@ -1814,24 +1833,6 @@ export function UrbanViewer () {
                         tooltip-title="Reset Visibility"
                         icon="tabler:sun-filled"
                         @click=${onResetVisibility}
-                    ></bim-button>
-                </bim-toolbar-section>
-                <bim-toolbar-section id="test-section" label="TEST" style="display:${devElementsVisibility}">
-                    <bim-button
-                        label="Sample"
-                        tooltip-title="Load sample IFC models."
-                        @click=${() => {
-                            loadIfcFile("/assets/Sample_with costs.ifc")
-                            //loadIfcFile("/assets/SFH_with costs.ifc")
-                            }}>
-                    </bim-button>
-                    <bim-button
-                        label='Volume'
-                        tooltip-title="Print volume of selected item"
-                        @click=${() => {
-                                //getVolume
-                                console.log(highlighter.selection.select)
-                            }}
                     ></bim-button>
                 </bim-toolbar-section>
             </bim-toolbar>
