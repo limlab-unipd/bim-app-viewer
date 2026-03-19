@@ -502,6 +502,7 @@ export function MainViewer () {
             return flatten_map
         }
 
+        // #region
         //advanced functions
         const getVolume = async () => {
             const models = fragments.list.values()
@@ -535,6 +536,31 @@ export function MainViewer () {
                 }, 4000); // Nasconde dopo 4 secondi
             }
         }
+        // tutto ciò serve solo per far tornare a bianco il colore della label quando il context menu con le informazioni della risorsa viene chiuso cliccando fuori,
+        // altrimenti rimarrebbe evidenziata la riga della tabella anche dopo la chiusura del menu
+        const contextMenuOutsideClickHandlers = new WeakMap<BUI.Label, EventListener>()
+        const clearContextMenuHighlight = (label: BUI.Label) => {
+            label.style.removeProperty('color')
+            const registeredHandler = contextMenuOutsideClickHandlers.get(label)
+            if (registeredHandler) {
+                document.removeEventListener('click', registeredHandler, true)
+                contextMenuOutsideClickHandlers.delete(label)
+            }
+        }
+        const registerContextMenuOutsideClick = (label: BUI.Label) => {
+            const previousHandler = contextMenuOutsideClickHandlers.get(label)
+            if (previousHandler) {
+                document.removeEventListener('click', previousHandler, true)
+            }
+            const outsideClickHandler: EventListener = (event) => {
+                const target = event.target as Node | null
+                if (target && label.contains(target)) return
+                clearContextMenuHighlight(label)
+            }
+            contextMenuOutsideClickHandlers.set(label, outsideClickHandler)
+            document.addEventListener('click', outsideClickHandler, true)
+        }
+        // #endregion
 
         const onColorByCost = async ({target}: {target: BUI.Button | string}) => {
             const startTime_tot = performance.now(); // Start timer
@@ -560,7 +586,7 @@ export function MainViewer () {
             onClearPanel(panelDown) //clear down panel
             onClearPanel(panelRight)
             panelDown.appendChild(loadingLabel)
-            resource!='TotalCost' ? panelDown.label = `${resource} Resource Cost X Elements` : panelDown.label = 'Elements Total Cost' //change the title of the panel
+            resource!='TotalCost' ? panelDown.label = `${resource} Resource Cost` : panelDown.label = 'Elements Total Cost' //change the title of the panel
             const gridLayout = floatingGrid.layout as any //change the grid layout
             if (!gridLayout.includes('down')){
                 onSetLayout({target:'down'})
@@ -833,33 +859,6 @@ export function MainViewer () {
                 )
                 const resourceCostPerGroupedTable: {[group: string]: {resourceCost: number, currency: string, resourceDescription?: string, resourceUnitCost?: string, model?:string, itemId?: number}} = {}
                 
-                // #region
-                // tutto ciò serve solo per far tornare a bianco il colore della label quando il context menu con le informazioni della risorsa viene chiuso cliccando fuori,
-                // altrimenti rimarrebbe evidenziata la riga della tabella anche dopo la chiusura del menu
-                const resourceMenuOutsideClickHandlers = new WeakMap<BUI.Label, EventListener>()
-                const clearResourceMenuHighlight = (label: BUI.Label) => {
-                    label.style.removeProperty('color')
-                    const registeredHandler = resourceMenuOutsideClickHandlers.get(label)
-                    if (registeredHandler) {
-                        document.removeEventListener('click', registeredHandler, true)
-                        resourceMenuOutsideClickHandlers.delete(label)
-                    }
-                }
-                const registerResourceMenuOutsideClick = (label: BUI.Label) => {
-                    const previousHandler = resourceMenuOutsideClickHandlers.get(label)
-                    if (previousHandler) {
-                        document.removeEventListener('click', previousHandler, true)
-                    }
-                    const outsideClickHandler: EventListener = (event) => {
-                        const target = event.target as Node | null
-                        if (target && label.contains(target)) return
-                        clearResourceMenuHighlight(label)
-                    }
-                    resourceMenuOutsideClickHandlers.set(label, outsideClickHandler)
-                    document.addEventListener('click', outsideClickHandler, true)
-                }
-                // #endregion
-
                 for (const row of dynamicResourceTable.data){
                     const groupCategory = row.data.ElementIfcClass
                     const groupElement = row.data.ElementName
@@ -949,7 +948,7 @@ export function MainViewer () {
                                         if (!contextMenu) return
                                         contextMenu.visible = true
                                         target.style.color = "rgba(36, 241, 234, 1)"
-                                        registerResourceMenuOutsideClick(target)
+                                        registerContextMenuOutsideClick(target)
                                     }}
                                     @mouseleave=${({target}:{target:BUI.Label}) => {
                                         // target.style.removeProperty('color')
@@ -975,82 +974,85 @@ export function MainViewer () {
                 dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
 
                 //step 7: create the panel component to show the table
-                const categoryXResourcePanel = BUI.Component.create<BUI.Panel>(() => {
+                const resourceCostPanelControls = BUI.Component.create<HTMLDivElement>(() => {
+                    return BUI.html`
+                        <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px 10px 5px 10px'})}>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <bim-button @click=${(e:Event) => onExpandTable(e,dynamicResourceTable)} label=${dynamicResourceTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                                <bim-label>Group by:</bim-label>
+                                <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                    target.style.backgroundColor = 'var(--background-200)';
+                                    document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
+                                    document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
+                                    sortbyResourceDropdown_optionOne.label = 'ElementIfcClass'
+                                    sortbyResourceDropdown.value = []
+                                    dynamicResourceTable.groupedBy = ['ElementIfcClass','ElementName']
+                                    dynamicResourceTable.columns = ['ElementIfcClass','ElementName']
+                                    dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
+                                }} id="resource_groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
+                                <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                    target.style.backgroundColor = 'var(--background-200)';
+                                    document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
+                                    document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
+                                    sortbyResourceDropdown_optionOne.label = 'ElementName'
+                                    sortbyResourceDropdown.value = []
+                                    dynamicResourceTable.groupedBy = ['ElementName']
+                                    dynamicResourceTable.columns = ['ElementName']
+                                    dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
+                                }} id="resource_groupby_element"  label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
+                                <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                    target.style.backgroundColor = 'var(--background-200)';
+                                    document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
+                                    document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
+                                    sortbyResourceDropdown_optionOne.label = 'ResourceName'
+                                    sortbyResourceDropdown.value = []
+                                    dynamicResourceTable.groupedBy = ['ResourceName']
+                                    dynamicResourceTable.columns = ['ResourceName']
+                                    dynamicResourceTable.hiddenColumns = ['Model','ItemId','ResourceName','NormalizedValue','ResourceDescription','ResourceUnitCost']
+                                }} id="resource_groupby_resource"  label="Resource" style="max-width:fit-content"></bim-button>
+                                <bim-label>Sort by:</bim-label>
+                                ${sortbyResourceDropdown}
+                                ${sortbyDirectionResourceCost}
+                                <bim-label>Ghost mode:</bim-label>
+                                <bim-button 
+                                    id='ghost-mode' 
+                                    @click=${async (e:Event) => {
+                                        await onSetTransparencyToCostColor(e);
+                                        (e.target as any).label = (e.target as any).label=='Ghost' ? 'Reset' : 'Ghost'
+                                    }} 
+                                    label="Ghost"
+                                    tooltip-text="Set transparency to non-selected items. On the side, you can set their opacity. Ghost mode works only on cost analysis colored items."
+                                    style="max-width:fit-content; z-index:100">
+                                </bim-button>
+                                <bim-number-input
+                                    id='ghost-mode-opacity' slider step="0.01"value="0.5" min="0" max="1"
+                                    style="max-width:fit-content; z-index:100"
+                                    @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                                        (highlighter.styles.get('color_0_02_transparent') as any).opacity = target.value;
+                                        (highlighter.styles.get('color_02_04_transparent') as any).opacity = target.value;
+                                        (highlighter.styles.get('color_04_06_transparent') as any).opacity = target.value;
+                                        (highlighter.styles.get('color_06_08_transparent') as any).opacity = target.value;
+                                        (highlighter.styles.get('color_08_1_transparent') as any).opacity = target.value;
+                                        await highlighter.updateColors()
+                                    }}">
+                                </bim-number-input>
+                                <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,dynamicResourceTable)}}></bim-text-input>
+                                <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
+                            </div>
+                        </div>`
+                })
+                const resourceCostPanel = BUI.Component.create<BUI.Panel>(() => {
                     //return the UI of the component
                     return BUI.html`
-                        <bim-panel
-                            style="display:flex; flex-direction:column; gap:10px; margin:10px; background-color:transparent; flex:1;">
-                            <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px'})}>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <bim-button @click=${(e:Event) => onExpandTable(e,dynamicResourceTable)} label=${dynamicResourceTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
-                                    <bim-label>Group by:</bim-label>
-                                    <bim-button @click=${({target}:{target:BUI.Button}) => {
-                                        target.style.backgroundColor = 'var(--background-200)';
-                                        document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
-                                        document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
-                                        sortbyResourceDropdown_optionOne.label = 'ElementIfcClass'
-                                        sortbyResourceDropdown.value = []
-                                        dynamicResourceTable.groupedBy = ['ElementIfcClass','ElementName']
-                                        dynamicResourceTable.columns = ['ElementIfcClass','ElementName']
-                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
-                                    }} id="resource_groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
-                                    <bim-button @click=${({target}:{target:BUI.Button}) => {
-                                        target.style.backgroundColor = 'var(--background-200)';
-                                        document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
-                                        document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
-                                        sortbyResourceDropdown_optionOne.label = 'ElementName'
-                                        sortbyResourceDropdown.value = []
-                                        dynamicResourceTable.groupedBy = ['ElementName']
-                                        dynamicResourceTable.columns = ['ElementName']
-                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
-                                    }} id="resource_groupby_element"  label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
-                                    <bim-button @click=${({target}:{target:BUI.Button}) => {
-                                        target.style.backgroundColor = 'var(--background-200)';
-                                        document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
-                                        document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
-                                        sortbyResourceDropdown_optionOne.label = 'ResourceName'
-                                        sortbyResourceDropdown.value = []
-                                        dynamicResourceTable.groupedBy = ['ResourceName']
-                                        dynamicResourceTable.columns = ['ResourceName']
-                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ResourceName','NormalizedValue','ResourceDescription','ResourceUnitCost']
-                                    }} id="resource_groupby_resource"  label="Resource" style="max-width:fit-content"></bim-button>
-                                    <bim-label>Sort by:</bim-label>
-                                    ${sortbyResourceDropdown}
-                                    ${sortbyDirectionResourceCost}
-                                    <bim-label>Ghost mode:</bim-label>
-                                    <bim-button 
-                                        id='ghost-mode' 
-                                        @click=${async (e:Event) => {
-                                            await onSetTransparencyToCostColor(e);
-                                            (e.target as any).label = (e.target as any).label=='Ghost' ? 'Reset' : 'Ghost'
-                                        }} 
-                                        label="Ghost"
-                                        tooltip-text="Set transparency to non-selected items. On the side, you can set their opacity. Ghost mode works only on cost analysis colored items."
-                                        style="max-width:fit-content; z-index:100">
-                                    </bim-button>
-                                    <bim-number-input
-                                        id='ghost-mode-opacity' slider step="0.01"value="0.5" min="0" max="1"
-                                        style="max-width:fit-content; z-index:100"
-                                        @change="${async ({ target }: { target: BUI.NumberInput }) => {
-                                            (highlighter.styles.get('color_0_02_transparent') as any).opacity = target.value;
-                                            (highlighter.styles.get('color_02_04_transparent') as any).opacity = target.value;
-                                            (highlighter.styles.get('color_04_06_transparent') as any).opacity = target.value;
-                                            (highlighter.styles.get('color_06_08_transparent') as any).opacity = target.value;
-                                            (highlighter.styles.get('color_08_1_transparent') as any).opacity = target.value;
-                                            await highlighter.updateColors()
-                                        }}">
-                                    </bim-number-input>
-                                    <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,dynamicResourceTable)}}></bim-text-input>
-                                    <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
-                                </div>
-                                ${dynamicResourceTable ? dynamicResourceTable : 'Any resource cost found for this cateogory.'}
-                            </div>
+                        <bim-panel style="display:flex; flex-direction:column; gap:10px; margin:5px 15px 5px 15px; background-color:transparent; flex:1;">
+                            ${dynamicResourceTable ? dynamicResourceTable : 'Any resource cost found for this cateogory.'}
                         </bim-panel>
                     `
                 })
                 //step 8: append the component to the down panel
                 panelDown.innerHTML=''
-                panelDown.appendChild(categoryXResourcePanel)
+                panelDown.appendChild(resourceCostPanelControls)
+                panelDown.appendChild(resourceCostPanel)
 
             } else if (resource == 'TotalCost'){
 
@@ -1405,9 +1407,6 @@ export function MainViewer () {
                 </bim-panel>
             `
         })
-        // #endregion
-
-        // #region GLOBAL VARIABLES
         // #endregion
 
         // #region ADVANCED COMPONENTS
@@ -2081,9 +2080,26 @@ export function MainViewer () {
                                 @click=${async () => { 
                                     onOpenPriceAnalysis(totalCostPerGroupedTable[value].ComponentsValue, value, totalCostPerGroupedTable[value].costItemDescription, totalCostPerGroupedTable[value].costItemUnitCost)
                                 }}
-                                @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
-                                @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
-                            >${value}</bim-label>`
+                                @mouseover=${({target}:{target:BUI.Label}) => {
+                                    const contextMenu = target.querySelector<BUI.ContextMenu>('bim-context-menu')
+                                    if (!contextMenu) return
+                                    contextMenu.visible = true
+                                    target.style.color = "rgba(36, 241, 234, 1)"
+                                    registerContextMenuOutsideClick(target)
+                                }}
+                                @mouseleave=${({target}:{target:BUI.Label}) => {
+                                    // target.style.removeProperty('color')
+                                }}>
+                                ${value}
+                                <bim-context-menu id="bim-context-menu-resource" style="max-width: 30rem; padding: 0.75rem;">
+                                    <bim-label style="display: block; width:20rem; white-space: normal; overflow-wrap: break-word;">
+                                        ${totalCostPerGroupedTable[value]?.costItemUnitCost ? `Unit Cost: ${totalCostPerGroupedTable[value].costItemUnitCost}` : 'No unit cost available'}
+                                    </bim-label>
+                                    <bim-label style="display: block; width:20rem; white-space: normal; overflow-wrap: break-word;">
+                                        ${totalCostPerGroupedTable[value]?.costItemDescription ? `Description: ${totalCostPerGroupedTable[value].costItemDescription}` : 'No description available'}
+                                    </bim-label>
+                                </bim-context-menu>
+                            </bim-label>`
                     } else {
                         return value
                     }
@@ -2096,11 +2112,9 @@ export function MainViewer () {
                 dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency'] :
                 dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','ItemVolume','NormalizedCost']
 
-            const elementXCostPanel = BUI.Component.create<BUI.Panel>(() => {
+            const elementXCostPanelControls = BUI.Component.create<HTMLDivElement>(() => {
                 return BUI.html`
-                <bim-panel
-                    style="display:flex; flex-direction:column; gap:10px; margin:10px; background-color:transparent; flex:1;">
-                    <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px'})}>
+                    <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px 10px 5px 10px'})}>
                         <div style="display: flex; gap: 0.5rem;">
                             <bim-button @click=${(e:Event) => onExpandTable(e,dynamicCostTable)} label=${dynamicCostTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
                             <bim-label>Group by:</bim-label>
@@ -2170,12 +2184,18 @@ export function MainViewer () {
                             <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-button tooltip-text="Click on item's name to add it to the selection" icon='majesticons:lightbulb-shine' style="max-width:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
                         </div>
-                        ${dynamicCostTable}
                     </div>
+                `
+            })
+            const elementXCostPanel = BUI.Component.create<BUI.Panel>(() => {
+                return BUI.html`
+                <bim-panel style="display:flex; flex-direction:column; gap:10px; margin:5px 15px 5px 15px; background-color:transparent; flex:1;">
+                    ${dynamicCostTable}
                 </bim-panel>`
             })
 
             panelDown.innerHTML=''
+            hasAssignmentsCheck ? panelDown.appendChild(elementXCostPanelControls) : null
             hasAssignmentsCheck ? panelDown.appendChild(elementXCostPanel) : panelDown.appendChild(noCostItemsLabel)
             const gridLayout = floatingGrid.layout as any
             if (!gridLayout.includes('down')){
@@ -2267,7 +2287,7 @@ export function MainViewer () {
             return BUI.html`
                 <bim-grid
                     floating
-                    style="padding: 10px">
+                    style="padding: 5px; gap: 5px">
                 </bim-grid>
             `;
         })
@@ -2276,7 +2296,36 @@ export function MainViewer () {
         //TOOLBAR COMPONENT
         const toolbar = BUI.Component.create<BUI.Toolbar>(() => {
             return BUI.html`
-            <bim-toolbar style="justify-self:center; align-content:center; background: rgba(0,0,0,0.5);" class="blur-background-container">
+            <bim-toolbar style="justify-self:center; align-content:center; background: rgba(0,0,0,0.5); z-index:50" class="blur-background-container">
+                <bim-toolbar-section id="test-section" label="TEST" style="display:${devElementsVisibility}">
+                    <bim-button
+                        label="Sample"
+                        tooltip-title="Load sample IFC models. Only for developers."
+                        @click=${() => {
+                            loadIfcFile("/assets/Sample_with costs.ifc")
+                            loadIfcFile("/assets/SFH_with costs.ifc")
+                            }}>
+                    </bim-button>
+                    <bim-button
+                        label='Volume'
+                        tooltip-title="Print volume of selected item"
+                        @click=${getVolume}
+                    ></bim-button>
+                    <bim-button
+                        label='Categories'
+                        tooltip-title="Print all categories in loaded models"
+                        @click=${async () => {
+                            const categories = await getAllCategories()
+                            const lC = new Set(categories)
+                            const filteredCategories = [...new Set(importedCategories.filter(x => lC.has(x)))]
+                            filteredCategories.push('ALL CLASSES')
+                            console.log(filteredCategories)
+                            categoriesDropdown.innerHTML = ''
+                            categoriesDropdown.innerHTML = `<bim-option label='ciao' style="padding:0 10px 0 10px"></bim-option>`
+                            updateCategoriesDropdown({listCategories:filteredCategories})
+                        }}
+                    ></bim-button>
+                </bim-toolbar-section>
                 <bim-toolbar-section label="Scene">
                     <bim-button
                         id='world'
@@ -2422,35 +2471,6 @@ export function MainViewer () {
                         tooltip-title="Open cost assignment panel of selected elements - organized by cost item"
                         icon="tabler:filter-2-dollar"
                         @click=${() => {console.log('TO DO ...')}}
-                    ></bim-button>
-                </bim-toolbar-section>
-                <bim-toolbar-section id="test-section" label="TEST" style="display:${devElementsVisibility}">
-                    <bim-button
-                        label="Sample"
-                        tooltip-title="Load sample IFC models. Only for developers."
-                        @click=${() => {
-                            loadIfcFile("/assets/Sample_with costs.ifc")
-                            loadIfcFile("/assets/SFH_with costs.ifc")
-                            }}>
-                    </bim-button>
-                    <bim-button
-                        label='Volume'
-                        tooltip-title="Print volume of selected item"
-                        @click=${getVolume}
-                    ></bim-button>
-                    <bim-button
-                        label='Categories'
-                        tooltip-title="Print all categories in loaded models"
-                        @click=${async () => {
-                            const categories = await getAllCategories()
-                            const lC = new Set(categories)
-                            const filteredCategories = [...new Set(importedCategories.filter(x => lC.has(x)))]
-                            filteredCategories.push('ALL CLASSES')
-                            console.log(filteredCategories)
-                            categoriesDropdown.innerHTML = ''
-                            categoriesDropdown.innerHTML = `<bim-option label='ciao' style="padding:0 10px 0 10px"></bim-option>`
-                            updateCategoriesDropdown({listCategories:filteredCategories})
-                        }}
                     ></bim-button>
                 </bim-toolbar-section>
             </bim-toolbar>
