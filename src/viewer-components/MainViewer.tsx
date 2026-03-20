@@ -198,6 +198,7 @@ export function MainViewer () {
                         WEBIFC.IFCCONTEXTDEPENDENTUNIT,
                         WEBIFC.IFCRELASSIGNSTOCONTROL,
                         WEBIFC.IFCRELNESTS,
+                        WEBIFC.IFCRELCONNECTSPATHELEMENTS,
                     )
                     importer.classes['elements'].add(
                         WEBIFC.IFCBUILTSYSTEM //remember to add these classes also above in the importedClasses in the initial part of the script !!!
@@ -210,6 +211,10 @@ export function MainViewer () {
                     importer.relations.set(WEBIFC.IFCRELNESTS, {
                         forRelated: "Nests",
                         forRelating: "IsNestedBy"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELCONNECTSPATHELEMENTS, {
+                        forRelated: "ConnectedTo",
+                        forRelating: "ConnectedFrom"
                     })
                 }
             });
@@ -1483,36 +1488,302 @@ export function MainViewer () {
             `},
             { count: 0 },
         )
+        
+        type dynamicPropertiesTableData = {
+            itemName: string,
+            itemId: number,
+            modelId: string,
+            propertySetName?: string,
+            propertyType?: string,
+            propertyName?: string,
+            propertyValue?: string,
+        }
+        //tables
+        const dynamicPropertiesTable = document.createElement("bim-table") as BUI.Table<dynamicPropertiesTableData>
+        dynamicPropertiesTable.id = 'dynamicPropertiesTable'
+        dynamicPropertiesTable.data = [{
+                data: {
+                    itemName: '',
+                    itemId: 0,
+                    modelId: '',
+                    propertySetName: '',
+                    propertyType: '',
+                    propertyName: '',
+                    propertyValue: ''
+
+                }}]
+        dynamicPropertiesTable.data = []
+        dynamicPropertiesTable.preserveStructureOnFilter = true
+        dynamicPropertiesTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
+        dynamicPropertiesTable.headersHidden = true
+        const convertDataName: {[key:string]:string} = {
+            '_category': 'IFC Class',
+            '_guid': 'GlobalId',
+            '_localId': 'StepId',
+        }
+        let loadingLabelProps: BUI.Label
+        const onLoadAttributesTable = async () => {
+            loadingLabelProps.style.display = ''
+            dynamicPropertiesTable.data = []
+            const selection = highlighter.selection.select
+            const itemsData = await fragments.getData(selection, {attributesDefault: true, relationsDefault: { attributes: false, relations: false }}) //questi sono gli attributi
+            for (const [modelId, itemIdSet] of Object.entries(selection)){
+                for (const itemId of itemIdSet){
+                    const itemData = itemsData[modelId]?.find((item: FRAGS.ItemData) => (item._localId as FRAGS.ItemAttribute).value == itemId)
+                    if (!itemData) continue
+                    for (const [itemDataEntryName,itemDataEntry] of Object.entries(itemData)){
+                        if (Array.isArray(itemDataEntry)) continue
+                        const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
+                            data: {},
+                        }
+                        rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
+                        rowData.data.itemId = itemId
+                        rowData.data.modelId = modelId
+                        rowData.data.propertyName = convertDataName[itemDataEntryName] ? convertDataName[itemDataEntryName] : itemDataEntryName
+                        rowData.data.propertySetName = 'Attributes'
+                        rowData.data.propertyType = 'Attribute'
+                        const value = itemDataEntryName=='_localId' ?
+                            '#'+itemDataEntry.value :
+                            Number(itemDataEntry.value) ?
+                                Math.round(Number(itemDataEntry.value)*100)/100 :
+                                itemDataEntry.value
+                        rowData.data.propertyValue = value
+                        if (!rowData.data.propertyName) continue
+                        dynamicPropertiesTable.data.push(rowData)
+                    }
+                }
+            }
+            dynamicPropertiesTable.groupedBy = ['itemName']
+            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType']
+            loadingLabelProps.style.display = 'none'
+        }
+        const onLoadRelationsTable = async () => {
+            loadingLabelProps.style.display = ''
+            dynamicPropertiesTable.data = []
+            const selection = highlighter.selection.select
+            const itemsData = await fragments.getData(selection, {attributesDefault: true, relationsDefault: { attributes: true, relations: false }}) //questi sono gli attributi
+            console.log(itemsData)
+            for (const [modelId, itemIdSet] of Object.entries(selection)){
+                for (const itemId of itemIdSet){
+                    const itemData = itemsData[modelId]?.find((item: FRAGS.ItemData) => (item._localId as FRAGS.ItemAttribute).value == itemId)
+                    if (!itemData) continue
+                    for (const [itemDataEntryName,itemDataEntry] of Object.entries(itemData)){
+                        if (['IsDefinedBy'].includes(itemDataEntryName)) continue
+                        if (!Array.isArray(itemDataEntry)) continue
+                        for (const [,relItemData] of Object.entries(itemDataEntry)){
+                            const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
+                                data: {},
+                            }
+                            rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
+                            rowData.data.itemId = itemId
+                            rowData.data.modelId = modelId
+                            rowData.data.propertyType = 'Relation'
+                            rowData.data.propertySetName = itemDataEntryName
+                            rowData.data.propertyName = (relItemData._category as FRAGS.ItemAttribute).value
+                            rowData.data.propertyValue = relItemData.Name ? (relItemData.Name as FRAGS.ItemAttribute).value : ''
+                            if (!rowData.data.propertyName) continue
+                            dynamicPropertiesTable.data.push(rowData)
+                        }
+                    }
+                }
+            }
+            dynamicPropertiesTable.groupedBy = ['itemName','propertySetName']
+            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType']
+            loadingLabelProps.style.display = 'none'
+        }
+        const onLoadMaterialsTable = async () => {
+            loadingLabelProps.style.display = ''
+            dynamicPropertiesTable.data = []
+            const selection = highlighter.selection.select
+            const itemsData = await fragments.getData(selection, {attributesDefault: true, relations: {'HasAssociations': { attributes: true, relations: true }}}) //questi sono gli attributi
+            for (const [modelId, itemIdSet] of Object.entries(selection)){
+                for (const itemId of itemIdSet){
+                    const itemData = itemsData[modelId]?.find((item: FRAGS.ItemData) => (item._localId as FRAGS.ItemAttribute).value == itemId)
+                    if (!itemData) continue
+                    for (const [itemDataEntryName,itemDataEntry] of Object.entries(itemData)){
+                        if (!Array.isArray(itemDataEntry)) continue
+                        for (const [,relItemData] of Object.entries(itemDataEntry)){
+                            if ((relItemData._category as FRAGS.ItemAttribute).value == 'IFCMATERIALLAYERSETUSAGE'){
+                                const localId = (relItemData._localId as FRAGS.ItemAttribute).value as number
+                                const associations = await fragments.getData({[modelId]:new Set<number>([localId])}, {attributesDefault:true,relationsDefault:{ attributes: true, relations: true }})
+                                const materialsLayers = (associations[modelId][0].ForLayerSet as FRAGS.ItemData[])[0].MaterialLayers as FRAGS.ItemData[]
+                                for (const layer of materialsLayers) {
+                                    const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
+                                        data: {},
+                                    }
+                                    const materialName = ((layer.Material as FRAGS.ItemData[])[0].Name as FRAGS.ItemAttribute).value
+                                    const layerThickness = (layer.LayerThickness as FRAGS.ItemAttribute).value
+                                    rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
+                                    rowData.data.itemId = itemId
+                                    rowData.data.modelId = modelId
+                                    rowData.data.propertyType = 'Relation'
+                                    rowData.data.propertySetName = itemDataEntryName
+                                    rowData.data.propertyName = materialName
+                                    rowData.data.propertyValue = layerThickness
+                                    if (!rowData.data.propertyName) continue
+                                    dynamicPropertiesTable.data.push(rowData)
+                                }
+                            } else if ((relItemData._category as FRAGS.ItemAttribute).value == 'IFCMATERIALLIST'){
+                                for (const material of (relItemData.Materials as FRAGS.ItemData[])){
+                                    const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
+                                        data: {},
+                                    }
+                                    const materialName = (material.Name as FRAGS.ItemAttribute).value
+                                    rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
+                                    rowData.data.itemId = itemId
+                                    rowData.data.modelId = modelId
+                                    rowData.data.propertyType = 'Relation'
+                                    rowData.data.propertySetName = itemDataEntryName
+                                    rowData.data.propertyName = materialName
+                                    rowData.data.propertyValue = ''
+                                    if (!rowData.data.propertyName) continue
+                                    dynamicPropertiesTable.data.push(rowData)                                    
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            dynamicPropertiesTable.groupedBy = ['itemName']
+            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType']
+            loadingLabelProps.style.display = 'none'
+        }
+        const onLoadPropertiesTable = async () => {
+            loadingLabelProps.style.display = ''
+            dynamicPropertiesTable.data = []
+            const selection = highlighter.selection.select
+            const itemsData = await fragments.getData(selection, {attributesDefault: true, relations: {'IsDefinedBy': {attributes: true, relations: true}}})
+            for (const [modelId, itemIdSet] of Object.entries(selection)){
+                for (const itemId of itemIdSet){
+                    const itemData = itemsData[modelId]?.find((item: FRAGS.ItemData) => (item._localId as FRAGS.ItemAttribute).value == itemId)
+                    if (!itemData) continue
+                    for (const [itemDataEntryName,itemDataEntry] of Object.entries(itemData)){
+                        if (itemDataEntryName != 'IsDefinedBy') continue
+                        if (!Array.isArray(itemDataEntry)) continue
+                        for (const [,relItemData] of Object.entries(itemDataEntry)){
+                            if (!relItemData.HasProperties) continue
+                            for (const [, relPropertyData] of Object.entries(relItemData.HasProperties)){
+                                const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
+                                    data: {},
+                                }
+                                rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
+                                rowData.data.itemId = itemId
+                                rowData.data.modelId = modelId
+                                rowData.data.propertyType = 'Relation'
+                                rowData.data.propertySetName = (relItemData.Name as FRAGS.ItemAttribute).value
+                                rowData.data.propertyName = (relPropertyData.Name as FRAGS.ItemAttribute).value
+                                rowData.data.propertyValue = (relPropertyData.NominalValue as FRAGS.ItemAttribute).value
+                                if (!rowData.data.propertyName) continue
+                                dynamicPropertiesTable.data.push(rowData)
+                            }
+                        }
+                    }
+                }
+            }
+            dynamicPropertiesTable.groupedBy = ['itemName','propertySetName']
+            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType']
+            loadingLabelProps.style.display = 'none'
+        }
+        const onLoadQuantitiesTable = async () => {
+            loadingLabelProps.style.display = ''
+            dynamicPropertiesTable.data = []
+            const selection = highlighter.selection.select
+            const itemsData = await fragments.getData(selection, {attributesDefault: true, relations: {'IsDefinedBy': {attributes: true, relations: true}}}) //questi sono gli attributi
+            const IfcPhisicalSimpleQuantities = ['AreaValue','CountValue','LengthValue','NumberValue','TimeValue','VolumeValue','WeightValue']
+            for (const [modelId, itemIdSet] of Object.entries(selection)){
+                for (const itemId of itemIdSet){
+                    const itemData = itemsData[modelId]?.find((item: FRAGS.ItemData) => (item._localId as FRAGS.ItemAttribute).value == itemId)
+                    if (!itemData) continue
+                    for (const [itemDataEntryName,itemDataEntry] of Object.entries(itemData)){
+                        if (itemDataEntryName != 'IsDefinedBy') continue
+                        if (!Array.isArray(itemDataEntry)) continue
+                        for (const [,relItemData] of Object.entries(itemDataEntry)){
+                            if ((relItemData.Name as FRAGS.ItemAttribute).value != 'BaseQuantities') continue
+                            for (const [, relPropertyData] of Object.entries(relItemData.Quantities)){
+                                const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
+                                    data: {},
+                                }
+                                rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
+                                rowData.data.itemId = itemId
+                                rowData.data.modelId = modelId
+                                rowData.data.propertyType = 'Relation'
+                                rowData.data.propertySetName = (relItemData.Name as FRAGS.ItemAttribute).value
+                                rowData.data.propertyName = (relPropertyData.Name as FRAGS.ItemAttribute).value
+                                for (const phisicalQuantity of IfcPhisicalSimpleQuantities){
+                                    if (!relPropertyData[phisicalQuantity]) continue
+                                    const unit = relPropertyData.Unit ? (relPropertyData.Unit as FRAGS.ItemAttribute).value : null
+                                    const value = (relPropertyData[phisicalQuantity] as FRAGS.ItemAttribute).value
+                                    rowData.data.propertyValue = unit ? value + ' ' + unit : value
+                                }
+                                if (!rowData.data.propertyName) continue
+                                dynamicPropertiesTable.data.push(rowData)
+                            }
+                        }
+                    }
+                }
+            }
+            dynamicPropertiesTable.groupedBy = ['itemName']
+            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType']
+            loadingLabelProps.style.display = 'none'
+        }
+
         const propertiesPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
-            const [propertiesTable, updatePropertiesTable] = BUIC.tables.itemsData({
-                components,
-                modelIdMap: {},
-            });            
-            propertiesTable.preserveStructureOnFilter = true;
-            propertiesTable.indentationInText = false;
+            // const [propertiesTable, updatePropertiesTable] = BUIC.tables.itemsData({
+            //     components,
+            //     modelIdMap: {},
+            // });
+            // propertiesTable.preserveStructureOnFilter = true;
+            // propertiesTable.indentationInText = false;
             highlighter.events.select.onHighlight.add((modelIdMap) => {
                 const count = Object.values(modelIdMap).reduce((sum, currentSet) => sum + currentSet.size, 0)
                 updateSelectedItemsCount({ count })
                 if (count < 6){
-                    updatePropertiesTable({ modelIdMap })
+                    //updatePropertiesTable({ modelIdMap })
+                    const currentLayout = floatingGrid.layout as any
+                    if (!currentLayout) return
+                    !currentLayout.includes('left') ? onSetLayout({ target: 'left' }) : null
+                    onLoadAttributesTable()
+                    onSetGroupingBtnColor(btn_Attributes)
                 } else {
-                    updatePropertiesTable({ modelIdMap: {} })
+                    //updatePropertiesTable({ modelIdMap: {} })
+                    dynamicPropertiesTable.data = []
                 }
             });
             highlighter.events.select.onClear.add(() => {
-                updatePropertiesTable({ modelIdMap: {} })
+                //updatePropertiesTable({ modelIdMap: {} })
                 updateSelectedItemsCount({ count:0 })
+                dynamicPropertiesTable.data = []
             });
             fragments.list.onItemDeleted.add(() => {
-                updatePropertiesTable({ modelIdMap: {} })
+                //updatePropertiesTable({ modelIdMap: {} })
                 updateSelectedItemsCount({ count:0 })
+                dynamicPropertiesTable.data = []
             })
+            const onSetGroupingBtnColor = (clickedBtn: BUI.Button) => {
+                btn_Attributes.style.backgroundColor = ''
+                btn_Properties.style.backgroundColor = ''
+                btn_Quantities.style.backgroundColor = ''
+                btn_Materials.style.backgroundColor = ''
+                btn_Relations.style.backgroundColor = ''
+                clickedBtn.style.backgroundColor = 'var(--background-200)'
+            }
+            let btn_Attributes: BUI.Button
+            let btn_Properties: BUI.Button
+            let btn_Quantities: BUI.Button
+            let btn_Materials: BUI.Button
+            let btn_Relations: BUI.Button
             return BUI.html`
-                <bim-panel-section label='Properties' icon="hugeicons:property-new">
+                <bim-panel-section id='bim-panel-section-properties' label='Properties' icon="hugeicons:property-new">
                     ${selectedItemsCount}
-                    <div style="display: flex; gap: 0.5rem;">
-                        <bim-button @click=${() => onLoadTable(updatePropertiesTable)} label="Load" style="max-width:fit-content"></bim-button>
-                        <bim-button @click=${(e:Event) => onExpandTable(e,propertiesTable)} label=${propertiesTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <bim-button @click=${(e:Event) => {onLoadAttributesTable(),onSetGroupingBtnColor(e.target as BUI.Button)}} ${BUI.ref((el) => {btn_Attributes = el as BUI.Button})} id="groupingPropsBtn-Attributes" label="Attributes" icon="material-symbols:user-attributes-rounded" style="flex:1"></bim-button>
+                        <bim-button @click=${(e:Event) => {onLoadPropertiesTable(),onSetGroupingBtnColor(e.target as BUI.Button)}} ${BUI.ref((el) => {btn_Properties = el as BUI.Button})} id="groupingPropsBtn-Properties" label="Properties" icon="ic:round-list" style="flex:1"></bim-button>
+                        <bim-button @click=${(e:Event) => {onLoadQuantitiesTable(),onSetGroupingBtnColor(e.target as BUI.Button)}} ${BUI.ref((el) => {btn_Quantities = el as BUI.Button})} id="groupingPropsBtn-Quantities" label="Quantities" icon="tabler:ruler-measure" style="flex:1"></bim-button>
+                        <bim-button @click=${(e:Event) => {onLoadMaterialsTable(),onSetGroupingBtnColor(e.target as BUI.Button)}} ${BUI.ref((el) => {btn_Materials = el as BUI.Button})} id="groupingPropsBtn-Materials" label="Materials" icon="game-icons:materials-science" tooltip-text="Only IFCMATERIALLAYERSETUSAGE and IFCMATERIALLIST" style="flex:1"></bim-button>
+                        <bim-button @click=${(e:Event) => {onLoadRelationsTable(),onSetGroupingBtnColor(e.target as BUI.Button)}} ${BUI.ref((el) => {btn_Relations = el as BUI.Button})} id="groupingPropsBtn-Relations" label="Relations" icon="flowbite:link-outline" style="flex:1"></bim-button>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <bim-button @click=${(e:Event) => onExpandTable(e,dynamicPropertiesTable)} label=${dynamicPropertiesTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
                         <bim-button @click=${async () => {
                             const guid = await fragments.modelIdMapToGuids(highlighter.selection.select)
                             if (guid.length==1){
@@ -1521,9 +1792,10 @@ export function MainViewer () {
                                 await navigator.clipboard.writeText(guid.join(','))
                             }
                         }} label="Guids" tooltip-text="Copy IfcGuids to clipboard. Multiple Guids are separated by a comma." style="max-width:fit-content; z-index:1000"></bim-button>
-                        <bim-text-input @input=${(e:Event)=>{onSearch(e,propertiesTable)}} placeholder="Search..." debounce="200"></bim-text-input>
+                        <bim-text-input @input=${(e:Event)=>{onSearch(e,dynamicPropertiesTable)}} placeholder="Search..." debounce="200"></bim-text-input>
                     </div>
-                    ${propertiesTable}
+                    <bim-label ${BUI.ref((el) => {loadingLabelProps = el as BUI.Label})} style="display:none; padding:20px">Loading...</bim-label>
+                    ${dynamicPropertiesTable}
                 </bim-panel-section>
             `
         })
