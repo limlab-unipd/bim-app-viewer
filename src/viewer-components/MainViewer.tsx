@@ -173,8 +173,8 @@ export function MainViewer () {
     
         // #region LOGIC FUNCTIONS
         //function to load the IFC file
-        const loadIfcFile = async (path: string) => {
-            const name = path.split('/').pop()?.split('.ifc')[0] || path.split('/').pop() || path
+        const loadIfcFile = async (path: string, fileName: string) => {
+            const name = fileName.split('.ifc')[0] || fileName
             const file = await fetch(path);
             const data = await file.arrayBuffer();
             const buffer = new Uint8Array(data);
@@ -184,12 +184,12 @@ export function MainViewer () {
             //FRAGMENTS 2.0 DOES NOT IMPORT BY DEFAULT ALL THE IFC CLASSES
             await ifcLoader.load(
                 buffer,
-                false,
+                false, //coordinate model
                 name,
                 {instanceCallback(importer) {
                     //ADDING NEW CLASSES TO IMPORT
                     importer.classes['abstract'].add(
-                        WEBIFC.IFCCOSTITEM, 
+                        WEBIFC.IFCCOSTITEM,
                         WEBIFC.IFCCOSTVALUE,
                         WEBIFC.IFCMEASUREWITHUNIT,
                         WEBIFC.IFCMONETARYUNIT,
@@ -199,6 +199,8 @@ export function MainViewer () {
                         WEBIFC.IFCRELASSIGNSTOCONTROL,
                         WEBIFC.IFCRELNESTS,
                         WEBIFC.IFCRELCONNECTSPATHELEMENTS,
+                        WEBIFC.IFCRELDEFINESBYTYPE,
+                        //non importa tutte le classi dei type
                     )
                     importer.classes['elements'].add(
                         WEBIFC.IFCBUILTSYSTEM //remember to add these classes also above in the importedClasses in the initial part of the script !!!
@@ -215,6 +217,10 @@ export function MainViewer () {
                     importer.relations.set(WEBIFC.IFCRELCONNECTSPATHELEMENTS, {
                         forRelated: "ConnectedTo",
                         forRelating: "ConnectedFrom"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELDEFINESBYTYPE, {
+                        forRelated: "IsTypedBy",
+                        forRelating: "Types"
                     })
                 }
             });
@@ -236,7 +242,7 @@ export function MainViewer () {
                     const url = URL.createObjectURL(file);
                     target.loading = true; // Set loading state
                     target.label = "Loading IFC...";
-                    await loadIfcFile(url);
+                    await loadIfcFile(url,file.name);
                     target.loading = false; // Set loading state
                     target.label = ""
                     URL.revokeObjectURL(url);
@@ -1562,7 +1568,6 @@ export function MainViewer () {
             dynamicPropertiesTable.data = []
             const selection = highlighter.selection.select
             const itemsData = await fragments.getData(selection, {attributesDefault: true, relationsDefault: { attributes: true, relations: false }}) //questi sono gli attributi
-            console.log(itemsData)
             for (const [modelId, itemIdSet] of Object.entries(selection)){
                 for (const itemId of itemIdSet){
                     const itemData = itemsData[modelId]?.find((item: FRAGS.ItemData) => (item._localId as FRAGS.ItemAttribute).value == itemId)
@@ -1595,7 +1600,7 @@ export function MainViewer () {
             loadingLabelProps.style.display = ''
             dynamicPropertiesTable.data = []
             const selection = highlighter.selection.select
-            const itemsData = await fragments.getData(selection, {attributesDefault: true, relations: {'HasAssociations': { attributes: true, relations: true }}}) //questi sono gli attributi
+            const itemsData = await fragments.getData(selection, {attributesDefault: true, relations: {'HasAssociations': { attributes: true, relations: false }}}) //mettendo false su relations è molto più veloce ma poi bisogna riusare getData per ottenere quelle relations
             for (const [modelId, itemIdSet] of Object.entries(selection)){
                 for (const itemId of itemIdSet){
                     const itemData = itemsData[modelId]?.find((item: FRAGS.ItemData) => (item._localId as FRAGS.ItemAttribute).value == itemId)
@@ -1605,13 +1610,15 @@ export function MainViewer () {
                         for (const [,relItemData] of Object.entries(itemDataEntry)){
                             if ((relItemData._category as FRAGS.ItemAttribute).value == 'IFCMATERIALLAYERSETUSAGE'){
                                 const localId = (relItemData._localId as FRAGS.ItemAttribute).value as number
-                                const associations = await fragments.getData({[modelId]:new Set<number>([localId])}, {attributesDefault:true,relationsDefault:{ attributes: true, relations: true }})
+                                const associations = await fragments.getData({[modelId]:new Set<number>([localId])}, {attributesDefault:true, relations: {'ForLayerSet': { attributes: true, relations: true }}})
                                 const materialsLayers = (associations[modelId][0].ForLayerSet as FRAGS.ItemData[])[0].MaterialLayers as FRAGS.ItemData[]
                                 for (const layer of materialsLayers) {
                                     const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
                                         data: {},
                                     }
-                                    const materialName = ((layer.Material as FRAGS.ItemData[])[0].Name as FRAGS.ItemAttribute).value
+                                    const materialId = (layer._localId as FRAGS.ItemAttribute).value
+                                    const material = await fragments.getData({[modelId]:new Set<number>([materialId])}, {attributesDefault:true, relationsDefault: { attributes: true, relations: true }})
+                                    const materialName = (((material[modelId] as FRAGS.ItemData[])[0].Material as FRAGS.ItemData[])[0].Name as FRAGS.ItemAttribute).value
                                     const layerThickness = (layer.LayerThickness as FRAGS.ItemAttribute).value
                                     rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
                                     rowData.data.itemId = itemId
@@ -1624,7 +1631,9 @@ export function MainViewer () {
                                     dynamicPropertiesTable.data.push(rowData)
                                 }
                             } else if ((relItemData._category as FRAGS.ItemAttribute).value == 'IFCMATERIALLIST'){
-                                for (const material of (relItemData.Materials as FRAGS.ItemData[])){
+                                const localId = (relItemData._localId as FRAGS.ItemAttribute).value as number
+                                const associations = await fragments.getData({[modelId]:new Set<number>([localId])}, {attributesDefault:true,relationsDefault:{ attributes: true, relations: false }})
+                                for (const material of ((associations[modelId] as FRAGS.ItemData[])[0].Materials as FRAGS.ItemData[])){
                                     const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
                                         data: {},
                                     }
@@ -2574,8 +2583,8 @@ export function MainViewer () {
                         label="Sample"
                         tooltip-title="Load sample IFC models. Only for developers."
                         @click=${() => {
-                            loadIfcFile("/assets/Sample_with costs.ifc")
-                            loadIfcFile("/assets/SFH_with costs.ifc")
+                            loadIfcFile("/assets/Sample_with costs.ifc",'Sample_with costs')
+                            loadIfcFile("/assets/SFH_with costs.ifc",'SFH_with costs')
                             }}>
                     </bim-button>
                     <bim-button
