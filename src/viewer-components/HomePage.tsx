@@ -11,10 +11,10 @@ export function HomePage() {
                 flexDirection: 'column',
                 overflow: 'hidden',
                 
-                backgroundImage: "linear-gradient(rgba(20, 20, 20, 0.35), rgba(20, 20, 20, 0.35)), url('/PNG/home-image-2.png')",
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
+                // backgroundImage: "url('/PNG/home-image-3.png')",
+                // backgroundSize: 'cover',
+                // backgroundPosition: 'center',
+                // backgroundRepeat: 'no-repeat',
             }}>
 
             <header style={{ display:'flex', flexDirection:'column', textAlign:"left", flex: 1, marginBottom:"2rem", marginLeft:"2rem"}}>
@@ -23,7 +23,7 @@ export function HomePage() {
                 <h1 className="pages-header home-title" style={{ margin: 0 }}>AEC</h1>
                 <h1 className="pages-header home-title" style={{ margin: 0 }}>DATA</h1>
 
-                <div style={{ display:'flex', flex:1, alignItems:'center', justifyContent:'left', textAlign:'left', marginTop:'32px'}}>
+                <div style={{ display:'flex', flex:1, alignItems:'end', justifyContent:'left', textAlign:'left', marginBottom:'5rem'}}>
                     <div style={{ fontSize: "clamp(1rem, 2.5vw, 2.5rem)", color: "rgba(224, 224, 224, 0.75)", margin: 0, maxWidth:"100%"}}>
                         <p className="home-description">Explore <strong className="home-description">openBIM®</strong> standards and web technologies</p>
                         <p className="home-description">transforming interconnected AEC <strong className="home-description">data</strong> into</p>

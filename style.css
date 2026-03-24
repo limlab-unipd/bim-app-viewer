@@ -84,12 +84,22 @@ html.bim-ui-light {
     background-color: transparent; /* Set the color of the scrollbar track */
 }
 
-#app{
-    display: grid;
-    grid-template-columns: 3.5rem 1fr;
+#app {
     height: 100vh;
     color: var(--text);
     background-color: black;
+}
+.app-layout,
+.home-shell {
+    display: grid;
+    grid-template-columns: 3.5rem 1fr;
+    height: 100vh;
+}
+.home-shell {
+    background-image: linear-gradient(rgba(20, 20, 20, 0.1), rgba(20, 20, 20, 0.1)), url('/PNG/home-image-3.png');
+    background-size: cover;
+    background-position: left;
+    background-repeat: no-repeat;
 }
 
 .bar-side{

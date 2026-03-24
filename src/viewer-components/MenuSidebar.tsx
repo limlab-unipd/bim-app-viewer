@@ -119,7 +119,7 @@ export function MenuSidebar() {
                 height: '100%',
                 width: '100%',
                 margin: '0px',
-                backgroundColor: 'var(--background)',
+                backgroundColor: page === 'home' ? '' : 'var(--background)',
                 position: 'relative',
                 zIndex: 10,
             }}

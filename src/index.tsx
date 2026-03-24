@@ -15,16 +15,55 @@ const appRoot = ReactDOM.createRoot(rootElement)
 BUI.Manager.init()
 appRoot.render(
     <>
-    <Router.BrowserRouter>
-        <MenuSidebar></MenuSidebar>
-        <Router.Routes>
-            <Router.Route path='/home' element={ <HomePage /> } />
-            <Router.Route path='/' element={ <MainViewer /> } />
-            <Router.Route path='/urban-viewer' element={ <UrbanViewer /> } />
-            <Router.Route path='/survey' element={ <SurveyPage /> } />
-            <Router.Route path='/info' element={ <InfoPage /> } />
-        </Router.Routes>
-    </Router.BrowserRouter>
+        <Router.BrowserRouter>
+            <Router.Routes>
+                <Router.Route
+                    path="/home"
+                    element={
+                        <div className="home-shell">
+                            <MenuSidebar />
+                            <HomePage />
+                        </div>
+                    }
+                />
+                <Router.Route
+                    path="/"
+                    element={
+                        <div className="app-layout">
+                            <MenuSidebar />
+                            <MainViewer />
+                        </div>
+                    }
+                />
+                <Router.Route
+                    path="/urban-viewer"
+                    element={
+                        <div className="app-layout">
+                            <MenuSidebar />
+                            <UrbanViewer />
+                        </div>
+                    }
+                />
+                <Router.Route
+                    path="/survey"
+                    element={
+                        <div className="app-layout">
+                            <MenuSidebar />
+                            <SurveyPage />
+                        </div>
+                    }
+                />
+                <Router.Route
+                    path="/info"
+                    element={
+                        <div className="app-layout">
+                            <MenuSidebar />
+                            <InfoPage />
+                        </div>
+                    }
+                />
+            </Router.Routes>
+        </Router.BrowserRouter>
     </>
 )
 //#endregion
