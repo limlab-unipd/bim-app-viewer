@@ -2420,31 +2420,34 @@ export function MainViewer () {
                     </bim-button>`,
             )
 
-            const totalCostPerGroupedTable: {[group: string]: {cost: number, currency: string, model?:string, itemId?: number, costItemUnitCost?: string|number, costItemDescription?: string, ComponentsValue?: any}} = {}
+            const totalCostPerGroupedTable: {[group: string]: {cost: number, quantity: number, currency: string, um: string, model?:string, itemId?: number, costItemUnitCost?: string|number, costItemDescription?: string, ComponentsValue?: any}} = {}
             for (const row of dynamicCostTable.data){
                 const groupCategory = row.data.ElementIfcClass
                 const groupElement = row.data.ElementName
                 const groupCostItem = row.data.CostItemName
                 if (!groupCategory || !groupElement || !groupCostItem) continue
                 const cost = Number((row.data.Cost as string).split(' ')[0])
+                const quantity = Number((row.data.Quantity as string).split(' ')[0])
                 const currency = (row.data.Cost as string).split(' ')[1]
+                const um = (row.data.Quantity as string).split(' ')[1] //unit of measure
                 const itemId = row.data.ItemId
                 const model = row.data.Model
 
                 if (!totalCostPerGroupedTable[groupCategory]) {
-                    totalCostPerGroupedTable[groupCategory] = { cost: 0, currency, model }
+                    totalCostPerGroupedTable[groupCategory] = { cost: 0, quantity: 0, currency, um, model }
                 }
                 totalCostPerGroupedTable[groupCategory].cost += cost
 
                 if (!totalCostPerGroupedTable[groupElement]) {
-                    totalCostPerGroupedTable[groupElement] = { cost: 0, currency, model, itemId}
+                    totalCostPerGroupedTable[groupElement] = { cost: 0, quantity: 0, currency, um, model, itemId}
                 }
                 totalCostPerGroupedTable[groupElement].cost += cost
 
                 if (!totalCostPerGroupedTable[groupCostItem]) {
-                    totalCostPerGroupedTable[groupCostItem] = { cost: 0, currency, model, costItemUnitCost: row.data.CostItemUnitCost, costItemDescription: row.data.CostItemDescription, ComponentsValue: row.data.ComponentsCostValues }
+                    totalCostPerGroupedTable[groupCostItem] = { cost: 0, quantity: 0, currency, um, model, costItemUnitCost: row.data.CostItemUnitCost, costItemDescription: row.data.CostItemDescription, ComponentsValue: row.data.ComponentsCostValues }
                 }
                 totalCostPerGroupedTable[groupCostItem].cost += cost
+                totalCostPerGroupedTable[groupCostItem].quantity += quantity
             }
             dynamicCostTable.dataTransform = {
                 Cost: (value, rowData) => {
@@ -2469,6 +2472,15 @@ export function MainViewer () {
                         } else {
                             return Math.round(totalCostPerGroupedTable[ElementName]?.cost*100)/100+' '+totalCostPerGroupedTable[ElementName]?.currency
                         }
+                    } else {
+                        return value
+                    }
+                },
+                Quantity: (value, rowData) => {
+                    const { ElementName, ElementIfcClass, CostItemName } = rowData
+                    if (!ElementName && CostItemName && !ElementIfcClass) {
+                        if (value!='') return value
+                        return Math.round(totalCostPerGroupedTable[CostItemName]?.quantity*100)/100+' '+totalCostPerGroupedTable[CostItemName]?.um
                     } else {
                         return value
                     }
