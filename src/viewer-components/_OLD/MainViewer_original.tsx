@@ -6,13 +6,13 @@ import * as BUIC from '@thatopen/ui-obc'
 import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
-import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-converter'
-import { convertCurrency, convertUnits } from '../custom-components/conversion'
-import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel } from '../custom-components/colors'
+import { getIFCClassNamesFromCodes } from '../../custom-components/ifc-code-converter'
+import { convertCurrency, convertUnits } from '../../custom-components/conversion'
+import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel } from '../../custom-components/colors'
 import Stats, { Panel } from 'stats.js'
 
 
-export function MainViewer () {
+export function MainViewer_original () {
 
     // #region GENERAL START
     //BUI.Manager.init()
@@ -657,121 +657,66 @@ export function MainViewer () {
                 const model_costCount_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
                 const category_elements_map: {[key:string]:any} = {} //map to associate to each category the related elements
                 const elem_resourcesDetails_Map: {[key:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string, resourceName:string}[]} = {} //resource details object
-                const getLocalId = (item: any) => item?._localId?.value as number | undefined
-                const mapItemsByLocalId = (items: any[] = []) => {
-                    const itemsMap: {[key:number]:any} = {}
-                    for (const item of items) {
-                        const localId = getLocalId(item)
-                        if (typeof localId === 'number') itemsMap[localId] = item
-                    }
-                    return itemsMap
-                }
 
                 const startTime_resourceCostData = performance.now(); // Start timer
                 for (const [model,costItems] of Object.entries(filteredCostItems)){ //loop over each model
                     let resourceCurrency = 'nd' //default value, here because is supposed that is used always the same currency in the same project
                     const elem_resources_Map: {[key:number]:number} = {} //map to associate to each element id the related sum of ALL costs of the chosen resource category
                     const elem_costCount_Map: {[key:number]:number} = {} //map to associate to each element id the number of related cost items
-                    const costItemMeta = costItems.map((ci) => {
+                    for (const ci of costItems) { //loop over each filtered cost item (cost items are not ordered)
                         // --> pay attention: multiple cost items could be related to the same object and moreover each cost item could have more than one unit cost of the same category
                         // example: one column with 5 cost items related and each cost item has 1,2,3 or more unit costs of the same category
                         const elemId = (((ci['Controls'] as any)[0] as FRAGS.ItemData)['_localId'] as FRAGS.ItemAttribute).value as number //localId of filtered elements
+                        //const elemName = (ci['Controls'] as any)[0]['Name'].value //name of the element
+                        //const elemCategory = (ci['Controls'] as any)[0]['_category'].value //category of the element
+                        
+                        //get cost values
                         const cvId = (ci['CostValues'] as any)[0]._localId.value ? (ci['CostValues'] as any)[0]._localId.value : 'nd'
-                        return typeof cvId === 'number' ? { ci, elemId, cvId } : null
-                    }).filter(Boolean) as {ci:any, elemId:number, cvId:number}[]
+                        const costValue_Record = await fragments.getData({[model]:new Set<number>([cvId])},{
+                            attributesDefault: true,
+                            relationsDefault: {
+                                attributes: true,
+                                relations: false //here is the only point where could be accepted because there are only few relations to load and they are in a closed loop
+                            }
+                        })
+                        //console.log(costValue_Record)
+                        const costValue = costValue_Record[model][0] as any
 
-                    const costValueIds = new Set<number>(costItemMeta.map(({ cvId }) => cvId))
-                    const costValueRecord = costValueIds.size === 0 ? null : await fragments.getData({[model]: costValueIds},{
-                        attributesDefault: true,
-                        relationsDefault: {
-                            attributes: true,
-                            relations: false //here is the only point where could be accepted because there are only few relations to load and they are in a closed loop
-                        }
-                    })
-                    const costValuesById = mapItemsByLocalId(costValueRecord?.[model] as any[] ?? [])
+                        const elemQuantity = costValue['UnitBasis'][0]['ValueComponent'].value //quantity of the element used to calculate its cost
+                        const unitBasisData = await fragments.getData({[model]:new Set<number>([costValue['UnitBasis'][0]._localId.value])},{
+                            attributesDefault: true,
+                            relationsDefault: {
+                                attributes: true,
+                                relations: false
+                            }
+                        })
+                        const elemQuantityUnitMeasure = convertUnits((unitBasisData[model] as any)[0]['UnitComponent'][0]['Name'].value) //quantity of the element used to calculate its cost
+                        
+                        const componentsData = await fragments.getData({[model]:new Set<number>([costValue['Components'][0]._localId.value])},{
+                            attributesDefault: true,
+                            relationsDefault: {
+                                attributes: true,
+                                relations: true
+                            }
+                        })
+                        if (!(componentsData[model][0] as any)._category.value) continue //check if there is unit cost --> if no unit cost means no price analysis means go to the nex cot item
 
-                    const unitBasisIds = new Set<number>()
-                    const componentIds = new Set<number>()
-                    const elementIds = new Set<number>()
-                    for (const { elemId, cvId } of costItemMeta) {
-                        elementIds.add(elemId)
-                        const costValue = costValuesById[cvId]
-                        const unitBasisId = getLocalId(costValue?.['UnitBasis']?.[0])
-                        const componentId = getLocalId(costValue?.['Components']?.[0])
-                        if (typeof unitBasisId === 'number') unitBasisIds.add(unitBasisId)
-                        if (typeof componentId === 'number') componentIds.add(componentId)
-                    }
-
-                    const unitBasisRecord = unitBasisIds.size === 0 ? null : await fragments.getData({[model]: unitBasisIds},{
-                        attributesDefault: true,
-                        relationsDefault: {
-                            attributes: true,
-                            relations: false
-                        }
-                    })
-                    const unitBasisById = mapItemsByLocalId(unitBasisRecord?.[model] as any[] ?? [])
-
-                    const componentsRecord = componentIds.size === 0 ? null : await fragments.getData({[model]: componentIds},{
-                        attributesDefault: true,
-                        relationsDefault: {
-                            attributes: true,
-                            relations: true
-                        }
-                    })
-                    const componentsById = mapItemsByLocalId(componentsRecord?.[model] as any[] ?? [])
-
-                    const priceAnalysisComponentIds = new Set<number>()
-                    for (const component of Object.values(componentsById)) {
-                        const priceAnalysisComponents = (component as any)?.['Components']
-                        if (!priceAnalysisComponents) continue
-                        for (const priceAnalysisComponent of priceAnalysisComponents) {
-                            const pacId = getLocalId(priceAnalysisComponent)
-                            if (typeof pacId === 'number') priceAnalysisComponentIds.add(pacId)
-                        }
-                    }
-
-                    const priceAnalysisComponentRecord = priceAnalysisComponentIds.size === 0 ? null : await fragments.getData({[model]: priceAnalysisComponentIds},{
-                        attributesDefault: true,
-                        relationsDefault: {
-                            attributes: true,
-                            relations: true
-                        }
-                    })
-                    const priceAnalysisComponentById = mapItemsByLocalId(priceAnalysisComponentRecord?.[model] as any[] ?? [])
-
-                    const modelItems = elementIds.size === 0
-                        ? []
-                        : await fragments.list.get(model)?.getItemsData([...elementIds]) ?? []
-                    const modelItemsById = mapItemsByLocalId(modelItems as any[])
-
-                    for (const { elemId, cvId } of costItemMeta) { //loop over each filtered cost item (cost items are not ordered)
-                        const costValue = costValuesById[cvId]
-                        if (!costValue) continue
-
-                        const elemQuantity = costValue['UnitBasis']?.[0]?.['ValueComponent']?.value //quantity of the element used to calculate its cost
-                        if (typeof elemQuantity !== 'number') continue
-
-                        const unitBasisId = getLocalId(costValue['UnitBasis']?.[0])
-                        const unitBasis = typeof unitBasisId === 'number' ? unitBasisById[unitBasisId] : null
-                        const elemQuantityUnitMeasure = unitBasis
-                            ? convertUnits(unitBasis['UnitComponent']?.[0]?.['Name']?.value)
-                            : 'nd'
-
-                        const componentId = getLocalId(costValue['Components']?.[0])
-                        const component = typeof componentId === 'number' ? componentsById[componentId] : null
-                        if (!component?._category?.value) continue //check if there is unit cost --> if no unit cost means no price analysis means go to the nex cot item
-
-                        const priceAnalysisComponents = component['Components'] //components per each unit cost
+                        const priceAnalysisComponents = (componentsData[model][0] as any)['Components'] //components per each unit cost
                         if (priceAnalysisComponents == undefined) continue //check if there is price analysis related to unit cost --> if no price analysis means go to the next cost item
 
                         elem_resourcesDetails_Map[elemId] = elem_resourcesDetails_Map[elemId] || [] //initialize the array if it does not exist
                         
                         const resourceValuesArray: any[] = [] //array is needed if there are more then one components with the same resource category within the same unitary cost item
                         for (const p of priceAnalysisComponents){ //loop over each component of single cost item --> so to keep together the more unit costs related to the same resource category
-                            const pacId = getLocalId(p)
-                            if (!pacId) continue
-                            const pac = priceAnalysisComponentById[pacId] as any
-                            if (!pac) continue
+                            if (!p._localId.value) continue
+                            const pacData = await fragments.getData({[model]:new Set<number>([p._localId.value])},{
+                                attributesDefault: true,
+                                relationsDefault: {
+                                    attributes: true,
+                                    relations: true
+                                }
+                            })
+                            const pac = pacData[model][0] as any
                             if (!pac['Category']) continue //checks if the component has a category
                             if (pac['Category'].value == resource){ //checks the correspondance between components resource category and the one selected
                                 const resourceDescription = pac['Description'].value //description of the resource
@@ -806,8 +751,8 @@ export function MainViewer () {
                     // this map is needed only for creating the table
                     const startTime_catElemMap = performance.now(); // Start timer
                     for (const [elemId,resourceCost] of Object.entries(elem_resources_Map)){ //loop over each element id and its total resource cost
-                        const item = [modelItemsById[Number(elemId)]]
-                        if (!item[0]) continue //checks if the item exists
+                        const item = await fragments.list.get(model)?.getItemsData([Number(elemId)])
+                        if (!item) continue //checks if the item exists
                         const elemData = {
                             elemModel: model,
                             elemId: Number(elemId),
@@ -1162,62 +1107,35 @@ export function MainViewer () {
                 const model_cost_map: {[key:string]:any} = {}
                 const model_costCount_map: {[key:string]:any} = {}
                 const model_category_map: {[key:string]:any} = {}
-                const getLocalId = (item: any) => item?._localId?.value as number | undefined
-                const mapItemsByLocalId = (items: any[] = []) => {
-                    const itemsMap: {[key:number]:any} = {}
-                    for (const item of items) {
-                        const localId = getLocalId(item)
-                        if (typeof localId === 'number') itemsMap[localId] = item
-                    }
-                    return itemsMap
-                }
                 for (const [model,costItems] of Object.entries(filteredCostItems)){
                     const category_item_totalCost_map: {[key:string]:{[key:number]:number}} = {}
                     const item_volume_map: {[key:number]:number|undefined} = {}
                     model_costCount_map[model] = {}
-                    const costItemMeta = costItems.map((ci) => {
+                    for (const ci of costItems){
                         const itemId = (((ci.Controls as any)[0] as FRAGS.ItemData)._localId as FRAGS.ItemAttribute).value as number //localId of filtered elements
                         const itemCategory = (((ci.Controls as any)[0] as FRAGS.ItemData)._category as FRAGS.ItemAttribute).value as string //localId of filtered elements
                         const costItemObjectType = (ci['ObjectType'] as FRAGS.ItemAttribute).value as string
-                        const cvId = (ci['CostValues'] as any)[0]._localId.value ? (ci['CostValues'] as any)[0]._localId.value : 'nd'
-                        return typeof cvId === 'number' ? { itemId, itemCategory, costItemObjectType, cvId } : null
-                    }).filter(Boolean) as {itemId:number, itemCategory:string, costItemObjectType:string, cvId:number}[]
-
-                    const costValueIds = new Set<number>(costItemMeta.map(({ cvId }) => cvId))
-                    const costValueRecord = costValueIds.size === 0 ? null : await fragments.getData({[model]: costValueIds},{
-                        attributesDefault: true,
-                        relations: {
-                            "AppliedValue": {
-                                attributes: true,
-                                relations: false //here is the only point where could be accepted because there are only few relations to load and they are in a closed loop
-                            }
-                        }
-                    })
-                    const costValuesById = mapItemsByLocalId(costValueRecord?.[model] as any[] ?? [])
-
-                    const modelItemIds = [...new Set(costItemMeta.map(({ itemId }) => itemId))]
-                    if (normalization == 'Volume' && modelItemIds.length > 0){
-                        const itemVolumes = await fragments.list.get(model)?.getItemsVolume(modelItemIds)
-                        if (Array.isArray(itemVolumes)) {
-                            modelItemIds.forEach((itemId, index) => {
-                                item_volume_map[itemId] = itemVolumes[index]
-                            })
-                        } else if (typeof itemVolumes === 'number' && modelItemIds.length === 1) {
-                            item_volume_map[modelItemIds[0]] = itemVolumes
-                        }
-                    }
-
-                    for (const { itemId, itemCategory, costItemObjectType, cvId } of costItemMeta){
 
                         //create a cost count per each item
                         model_costCount_map[model][itemId] ? model_costCount_map[model][itemId] += 1 : model_costCount_map[model][itemId] = 1
-                        const costValue = costValuesById[cvId] as any
-                        if (!costValue?.AppliedValue?.[0]?.ValueComponent) continue
+                        //get cost values to get cost item cost
+                        const cvId = (ci['CostValues'] as any)[0]._localId.value ? (ci['CostValues'] as any)[0]._localId.value : 'nd'
+                        const costValue_Record = await fragments.getData({[model]:new Set<number>([cvId])},{
+                            attributesDefault: true,
+                            relations: {
+                                "AppliedValue": {
+                                    attributes: true,
+                                    relations: false //here is the only point where could be accepted because there are only few relations to load and they are in a closed loop
+                                }
+                            }
+                        })
+                        const costValue = costValue_Record[model][0] as any
                         
                         let costItemCost = ((costValue.AppliedValue as any)[0].ValueComponent as FRAGS.ItemAttribute).value
 
                         if (normalization == 'Volume'){
-                            const itemVolume = item_volume_map[itemId]
+                            const itemVolume = await fragments.list.get(model)?.getItemsVolume([itemId])
+                            item_volume_map[itemId] = itemVolume
                             costItemCost = itemVolume ? costItemCost/itemVolume : costItemCost
                         }
                         
@@ -2274,57 +2192,7 @@ export function MainViewer () {
             //get cost data
             let itemId, itemName, itemIfcClass, costItemName, costItemId, costItemDescription, costItemObjectType, costItemTotalCost, costItemUnitBasis, costItemUnitCost //initialize variables
             let hasAssignmentsCheck = false
-            const getLocalId = (item: any) => item?._localId?.value as number | undefined
-            const mapItemsByLocalId = (items: any[] = []) => {
-                const itemsMap: {[key:number]:any} = {}
-                for (const item of items) {
-                    const localId = getLocalId(item)
-                    if (typeof localId === 'number') itemsMap[localId] = item
-                }
-                return itemsMap
-            }
             for (const [model,selectedItems] of Object.entries(selectionData)) { //loop over models of selected items
-                const assignedCostItemIds = new Set<number>()
-                for (const item of selectedItems) {
-                    const assignments = item['HasAssignments']
-                    if (!assignments) continue
-                    for (const costItem of Object.values(assignments) as any[]) {
-                        if (costItem?._category?.value !== 'IFCCOSTITEM') continue
-                        const assignedCostItemId = getLocalId(costItem)
-                        if (typeof assignedCostItemId === 'number') assignedCostItemIds.add(assignedCostItemId)
-                    }
-                }
-
-                const costItemsRecord = assignedCostItemIds.size === 0 ? null : await fragments.getData({[model]: assignedCostItemIds},{
-                    attributesDefault: true,
-                    relations: {
-                        'CostValues': {
-                            attributes: true,
-                            relations: false
-                        }
-                    }
-                })
-                const costItemsById = mapItemsByLocalId(costItemsRecord?.[model] as any[] ?? [])
-
-                const costValueIds = new Set<number>()
-                for (const costItem of Object.values(costItemsById)) {
-                    const costValues = (costItem as any)?.['CostValues']
-                    if (!costValues) continue
-                    for (const cv of Object.values(costValues) as any[]) {
-                        const cvId = getLocalId(cv)
-                        if (typeof cvId === 'number') costValueIds.add(cvId)
-                    }
-                }
-
-                const costValuesRecord = costValueIds.size === 0 ? null : await fragments.getData({[model]: costValueIds},{
-                    attributesDefault: true,
-                    relationsDefault: {
-                        attributes: true,
-                        relations: true //here is the only point where could be accepted because there are only few relations to load and they are in a closed loop
-                    }
-                })
-                const costValuesById = mapItemsByLocalId(costValuesRecord?.[model] as any[] ?? [])
-
                 for (const item of selectedItems) { //loop over selected items
                     try { //needed to skip potential errors and do not interrupt the loop over items
                         if (!item['HasAssignments']) continue //checks if item has assignments --> it could have also different assignments
@@ -2349,15 +2217,30 @@ export function MainViewer () {
                             costItemDescription = dynamicRow.data.CostItemDescription = costItem['Description'].value ? costItem['Description'].value : 'nd'
                             costItemObjectType = costItem['ObjectType'].value ? costItem['ObjectType'].value : 'nd'
 
+                            //here I have to do what I said before: get the single cost item without relations, otherwise it will get relations also of related elements such as walls ecc
                             costItemId = costItem['_localId'].value ? costItem['_localId'].value : 'nd'
-                            const costItemFull = typeof costItemId === 'number' ? costItemsById[costItemId] : null
-                            if (!costItemFull?.['CostValues']) continue
+                            const costItemFull_Record = await fragments.getData({[model]:new Set<number>([costItemId])},{
+                                attributesDefault: true,
+                                relations: {
+                                    'CostValues': {
+                                        attributes: true,
+                                        relations: false //in this way the problem is that it will not read also the complex attributes, such as cost values, so I need to get them below
+                                }}
+                            })
+                            const costItemFull = costItemFull_Record[model][0]
 
                             for (const [b,cv] of Object.entries(costItemFull['CostValues']) as any){ //technically it will be always one when inspecting cost item as total cost
                                 
+                                //again: the same thing of before but for cost values of cost item
                                 const cvId = cv['_localId'].value ? cv['_localId'].value : 'nd'
-                                const costValue = (typeof cvId === 'number' ? costValuesById[cvId] : null) as any
-                                if (!costValue) continue
+                                const costValue_Record = await fragments.getData({[model]:new Set<number>([cvId])},{
+                                    attributesDefault: true,
+                                    relationsDefault: {
+                                        attributes: true,
+                                        relations: true //here is the only point where could be accepted because there are only few relations to load and they are in a closed loop
+                                    }
+                                })
+                                const costValue = costValue_Record[model][0] as any
 
                                 //total cost of item
                                 const valueComponent = costValue['AppliedValue'][0]['ValueComponent'].value
