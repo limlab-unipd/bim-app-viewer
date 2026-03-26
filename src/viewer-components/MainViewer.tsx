@@ -191,6 +191,7 @@ export function MainViewer () {
                     importer.classes['abstract'].add(
                         WEBIFC.IFCCOSTITEM,
                         WEBIFC.IFCCOSTVALUE,
+                        WEBIFC.IFCCOSTSCHEDULE,
                         WEBIFC.IFCMEASUREWITHUNIT,
                         WEBIFC.IFCMONETARYUNIT,
                         WEBIFC.IFCSIUNIT,
@@ -200,27 +201,37 @@ export function MainViewer () {
                         WEBIFC.IFCRELNESTS,
                         WEBIFC.IFCRELCONNECTSPATHELEMENTS,
                         WEBIFC.IFCRELDEFINESBYTYPE,
-                        //non importa tutte le classi dei type
+                        WEBIFC.IFCRELASSIGNSTOPROCESS,
+                        WEBIFC.IFCTASK,
+                        WEBIFC.IFCTASKTIME,
+                        WEBIFC.IFCTASKTIMERECURRING,
+                        WEBIFC.IFCTASKTYPE,
+                        WEBIFC.IFCWORKSCHEDULE
+                        // !!! non importa tutte le classi dei type !!!
                     )
                     importer.classes['elements'].add(
                         WEBIFC.IFCBUILTSYSTEM //remember to add these classes also above in the importedClasses in the initial part of the script !!!
                     )
                     //ADDING NEW RELATIONS TO IMPORT
                     importer.relations.set(WEBIFC.IFCRELASSIGNSTOCONTROL, {
-                        forRelated: "HasAssignments",
-                        forRelating: "Controls"
+                        forRelated: "HasAssignments", //RelatedObjects
+                        forRelating: "Controls" //RelatingControl
                     })
                     importer.relations.set(WEBIFC.IFCRELNESTS, {
-                        forRelated: "Nests",
-                        forRelating: "IsNestedBy"
+                        forRelated: "Nests", //RelatedObjects
+                        forRelating: "IsNestedBy" //RelatingObject
                     })
                     importer.relations.set(WEBIFC.IFCRELCONNECTSPATHELEMENTS, {
-                        forRelated: "ConnectedTo",
-                        forRelating: "ConnectedFrom"
+                        forRelated: "ConnectedTo", //RelatedElement
+                        forRelating: "ConnectedFrom" //RelatingElement
                     })
                     importer.relations.set(WEBIFC.IFCRELDEFINESBYTYPE, {
-                        forRelated: "IsTypedBy",
-                        forRelating: "Types"
+                        forRelated: "IsTypedBy", //RelatedObjects
+                        forRelating: "Types" //RelatingType
+                    })
+                    importer.relations.set(WEBIFC.IFCRELASSIGNSTOPROCESS, {
+                        forRelated: "HasAssignments", //RelatedProcess
+                        forRelating: "OperatesOn" //RelatingProcess
                     })
                 }
             });
@@ -1685,6 +1696,7 @@ export function MainViewer () {
             dynamicPropertiesTable.data = []
             const selection = highlighter.selection.select
             const itemsData = await fragments.getData(selection, {attributesDefault: true, relationsDefault: { attributes: true, relations: false }}) //questi sono gli attributi
+            console.log(itemsData)
             for (const [modelId, itemIdSet] of Object.entries(selection)){
                 for (const itemId of itemIdSet){
                     const itemData = itemsData[modelId]?.find((item: FRAGS.ItemData) => (item._localId as FRAGS.ItemAttribute).value == itemId)
@@ -1718,6 +1730,7 @@ export function MainViewer () {
             dynamicPropertiesTable.data = []
             const selection = highlighter.selection.select
             const itemsData = await fragments.getData(selection, {attributesDefault: true, relations: {'HasAssociations': { attributes: true, relations: false }}}) //mettendo false su relations è molto più veloce ma poi bisogna riusare getData per ottenere quelle relations
+            console.log(itemsData)
             for (const [modelId, itemIdSet] of Object.entries(selection)){
                 for (const itemId of itemIdSet){
                     const itemData = itemsData[modelId]?.find((item: FRAGS.ItemData) => (item._localId as FRAGS.ItemAttribute).value == itemId)
@@ -1765,6 +1778,56 @@ export function MainViewer () {
                                     if (!rowData.data.propertyName) continue
                                     dynamicPropertiesTable.data.push(rowData)                                    
                                 }
+                            } else if ((relItemData._category as FRAGS.ItemAttribute).value == 'IFCMATERIALCONSTITUENTSET'){
+                                const localId = (relItemData._localId as FRAGS.ItemAttribute).value as number
+                                const associations = await fragments.getData({[modelId]:new Set<number>([localId])}, {attributesDefault:true, relations: {'MaterialConstituents': { attributes: true, relations: false }}})
+                                for (const material of ((associations[modelId] as FRAGS.ItemData[])[0].MaterialConstituents as FRAGS.ItemData[])){
+                                    const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
+                                        data: {},
+                                    }
+                                    const materialName = (material.Name as FRAGS.ItemAttribute).value
+                                    rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
+                                    rowData.data.itemId = itemId
+                                    rowData.data.modelId = modelId
+                                    rowData.data.propertyType = 'Relation'
+                                    rowData.data.propertySetName = itemDataEntryName
+                                    rowData.data.propertyName = materialName
+                                    rowData.data.propertyValue = ''
+                                    if (!rowData.data.propertyName) continue
+                                    dynamicPropertiesTable.data.push(rowData)                                    
+                                }
+                            } else if ((relItemData._category as FRAGS.ItemAttribute).value == 'IFCMATERIALPROFILESET'){
+                                const localId = (relItemData._localId as FRAGS.ItemAttribute).value as number
+                                const associations = await fragments.getData({[modelId]:new Set<number>([localId])}, {attributesDefault:true, relations: {'MaterialProfiles': { attributes: true, relations: false }}})
+                                for (const material of ((associations[modelId] as FRAGS.ItemData[])[0].MaterialProfiles as FRAGS.ItemData[])){
+                                    const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
+                                        data: {},
+                                    }
+                                    const materialName = (material.Name as FRAGS.ItemAttribute).value
+                                    rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
+                                    rowData.data.itemId = itemId
+                                    rowData.data.modelId = modelId
+                                    rowData.data.propertyType = 'Relation'
+                                    rowData.data.propertySetName = itemDataEntryName
+                                    rowData.data.propertyName = materialName
+                                    rowData.data.propertyValue = ''
+                                    if (!rowData.data.propertyName) continue
+                                    dynamicPropertiesTable.data.push(rowData)                                    
+                                }
+                            } else if ((relItemData._category as FRAGS.ItemAttribute).value == 'IFCMATERIAL'){
+                                const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
+                                    data: {},
+                                }
+                                const materialName = (relItemData.Name as FRAGS.ItemAttribute).value
+                                rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
+                                rowData.data.itemId = itemId
+                                rowData.data.modelId = modelId
+                                rowData.data.propertyType = 'Relation'
+                                rowData.data.propertySetName = itemDataEntryName
+                                rowData.data.propertyName = materialName
+                                rowData.data.propertyValue = ''
+                                if (!rowData.data.propertyName) continue
+                                dynamicPropertiesTable.data.push(rowData)      
                             }
                         }
                     }
@@ -1905,7 +1968,7 @@ export function MainViewer () {
                         <bim-button @click=${(e:Event) => {onLoadAttributesTable(),onSetGroupingBtnColor(e.target as BUI.Button)}} ${BUI.ref((el) => {btn_Attributes = el as BUI.Button})} id="groupingPropsBtn-Attributes" label="Attributes" icon="material-symbols:user-attributes-rounded" style="flex:1"></bim-button>
                         <bim-button @click=${(e:Event) => {onLoadPropertiesTable(),onSetGroupingBtnColor(e.target as BUI.Button)}} ${BUI.ref((el) => {btn_Properties = el as BUI.Button})} id="groupingPropsBtn-Properties" label="Properties" icon="ic:round-list" style="flex:1"></bim-button>
                         <bim-button @click=${(e:Event) => {onLoadQuantitiesTable(),onSetGroupingBtnColor(e.target as BUI.Button)}} ${BUI.ref((el) => {btn_Quantities = el as BUI.Button})} id="groupingPropsBtn-Quantities" label="Quantities" icon="tabler:ruler-measure" style="flex:1"></bim-button>
-                        <bim-button @click=${(e:Event) => {onLoadMaterialsTable(),onSetGroupingBtnColor(e.target as BUI.Button)}} ${BUI.ref((el) => {btn_Materials = el as BUI.Button})} id="groupingPropsBtn-Materials" label="Materials" icon="game-icons:materials-science" tooltip-text="Only IFCMATERIALLAYERSETUSAGE and IFCMATERIALLIST" style="flex:1"></bim-button>
+                        <bim-button @click=${(e:Event) => {onLoadMaterialsTable(),onSetGroupingBtnColor(e.target as BUI.Button)}} ${BUI.ref((el) => {btn_Materials = el as BUI.Button})} id="groupingPropsBtn-Materials" label="Materials" icon="game-icons:materials-science" style="flex:1"></bim-button>
                         <bim-button @click=${(e:Event) => {onLoadRelationsTable(),onSetGroupingBtnColor(e.target as BUI.Button)}} ${BUI.ref((el) => {btn_Relations = el as BUI.Button})} id="groupingPropsBtn-Relations" label="Relations" icon="flowbite:link-outline" style="flex:1"></bim-button>
                     </div>
                     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
