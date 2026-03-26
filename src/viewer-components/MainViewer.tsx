@@ -222,8 +222,8 @@ export function MainViewer () {
                         forRelating: "IsNestedBy" //RelatingObject
                     })
                     importer.relations.set(WEBIFC.IFCRELCONNECTSPATHELEMENTS, {
-                        forRelated: "ConnectedTo", //RelatedElement
-                        forRelating: "ConnectedFrom" //RelatingElement
+                        forRelated: "ConnectedFrom", //RelatedElement
+                        forRelating: "ConnectedTo" //RelatingElement
                     })
                     importer.relations.set(WEBIFC.IFCRELDEFINESBYTYPE, {
                         forRelated: "IsTypedBy", //RelatedObjects
