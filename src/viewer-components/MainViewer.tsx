@@ -970,19 +970,19 @@ export function MainViewer () {
                 const resourceCostPerGroupedTable: {[group: string]: {resourceCost: number, currency: string, resourceDescription?: string, resourceUnitCost?: string, model?:string, itemId?: number}} = {}
                 
                 for (const row of dynamicResourceTable.data){
-                    const groupCategory = row.data.ElementIfcClass
+                    const groupIfcClass = row.data.ElementIfcClass
                     const groupElement = row.data.ElementName
                     const groupResourceName = row.data.ResourceName
-                    if (!groupCategory || !groupElement || !groupResourceName) continue
+                    if (!groupIfcClass || !groupElement || !groupResourceName) continue
                     const cost = Number((row.data.ResourceCost as string).split(' ')[0])
                     const currency = (row.data.ResourceCost as string).split(' ')[1]
                     const itemId = row.data.ItemId
                     const model = row.data.Model
 
-                    if (!resourceCostPerGroupedTable[groupCategory]) {
-                        resourceCostPerGroupedTable[groupCategory] = { resourceCost: 0, currency, model }
+                    if (!resourceCostPerGroupedTable[groupIfcClass]) {
+                        resourceCostPerGroupedTable[groupIfcClass] = { resourceCost: 0, currency, model }
                     }
-                    resourceCostPerGroupedTable[groupCategory].resourceCost += cost
+                    resourceCostPerGroupedTable[groupIfcClass].resourceCost += cost
 
                     if (!resourceCostPerGroupedTable[groupElement]) {
                         resourceCostPerGroupedTable[groupElement] = { resourceCost: 0, currency, model, itemId}
@@ -1916,6 +1916,26 @@ export function MainViewer () {
             loadingLabelProps.style.display = 'none'
         }
 
+        const chartPrimary = BUI.Component.create<BUI.Chart>(() => {
+            return BUI.html`<bim-chart type="doughnut"></bim-chart>`
+        })
+        let chartPrimaryLabelsVisible = true
+        const setChartPrimaryLabelsVisible = (visible: boolean) => {
+            chartPrimaryLabelsVisible = visible
+            if (chartPrimary.displayLabels === visible) {
+                chartPrimary.displayLabels = !visible
+            }
+            chartPrimary.displayLabels = visible
+        }
+        chartPrimary.inputData = {
+            labels: [],
+            datasets: {
+                TotalCost: []
+            }
+        }
+        chartPrimary.borderColor = 'transparent'
+        setChartPrimaryLabelsVisible(true)
+
         const propertiesPanelSection = BUI.Component.create<BUI.PanelSection>(() => {
             // const [propertiesTable, updatePropertiesTable] = BUIC.tables.itemsData({
             //     components,
@@ -2484,11 +2504,61 @@ export function MainViewer () {
             )
 
             const totalCostPerGroupedTable: {[group: string]: {cost: number, quantity: number, currency: string, um: string, model?:string, itemId?: number, costItemUnitCost?: string|number, costItemDescription?: string, ComponentsValue?: any}} = {}
+            const groupIfcClasses = new Set<string>()
+            const groupElements = new Set<string>()
+            const groupCostItems = new Set<string>()
+            const chartLabelByColorOrder = [
+                'Very High Cost',
+                'High Cost',
+                'Medium Cost',
+                'Low Cost',
+                'Very Low Cost'
+            ]
+            const getOrderedChartColors = (colors: string[]) => {
+                const parseColor = (color: string) => {
+                    const match = color.match(/\d+(\.\d+)?/g)
+                    if (!match || match.length < 3) return null
+                    const [r, g, b] = match.map(Number)
+                    const max = Math.max(r, g, b) / 255
+                    const min = Math.min(r, g, b) / 255
+                    const delta = max - min
+                    let hue = 0
+                    if (delta !== 0) {
+                        if (max === r / 255) hue = ((g / 255 - b / 255) / delta) % 6
+                        else if (max === g / 255) hue = (b / 255 - r / 255) / delta + 2
+                        else hue = (r / 255 - g / 255) / delta + 4
+                        hue *= 60
+                        if (hue < 0) hue += 360
+                    }
+                    const lightness = (max + min) / 2
+                    return { hue, lightness }
+                }
+
+                const getColorRank = (color: string) => {
+                    const parsed = parseColor(color)
+                    if (!parsed) return { group: 99, order: 999 }
+                    const { hue, lightness } = parsed
+                    if (hue >= 345 || hue < 20) return { group: 0, order: hue }
+                    if (hue >= 20 && hue < 45) return { group: 1, order: hue }
+                    if (hue >= 45 && hue < 75) return { group: 2, order: hue }
+                    if (hue >= 75 && hue < 170) return { group: lightness >= 0.5 ? 3 : 4, order: lightness }
+                    return { group: 5, order: hue }
+                }
+
+                return [...colors].sort((a, b) => {
+                    const rankA = getColorRank(a)
+                    const rankB = getColorRank(b)
+                    if (rankA.group !== rankB.group) return rankA.group - rankB.group
+                    if (rankA.group === 3) return rankB.order - rankA.order
+                    if (rankA.group === 4) return rankB.order - rankA.order
+                    return rankA.order - rankB.order
+                })
+            }
             for (const row of dynamicCostTable.data){
-                const groupCategory = row.data.ElementIfcClass
+                const groupIfcClass = row.data.ElementIfcClass
                 const groupElement = row.data.ElementName
                 const groupCostItem = row.data.CostItemName
-                if (!groupCategory || !groupElement || !groupCostItem) continue
+                if (!groupIfcClass || !groupElement || !groupCostItem) continue
                 const cost = Number((row.data.Cost as string).split(' ')[0])
                 const quantity = Number((row.data.Quantity as string).split(' ')[0])
                 const currency = (row.data.Cost as string).split(' ')[1]
@@ -2496,22 +2566,26 @@ export function MainViewer () {
                 const itemId = row.data.ItemId
                 const model = row.data.Model
 
-                if (!totalCostPerGroupedTable[groupCategory]) {
-                    totalCostPerGroupedTable[groupCategory] = { cost: 0, quantity: 0, currency, um, model }
+                if (!totalCostPerGroupedTable[groupIfcClass]) {
+                    totalCostPerGroupedTable[groupIfcClass] = { cost: 0, quantity: 0, currency, um, model }
                 }
-                totalCostPerGroupedTable[groupCategory].cost += cost
+                totalCostPerGroupedTable[groupIfcClass].cost += cost
+                groupIfcClasses.add(groupIfcClass)
 
                 if (!totalCostPerGroupedTable[groupElement]) {
                     totalCostPerGroupedTable[groupElement] = { cost: 0, quantity: 0, currency, um, model, itemId}
                 }
                 totalCostPerGroupedTable[groupElement].cost += cost
+                groupElements.add(groupElement)
 
                 if (!totalCostPerGroupedTable[groupCostItem]) {
                     totalCostPerGroupedTable[groupCostItem] = { cost: 0, quantity: 0, currency, um, model, costItemUnitCost: row.data.CostItemUnitCost, costItemDescription: row.data.CostItemDescription, ComponentsValue: row.data.ComponentsCostValues }
                 }
                 totalCostPerGroupedTable[groupCostItem].cost += cost
                 totalCostPerGroupedTable[groupCostItem].quantity += quantity
+                groupCostItems.add(groupCostItem)
             }
+
             dynamicCostTable.dataTransform = {
                 Cost: (value, rowData) => {
                     const { ElementName, ElementIfcClass, CostItemName } = rowData
@@ -2620,6 +2694,87 @@ export function MainViewer () {
                 dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency'] :
                 dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','ItemVolume','NormalizedCost']
 
+            const onCreateChart_IfcClass = () => {
+                const groupIfcClassLabels = [...groupIfcClasses]
+                chartPrimary.colors = ['rgb(200, 200, 200)','rgb(138, 138, 138)']
+                chartPrimary.transparentBackground = true
+                chartPrimary.borderColor = 'transparent'
+                chartPrimary.label = 'Total cost per IfcClass'
+                setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
+                chartPrimary.inputData = {
+                    labels: groupIfcClassLabels,
+                    datasets: {
+                        TotalCost: groupIfcClassLabels.map((groupIfcClass) => ({
+                            value: Math.round((totalCostPerGroupedTable[groupIfcClass]?.cost ?? 0)*100)/100
+                        }))
+                    }
+                }
+            }
+            const onCreateChart_Element = () => {
+                if (colorMap) {
+                    const totalCostPerColor: Record<string, {items:number, cost:number}> = {}
+                    for (const groupElement of groupElements) {
+                        const itemId = totalCostPerGroupedTable[groupElement]?.itemId
+                        const color = itemId !== undefined ? colorMap![Number(itemId)] : undefined
+                        if (!color) continue
+                        totalCostPerColor[color] = totalCostPerColor[color] ? totalCostPerColor[color] : { items: 0, cost: 0 }
+                        totalCostPerColor[color].cost = (totalCostPerColor[color].cost ?? 0) + (totalCostPerGroupedTable[groupElement]?.cost ?? 0)
+                        totalCostPerColor[color].items = (totalCostPerColor[color].items ?? 0) + 1
+                    }
+                    const elementColorLabels = getOrderedChartColors(Object.keys(totalCostPerColor))
+                    const elementChartLabels = elementColorLabels.map((color, index) => chartLabelByColorOrder[index] ?? color)
+                    chartPrimary.colors = elementColorLabels
+                    chartPrimary.transparentBackground = true
+                    chartPrimary.borderColor = 'rgba(0, 0, 0, 0.2)'
+                    chartPrimary.label = 'Total cost and Number of items per Cost range'
+                    setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
+                    chartPrimary.inputData = {
+                        labels: elementChartLabels,
+                        datasets: {
+                            TotalCost: elementColorLabels.map((color) => ({
+                                value: Math.round(totalCostPerColor[color].cost*100)/100
+                            })),
+                            NumberOfItems: elementColorLabels.map((color) => ({
+                                value: totalCostPerColor[color].items
+                            }))
+                        }
+                    }
+                } else {
+                    const groupElementsNoColor = [...groupElements]
+                    chartPrimary.colors = ['rgb(200, 200, 200)','rgb(138, 138, 138)']
+                    chartPrimary.transparentBackground = true
+                    chartPrimary.borderColor = 'transparent'
+                    chartPrimary.label = 'Total cost per Element'
+                    setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
+                    chartPrimary.inputData = {
+                        labels: groupElementsNoColor,
+                        datasets: {
+                            TotalCost: groupElementsNoColor.map((groupElement) => ({
+                                value: Math.round((totalCostPerGroupedTable[groupElement]?.cost ?? 0)*100)/100
+                            }))
+                        }
+                    }                                    
+                }
+            }
+            const onCreateChart_CostItem = () => {
+                const groupCostItemLabels = [...groupCostItems]
+                chartPrimary.colors = ['rgb(200, 200, 200)','rgb(138, 138, 138)']
+                chartPrimary.transparentBackground = true
+                chartPrimary.borderColor = 'transparent'
+                chartPrimary.label = 'Total cost per Cost item'
+                setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
+                chartPrimary.inputData = {
+                    labels: groupCostItemLabels,
+                    datasets: {
+                        TotalCost: groupCostItemLabels.map((groupCostItem) => ({
+                            value: Math.round((totalCostPerGroupedTable[groupCostItem]?.cost ?? 0)*100)/100
+                        }))
+                    }
+                }
+            }
+
+            onCreateChart_Element()
+            
             const elementXCostPanelControls = BUI.Component.create<HTMLDivElement>(() => {
                 return BUI.html`
                     <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px 10px 5px 10px'})}>
@@ -2627,6 +2782,7 @@ export function MainViewer () {
                             <bim-button @click=${(e:Event) => onExpandTable(e,dynamicCostTable)} label=${dynamicCostTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
                             <bim-label>Group by:</bim-label>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                onCreateChart_IfcClass()
                                 target.style.backgroundColor = 'var(--background-200)';
                                 document.getElementById('groupby_element')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
@@ -2639,6 +2795,7 @@ export function MainViewer () {
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName','ItemVolume','NormalizedCost']
                             }} id="groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                onCreateChart_Element()
                                 target.style.backgroundColor = 'var(--background-200)';
                                 document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
@@ -2651,6 +2808,7 @@ export function MainViewer () {
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','ItemVolume','NormalizedCost']
                             }} id="groupby_element"  label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                onCreateChart_CostItem()
                                 target.style.backgroundColor = 'var(--background-200)';
                                 document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_element')!.style.removeProperty('background-color');
@@ -2697,8 +2855,21 @@ export function MainViewer () {
             })
             const elementXCostPanel = BUI.Component.create<BUI.Panel>(() => {
                 return BUI.html`
-                <bim-panel style="display:flex; flex-direction:column; gap:10px; margin:5px 15px 5px 15px; background-color:transparent; flex:1;">
-                    ${dynamicCostTable}
+                <bim-panel style="background:none; height:100%; min-height:0;">
+                    <div style="display:grid; grid-template-columns:80% 20%; gap:10px; margin:5px 15px 5px 15px; background-color:transparent; flex:1; height:100%; min-height:0;">
+                        ${dynamicCostTable}
+                        <div style="background:none; height:90%; min-height:0;">
+                            ${chartPrimary}
+                            <bim-checkbox
+                                label='Display labels'
+                                style="padding:0.5rem"
+                                ?checked=${chartPrimaryLabelsVisible}
+                                @change=${({ target }: { target: BUI.Checkbox }) => {
+                                    setChartPrimaryLabelsVisible(target.value)
+                                }}>
+                            </bim-checkbox>
+                        </div>
+                    </div>
                 </bim-panel>`
             })
 
