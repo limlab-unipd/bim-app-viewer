@@ -20,7 +20,7 @@ export function MainViewer () {
     const ifcImporter = new FRAGS.IfcImporter
     const importedCategories = getIFCClassNamesFromCodes([...ifcImporter.classes.elements]) //this is only a list of strings of all the imported categories. this is not the FULL list of IFC classes
     importedCategories.push(
-        'ALL CLASSES',
+        'ALL IFC CLASSES',
         'IFCBUILTSYSTEM')
     importedCategories.sort()
     // #endregion
@@ -187,14 +187,16 @@ export function MainViewer () {
                 false, //coordinate model
                 name,
                 {instanceCallback(importer) {
+
                     //ADDING NEW CLASSES TO IMPORT
+                    //for already loaded classes see: https://github.com/ThatOpen/engine_fragment/blob/main/packages/fragments/src/Importers/IfcImporter/src/classes.ts
                     importer.classes['abstract'].add(
                         WEBIFC.IFCCOSTITEM,
                         WEBIFC.IFCCOSTVALUE,
                         WEBIFC.IFCCOSTSCHEDULE,
                         WEBIFC.IFCMEASUREWITHUNIT,
-                        WEBIFC.IFCMONETARYUNIT,
-                        WEBIFC.IFCSIUNIT,
+                        //WEBIFC.IFCMONETARYUNIT, già importata
+                        //WEBIFC.IFCSIUNIT, già importata
                         WEBIFC.IFCCONVERSIONBASEDUNIT,
                         WEBIFC.IFCCONTEXTDEPENDENTUNIT,
                         WEBIFC.IFCRELASSIGNSTOCONTROL,
@@ -206,13 +208,17 @@ export function MainViewer () {
                         WEBIFC.IFCTASKTIME,
                         WEBIFC.IFCTASKTIMERECURRING,
                         WEBIFC.IFCTASKTYPE,
-                        WEBIFC.IFCWORKSCHEDULE
-                        // !!! non importa tutte le classi dei type !!!
+                        WEBIFC.IFCWORKSCHEDULE,
+                        ...FRAGS.ifcClasses.types, //types importati
                     )
+
+                    //ADDING NEW ELEMENTS TO IMPORT
                     importer.classes['elements'].add(
                         WEBIFC.IFCBUILTSYSTEM //remember to add these classes also above in the importedClasses in the initial part of the script !!!
                     )
+
                     //ADDING NEW RELATIONS TO IMPORT
+                    //for already loaded relations see: https://github.com/ThatOpen/engine_fragment/blob/main/packages/fragments/src/Importers/IfcImporter/index.ts
                     importer.relations.set(WEBIFC.IFCRELASSIGNSTOCONTROL, {
                         forRelated: "HasAssignments", //RelatedObjects
                         forRelating: "Controls" //RelatingControl
@@ -220,10 +226,6 @@ export function MainViewer () {
                     importer.relations.set(WEBIFC.IFCRELNESTS, {
                         forRelated: "Nests", //RelatedObjects
                         forRelating: "IsNestedBy" //RelatingObject
-                    })
-                    importer.relations.set(WEBIFC.IFCRELCONNECTSPATHELEMENTS, {
-                        forRelated: "ConnectedFrom", //RelatedElement
-                        forRelating: "ConnectedTo" //RelatingElement
                     })
                     importer.relations.set(WEBIFC.IFCRELDEFINESBYTYPE, {
                         forRelated: "IsTypedBy", //RelatedObjects
@@ -233,6 +235,146 @@ export function MainViewer () {
                         forRelated: "HasAssignments", //RelatedProcess
                         forRelating: "OperatesOn" //RelatingProcess
                     })
+                    //chatgpt suggested relations to import
+                    importer.relations.set(WEBIFC.IFCRELADHERESTOELEMENT, {
+                        forRelated: "AdheresToElement",
+                        forRelating: "HasSurfaceFeatures"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELASSIGNSTOACTOR, {
+                        forRelated: "HasAssignments",
+                        forRelating: "IsActingUpon"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELASSIGNSTOGROUP, {
+                        forRelated: "HasAssignments",
+                        forRelating: "IsGroupedBy"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELASSIGNSTOGROUPBYFACTOR, {
+                        forRelated: "HasAssignments",
+                        forRelating: "IsGroupedBy"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELASSIGNSTOPRODUCT, {
+                        forRelated: "HasAssignments",
+                        forRelating: "ReferencedBy"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELASSIGNSTORESOURCE, {
+                        forRelated: "HasAssignments",
+                        forRelating: "ResourceOf"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELASSOCIATESAPPROVAL, {
+                        forRelated: "HasAssociations",
+                        forRelating: "ApprovedObjects"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELCONNECTSELEMENTS, {
+                        forRelated: "ConnectedFrom",
+                        forRelating: "ConnectedTo"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELCONNECTSPATHELEMENTS, {
+                        forRelated: "ConnectedFrom",
+                        forRelating: "ConnectedTo"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELCONNECTSPORTTOELEMENT, {
+                        forRelated: "HasPorts",
+                        forRelating: "ContainedIn"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELCONNECTSPORTS, {
+                        forRelated: "ConnectedFrom",
+                        forRelating: "ConnectedTo"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELCONNECTSSTRUCTURALACTIVITY, {
+                        forRelated: "AssignedToStructuralItem",
+                        forRelating: "AssignedStructuralActivity"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELCONNECTSSTRUCTURALMEMBER, {
+                        forRelated: "ConnectsStructuralMembers",
+                        forRelating: "ConnectedBy"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELCONNECTSWITHECCENTRICITY, {
+                        forRelated: "ConnectsStructuralMembers",
+                        forRelating: "ConnectedBy"
+                    })
+                    // Nota: qui il mapping cattura solo la coppia Related/Relating.
+                    // Il terzo ruolo RealizingElements non viene rappresentato da this importer.relations.set(...)
+                    importer.relations.set(WEBIFC.IFCRELCONNECTSWITHREALIZINGELEMENTS, {
+                        forRelated: "ConnectedFrom",
+                        forRelating: "ConnectedTo"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELCOVERSBLDGELEMENTS, {
+                        forRelated: "Covers",
+                        forRelating: "HasCoverings"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELCOVERSSPACES, {
+                        forRelated: "CoversSpaces",
+                        forRelating: "HasCoverings"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELDECLARES, {
+                        forRelated: "HasContext",
+                        forRelating: "Declares"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELDEFINESBYOBJECT, {
+                        forRelated: "IsDeclaredBy",
+                        forRelating: "Declares"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELDEFINESBYTEMPLATE, {
+                        forRelated: "IsDefinedBy",
+                        forRelating: "Defines"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELFILLSELEMENT, {
+                        forRelated: "FillsVoids",
+                        forRelating: "HasFillings"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELFLOWCONTROLELEMENTS, {
+                        forRelated: "AssignedToFlowElement",
+                        forRelating: "HasControlElements"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELINTERFERESELEMENTS, {
+                        forRelated: "IsInterferedByElements",
+                        forRelating: "InterferesElements"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELPOSITIONS, {
+                        forRelated: "PositionedRelativeTo",
+                        forRelating: "Positions"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELPROJECTSELEMENT, {
+                        forRelated: "ProjectsElements",
+                        forRelating: "HasProjections"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELREFERENCEDINSPATIALSTRUCTURE, {
+                        forRelated: "ReferencedInStructures",
+                        forRelating: "ReferencesElements"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELSEQUENCE, {
+                        forRelated: "IsSuccessorFrom",
+                        forRelating: "IsPredecessorTo"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELSERVICESBUILDINGS, {
+                        forRelated: "ServicedBySystems",
+                        forRelating: "ServicesBuildings"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELSPACEBOUNDARY, {
+                        forRelated: "ProvidesBoundaries",
+                        forRelating: "BoundedBy"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELSPACEBOUNDARY1STLEVEL, {
+                        forRelated: "ProvidesBoundaries",
+                        forRelating: "BoundedBy"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELSPACEBOUNDARY2NDLEVEL, {
+                        forRelated: "ProvidesBoundaries",
+                        forRelating: "BoundedBy"
+                    })
+                    importer.relations.set(WEBIFC.IFCRELVOIDSELEMENT, {
+                        forRelated: "VoidsElements",
+                        forRelating: "HasOpenings"
+                    })
+                    // IFCRELASSOCIATESCLASSIFICATION
+                    // IFCRELASSOCIATESDOCUMENT
+                    // IFCRELASSOCIATESLIBRARY
+                    // IFCRELASSOCIATESCONSTRAINT
+                    // IFCRELASSOCIATESPROFILEDEF
+                    // Per Classification, Document e Library, il lato Relating... è un SELECT (IfcClassificationSelect, IfcDocumentSelect, IfcLibrarySelect),
+                    // quindi non hai un solo inverso univoco sempre valido.
+                    // Per Constraint e ProfileDef, nella documentazione ufficiale non emerge un inverso dedicato sul lato Relating...
+                    // analogo ai casi come ApprovedObjects o AssociatedTo; quindi ridurli a una coppia fissa rischia di produrre un mapping fuorviante.
                 }
             });
 
@@ -589,7 +731,7 @@ export function MainViewer () {
             updateCountLabel({countItems:'loading...', countCostItems:'loading...', countResources:'loading...'})
             const btn = typeof target === 'string' ? target : target.label //read if the clicked button is "color" or "select"
             let [resource] = resourcesDropdown.value //read the value of the resource dropdown menu (single choice)
-            let category = categoriesDropdown.value.includes('ALL CLASSES') ? importedCategories : categoriesDropdown.value //read the value of category dropdown menu, list is kept because multiple choices are accepted
+            let category = categoriesDropdown.value.includes('ALL IFC CLASSES') ? importedCategories : categoriesDropdown.value //read the value of category dropdown menu, list is kept because multiple choices are accepted
             const [normalization] = unitMeasureDropdown.value //read the value of normalization by button (single choice)
             const [colorscale] = colorScaleDropdown.value ? colorScaleDropdown.value : 'gnylrd'
             const rangeMin = rangeInputMin.value
@@ -634,18 +776,20 @@ export function MainViewer () {
             if (limitSelection) {
                 const selection = highlighter.selection.select
                 const selectionData = await fragments.getData(selection, { relations: { 'HasAssignments': { attributes: true, relations: false } } })
-                for (const [model,elements] of Object.entries(selectionData)){
-                    const costItemsIds = []
+                for (const [model, elements] of Object.entries(selectionData)) {
+                    const costItemIds = new Set<number>()
                     for (const element of elements) {
                         const assignments = (element as any)?.['HasAssignments'] as any[] | undefined
-                        if (!assignments) continue
+                        if (!assignments?.length) continue
                         for (const assignment of assignments) {
-                            if (assignment._category.value != "IFCCOSTITEM") continue
-                            const localId = assignment._localId.value
-                            costItemsIds.push(localId)
+                            const isCostItem = assignment?._category?.value === "IFCCOSTITEM"
+                            const localId = assignment?._localId?.value
+                            if (isCostItem && typeof localId === 'number') {
+                                costItemIds.add(localId)
+                            }
                         }
                     }
-                    final_costitem_ids[model] = new Set(costItemsIds)
+                    final_costitem_ids[model] = costItemIds
                 }
             } else {
                 //here query is executed
@@ -664,7 +808,7 @@ export function MainViewer () {
             if (!final_costitem_ids || Object.keys(final_costitem_ids).length == 0) { //return the function if any cost item is found and print the message in the panel
                 panelDown.innerHTML = `
                     <bim-label style="padding:1rem; padding-bottom:0.25rem;"><strong>Any COST ITEM related to:</strong></bim-label>
-                    <bim-label style="display:flex; padding:1rem; padding-top:0px; white-space:normal">${category.join(", ").replace("ALL CLASSES, ", "")}.</bim-label>
+                    <bim-label style="display:flex; padding:1rem; padding-top:0px; white-space:normal">${category.join(", ").replace("ALL IFC CLASSES, ", "")}.</bim-label>
                 `
                 updateCountLabel({countItems:0, countCostItems:0, countResources:0})
                 return
@@ -2298,8 +2442,8 @@ export function MainViewer () {
             const { listCategories } = state
             return BUI.html`<bim-dropdown name="categories" label='IFC Class' icon='material-symbols:category-rounded' multiple>
                 ${listCategories.map((x) => {
-                    if (x == 'ALL CLASSES') {
-                        return BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px; border-bottom: 2px solid black"></bim-option>`
+                    if (x == 'ALL IFC CLASSES') {
+                        return BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px; border-bottom: 1px solid dimgray; border-radius: 0px"></bim-option>`
                     } else {
                         return BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px"></bim-option>`
                     }
@@ -2308,6 +2452,7 @@ export function MainViewer () {
             </bim-dropdown>`},
             { listCategories: importedCategories}
         )
+        categoriesDropdown.searchBox = true
         //measure units dropdown menu
         const unitMeasure = ['None','Volume']
         const unitMeasureDropdown = BUI.Component.create<BUI.Dropdown>(
@@ -3182,7 +3327,7 @@ export function MainViewer () {
                             const categories = await getAllCategories()
                             const lC = new Set(categories)
                             const filteredCategories = [...new Set(importedCategories.filter(x => lC.has(x)))]
-                            filteredCategories.push('ALL CLASSES')
+                            filteredCategories.push('ALL IFC CLASSES')
                             console.log(filteredCategories)
                             categoriesDropdown.innerHTML = ''
                             categoriesDropdown.innerHTML = `<bim-option label='ciao' style="padding:0 10px 0 10px"></bim-option>`
