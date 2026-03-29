@@ -596,6 +596,7 @@ export function MainViewer () {
             const rangeMax = rangeInputMax.value
             const rangeIntervalInOut = rangeInterval.label
             const rangeNormalOrCost = rangeCost.label
+            const limitSelection = limitToSelection.checked
 
             resource = resource == undefined ? 'TotalCost' : resource //if any resource selected use TotalCost as default
             category = category.length == 0 ? importedCategories : category  //if any category selected use al categories as default
@@ -627,19 +628,40 @@ export function MainViewer () {
                     }
                 },
             ])
-            //here query is executed
-            const startTime_1 = performance.now(); // Start timer
-            const costitem_rel_category_ids = await finder.list.get('COSTITEM_REL_CATEGORY')?.test()
-            const endTime_1 = performance.now(); // End timer
-            const loadTime_1 = ((endTime_1 - startTime_1) / 1000).toFixed(2); // seconds
-            console.log(`TIME ${loadTime_1} s: find localIds of all cost items related to selected categories`);
-            
-            for (const key in costitem_rel_category_ids) { //remove models if there is any founded cost item
-                if (costitem_rel_category_ids[key] instanceof Set && costitem_rel_category_ids[key].size === 0) {
-                    delete costitem_rel_category_ids[key];
+
+            // ora è possibile colorare solo gli elementi selezionati se la spunta per questo filtro è attiva
+            let final_costitem_ids: OBC.ModelIdMap | undefined = {}
+            if (limitSelection) {
+                const selection = highlighter.selection.select
+                const selectionData = await fragments.getData(selection, { relations: { 'HasAssignments': { attributes: true, relations: false } } })
+                for (const [model,elements] of Object.entries(selectionData)){
+                    const costItemsIds = []
+                    for (const element of elements) {
+                        const assignments = (element as any)?.['HasAssignments'] as any[] | undefined
+                        if (!assignments) continue
+                        for (const assignment of assignments) {
+                            if (assignment._category.value != "IFCCOSTITEM") continue
+                            const localId = assignment._localId.value
+                            costItemsIds.push(localId)
+                        }
+                    }
+                    final_costitem_ids[model] = new Set(costItemsIds)
+                }
+            } else {
+                //here query is executed
+                const startTime_1 = performance.now(); // Start timer
+                final_costitem_ids = await finder.list.get('COSTITEM_REL_CATEGORY')?.test()
+                const endTime_1 = performance.now(); // End timer
+                const loadTime_1 = ((endTime_1 - startTime_1) / 1000).toFixed(2); // seconds
+                console.log(`TIME ${loadTime_1} s: find localIds of all cost items related to selected categories`);
+            }
+
+            for (const key in final_costitem_ids) { //remove models if there is any founded cost item
+                if (final_costitem_ids[key] instanceof Set && final_costitem_ids[key].size === 0) {
+                    delete final_costitem_ids[key];
                 }
             }
-            if (!costitem_rel_category_ids || Object.keys(costitem_rel_category_ids).length == 0) { //return the function if any cost item is found and print the message in the panel
+            if (!final_costitem_ids || Object.keys(final_costitem_ids).length == 0) { //return the function if any cost item is found and print the message in the panel
                 panelDown.innerHTML = `
                     <bim-label style="padding:1rem; padding-bottom:0.25rem;"><strong>Any COST ITEM related to:</strong></bim-label>
                     <bim-label style="display:flex; padding:1rem; padding-top:0px; white-space:normal">${category.join(", ").replace("ALL CLASSES, ", "")}.</bim-label>
@@ -650,7 +672,7 @@ export function MainViewer () {
 
             //step 2: get data of found cost items
             const startTime_2 = performance.now(); // Start timer
-            const filteredCostItems = await fragments.getData(costitem_rel_category_ids, {
+            const filteredCostItems = await fragments.getData(final_costitem_ids, {
                 attributesDefault: false,
                 attributes: ['ObjectType'],
                 relations: {
@@ -2344,6 +2366,16 @@ export function MainViewer () {
                 </bim-button>
             `
         })
+        const limitToSelection = BUI.Component.create<BUI.Checkbox>(() => {
+            return BUI.html`
+                <bim-checkbox
+                    label='Limit to selected elements'
+                    tooltip-text='Click to limit the filter to the currently selected elements'
+                    icon='hugeicons:cursor-circle-selection-01'
+                >
+                </bim-checkbox>
+            `
+        })
         const rangeCost = BUI.Component.create<BUI.Button>(() => {
             return BUI.html`
                 <bim-button 
@@ -2412,6 +2444,7 @@ export function MainViewer () {
                             </div>
                         </div>
                     </div>
+                    ${limitToSelection}
                     ${countLabel}
                     <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
                         <bim-button label='Color' @click=${onColorByCost}></bim-button>
