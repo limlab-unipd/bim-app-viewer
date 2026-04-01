@@ -184,7 +184,7 @@ export function MainViewer () {
             //FRAGMENTS 2.0 DOES NOT IMPORT BY DEFAULT ALL THE IFC CLASSES
             await ifcLoader.load(
                 buffer,
-                false, //coordinate model
+                true, //coordinate model
                 name,
                 {instanceCallback(importer) {
 
