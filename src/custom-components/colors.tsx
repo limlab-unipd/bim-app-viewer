@@ -93,6 +93,27 @@ const colorScaleList: { [key: string]: [number, string][] } = {
     ],
 };
 
+const colorRangePositions: Record<string, number> = {
+    '5. VERY HIGH COST': 1,
+    '4. HIGH COST': 0.75,
+    '3. MEDIUM COST': 0.5,
+    '2. LOW COST': 0.25,
+    '1. VERY LOW COST': 0,
+};
+
+export const colorRangeKeys: Record<string, string[]> = Object.fromEntries(
+    Object.entries(colorRangePositions).map(([category, position]) => [
+        category,
+        Object.keys(colorScaleList)
+            .map((scaleKey) => colorScaleList[scaleKey].find(([pos]) => pos === position)?.[1])
+            .filter((color): color is string => Boolean(color)),
+    ])
+);
+
+export const getColorRangeKeyByValue = (colorValue: string): string | undefined => {
+    return Object.keys(colorRangeKeys).find((rangeKey) => colorRangeKeys[rangeKey].includes(colorValue));
+};
+
 export const setHighlighterStyles = (components:OBC.Components, colorscale:string='gnylrd', lod:number, viewer:string='cost') => {
     const highlighter = components.get(OBCF.Highlighter)
     

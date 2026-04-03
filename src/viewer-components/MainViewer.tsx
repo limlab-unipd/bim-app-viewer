@@ -8,7 +8,7 @@ import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
 import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-converter'
 import { convertCurrency, convertUnits } from '../custom-components/conversion'
-import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel } from '../custom-components/colors'
+import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel, getColorRangeKeyByValue } from '../custom-components/colors'
 import Stats, { Panel } from 'stats.js'
 
 
@@ -18,10 +18,12 @@ export function MainViewer () {
     //BUI.Manager.init()
     const components = new OBC.Components()
     const ifcImporter = new FRAGS.IfcImporter
+    ifcImporter.addAllAttributes()
+    ifcImporter.addAllRelations()
     const importedCategories = getIFCClassNamesFromCodes([...ifcImporter.classes.elements]) //this is only a list of strings of all the imported categories. this is not the FULL list of IFC classes
     importedCategories.push(
-        'ALL IFC CLASSES',
-        'IFCBUILTSYSTEM')
+        'ALL IFC CLASSES'
+    )
     importedCategories.sort()
     // #endregion
     
@@ -179,205 +181,20 @@ export function MainViewer () {
             const data = await file.arrayBuffer();
             const buffer = new Uint8Array(data);
             const startTime = performance.now(); // Start timer
-
             //THIS IS THE MOST FUNDAMENTAL THING FOR ADDING CLASSES TO IMPORT.
             //FRAGMENTS 2.0 DOES NOT IMPORT BY DEFAULT ALL THE IFC CLASSES
+            //These addAllAttributes and addAllRelations methods were added in new versions of fragments to import everything from IFC schema
             await ifcLoader.load(
                 buffer,
                 true, //coordinate model
                 name,
-                {instanceCallback(importer) {
-
-                    //ADDING NEW CLASSES TO IMPORT
-                    //for already loaded classes see: https://github.com/ThatOpen/engine_fragment/blob/main/packages/fragments/src/Importers/IfcImporter/src/classes.ts
-                    importer.classes['abstract'].add(
-                        WEBIFC.IFCCOSTITEM,
-                        WEBIFC.IFCCOSTVALUE,
-                        WEBIFC.IFCCOSTSCHEDULE,
-                        WEBIFC.IFCMEASUREWITHUNIT,
-                        //WEBIFC.IFCMONETARYUNIT, già importata
-                        //WEBIFC.IFCSIUNIT, già importata
-                        WEBIFC.IFCCONVERSIONBASEDUNIT,
-                        WEBIFC.IFCCONTEXTDEPENDENTUNIT,
-                        WEBIFC.IFCRELASSIGNSTOCONTROL,
-                        WEBIFC.IFCRELNESTS,
-                        WEBIFC.IFCRELCONNECTSPATHELEMENTS,
-                        WEBIFC.IFCRELDEFINESBYTYPE,
-                        WEBIFC.IFCRELASSIGNSTOPROCESS,
-                        WEBIFC.IFCTASK,
-                        WEBIFC.IFCTASKTIME,
-                        WEBIFC.IFCTASKTIMERECURRING,
-                        WEBIFC.IFCTASKTYPE,
-                        WEBIFC.IFCWORKSCHEDULE,
-                        ...FRAGS.ifcClasses.types, //types importati
-                    )
-
-                    //ADDING NEW ELEMENTS TO IMPORT
-                    importer.classes['elements'].add(
-                        WEBIFC.IFCBUILTSYSTEM //remember to add these classes also above in the importedClasses in the initial part of the script !!!
-                    )
-
-                    //ADDING NEW RELATIONS TO IMPORT
-                    //for already loaded relations see: https://github.com/ThatOpen/engine_fragment/blob/main/packages/fragments/src/Importers/IfcImporter/index.ts
-                    importer.relations.set(WEBIFC.IFCRELASSIGNSTOCONTROL, {
-                        forRelated: "HasAssignments", //RelatedObjects
-                        forRelating: "Controls" //RelatingControl
-                    })
-                    importer.relations.set(WEBIFC.IFCRELNESTS, {
-                        forRelated: "Nests", //RelatedObjects
-                        forRelating: "IsNestedBy" //RelatingObject
-                    })
-                    importer.relations.set(WEBIFC.IFCRELDEFINESBYTYPE, {
-                        forRelated: "IsTypedBy", //RelatedObjects
-                        forRelating: "Types" //RelatingType
-                    })
-                    importer.relations.set(WEBIFC.IFCRELASSIGNSTOPROCESS, {
-                        forRelated: "HasAssignments", //RelatedProcess
-                        forRelating: "OperatesOn" //RelatingProcess
-                    })
-                    //chatgpt suggested relations to import
-                    importer.relations.set(WEBIFC.IFCRELADHERESTOELEMENT, {
-                        forRelated: "AdheresToElement",
-                        forRelating: "HasSurfaceFeatures"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELASSIGNSTOACTOR, {
-                        forRelated: "HasAssignments",
-                        forRelating: "IsActingUpon"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELASSIGNSTOGROUP, {
-                        forRelated: "HasAssignments",
-                        forRelating: "IsGroupedBy"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELASSIGNSTOGROUPBYFACTOR, {
-                        forRelated: "HasAssignments",
-                        forRelating: "IsGroupedBy"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELASSIGNSTOPRODUCT, {
-                        forRelated: "HasAssignments",
-                        forRelating: "ReferencedBy"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELASSIGNSTORESOURCE, {
-                        forRelated: "HasAssignments",
-                        forRelating: "ResourceOf"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELASSOCIATESAPPROVAL, {
-                        forRelated: "HasAssociations",
-                        forRelating: "ApprovedObjects"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELCONNECTSELEMENTS, {
-                        forRelated: "ConnectedFrom",
-                        forRelating: "ConnectedTo"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELCONNECTSPATHELEMENTS, {
-                        forRelated: "ConnectedFrom",
-                        forRelating: "ConnectedTo"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELCONNECTSPORTTOELEMENT, {
-                        forRelated: "HasPorts",
-                        forRelating: "ContainedIn"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELCONNECTSPORTS, {
-                        forRelated: "ConnectedFrom",
-                        forRelating: "ConnectedTo"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELCONNECTSSTRUCTURALACTIVITY, {
-                        forRelated: "AssignedToStructuralItem",
-                        forRelating: "AssignedStructuralActivity"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELCONNECTSSTRUCTURALMEMBER, {
-                        forRelated: "ConnectsStructuralMembers",
-                        forRelating: "ConnectedBy"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELCONNECTSWITHECCENTRICITY, {
-                        forRelated: "ConnectsStructuralMembers",
-                        forRelating: "ConnectedBy"
-                    })
-                    // Nota: qui il mapping cattura solo la coppia Related/Relating.
-                    // Il terzo ruolo RealizingElements non viene rappresentato da this importer.relations.set(...)
-                    importer.relations.set(WEBIFC.IFCRELCONNECTSWITHREALIZINGELEMENTS, {
-                        forRelated: "ConnectedFrom",
-                        forRelating: "ConnectedTo"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELCOVERSBLDGELEMENTS, {
-                        forRelated: "Covers",
-                        forRelating: "HasCoverings"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELCOVERSSPACES, {
-                        forRelated: "CoversSpaces",
-                        forRelating: "HasCoverings"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELDECLARES, {
-                        forRelated: "HasContext",
-                        forRelating: "Declares"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELDEFINESBYOBJECT, {
-                        forRelated: "IsDeclaredBy",
-                        forRelating: "Declares"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELDEFINESBYTEMPLATE, {
-                        forRelated: "IsDefinedBy",
-                        forRelating: "Defines"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELFILLSELEMENT, {
-                        forRelated: "FillsVoids",
-                        forRelating: "HasFillings"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELFLOWCONTROLELEMENTS, {
-                        forRelated: "AssignedToFlowElement",
-                        forRelating: "HasControlElements"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELINTERFERESELEMENTS, {
-                        forRelated: "IsInterferedByElements",
-                        forRelating: "InterferesElements"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELPOSITIONS, {
-                        forRelated: "PositionedRelativeTo",
-                        forRelating: "Positions"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELPROJECTSELEMENT, {
-                        forRelated: "ProjectsElements",
-                        forRelating: "HasProjections"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELREFERENCEDINSPATIALSTRUCTURE, {
-                        forRelated: "ReferencedInStructures",
-                        forRelating: "ReferencesElements"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELSEQUENCE, {
-                        forRelated: "IsSuccessorFrom",
-                        forRelating: "IsPredecessorTo"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELSERVICESBUILDINGS, {
-                        forRelated: "ServicedBySystems",
-                        forRelating: "ServicesBuildings"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELSPACEBOUNDARY, {
-                        forRelated: "ProvidesBoundaries",
-                        forRelating: "BoundedBy"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELSPACEBOUNDARY1STLEVEL, {
-                        forRelated: "ProvidesBoundaries",
-                        forRelating: "BoundedBy"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELSPACEBOUNDARY2NDLEVEL, {
-                        forRelated: "ProvidesBoundaries",
-                        forRelating: "BoundedBy"
-                    })
-                    importer.relations.set(WEBIFC.IFCRELVOIDSELEMENT, {
-                        forRelated: "VoidsElements",
-                        forRelating: "HasOpenings"
-                    })
-                    // IFCRELASSOCIATESCLASSIFICATION
-                    // IFCRELASSOCIATESDOCUMENT
-                    // IFCRELASSOCIATESLIBRARY
-                    // IFCRELASSOCIATESCONSTRAINT
-                    // IFCRELASSOCIATESPROFILEDEF
-                    // Per Classification, Document e Library, il lato Relating... è un SELECT (IfcClassificationSelect, IfcDocumentSelect, IfcLibrarySelect),
-                    // quindi non hai un solo inverso univoco sempre valido.
-                    // Per Constraint e ProfileDef, nella documentazione ufficiale non emerge un inverso dedicato sul lato Relating...
-                    // analogo ai casi come ApprovedObjects o AssociatedTo; quindi ridurli a una coppia fissa rischia di produrre un mapping fuorviante.
+                {
+                    instanceCallback(importer) {
+                        importer.addAllAttributes()
+                        importer.addAllRelations()
+                    }
                 }
-            });
-
+            )
             const endTime = performance.now(); // End timer
             const loadTime = ((endTime - startTime) / 1000).toFixed(2); // seconds
             console.log(`${name} IFC model loaded in ${loadTime} seconds`);
@@ -597,14 +414,30 @@ export function MainViewer () {
                 return row.data[field] ?? ''
             }
             const direction = ascending ? 1 : -1
-            table.value.sort((a, b) => {
-                const valA = parseValue(getSortSourceValue(a))
-                const valB = parseValue(getSortSourceValue(b))
-                if (typeof valA === 'number' && typeof valB === 'number') {
-                    return (valA - valB) * direction
+
+            if (sortbyTotalCostDropdown_optionOne.label == 'CostRange' && field === 'Cost') {
+                for (const costRangeGroup of table.value) {
+                    if (!costRangeGroup.children) continue
+                    costRangeGroup.children.sort((a, b) => {
+                        const valA = parseValue(getSortSourceValue(a))
+                        const valB = parseValue(getSortSourceValue(b))
+                        if (typeof valA === 'number' && typeof valB === 'number') {
+                            return (valA - valB) * direction
+                        }
+                        return valA.toString().localeCompare(valB.toString()) * direction
+                    })
                 }
-                return valA.toString().localeCompare(valB.toString()) * direction
-            })
+            } else {
+                table.value.sort((a, b) => {
+                    const valA = parseValue(getSortSourceValue(a))
+                    const valB = parseValue(getSortSourceValue(b))
+                    if (typeof valA === 'number' && typeof valB === 'number') {
+                        return (valA - valB) * direction
+                    }
+                    return valA.toString().localeCompare(valB.toString()) * direction
+                })
+            }
+
             table.requestUpdate()
         }
         const onSortDynamicResourceTable = (table:BUI.Table<any>, field:string, ascending:boolean=true, totalCostPerGroupedTable: {[group: string]: {resourceCost: number}}) => {
@@ -632,14 +465,30 @@ export function MainViewer () {
                 return row.data[field] ?? ''
             }
             const direction = ascending ? 1 : -1
-            table.value.sort((a, b) => {
-                const valA = parseValue(getSortSourceValue(a))
-                const valB = parseValue(getSortSourceValue(b))
-                if (typeof valA === 'number' && typeof valB === 'number') {
-                    return (valA - valB) * direction
+            
+            if (sortbyResourceDropdown_optionOne.label == 'ResourceCostRange' && field === 'Cost') {
+                for (const costRangeGroup of table.value) {
+                    if (!costRangeGroup.children) continue
+                    costRangeGroup.children.sort((a, b) => {
+                        const valA = parseValue(getSortSourceValue(a))
+                        const valB = parseValue(getSortSourceValue(b))
+                        if (typeof valA === 'number' && typeof valB === 'number') {
+                            return (valA - valB) * direction
+                        }
+                        return valA.toString().localeCompare(valB.toString()) * direction
+                    })
                 }
-                return valA.toString().localeCompare(valB.toString()) * direction
-            })
+            } else {
+                table.value.sort((a, b) => {
+                    const valA = parseValue(getSortSourceValue(a))
+                    const valB = parseValue(getSortSourceValue(b))
+                    if (typeof valA === 'number' && typeof valB === 'number') {
+                        return (valA - valB) * direction
+                    }
+                    return valA.toString().localeCompare(valB.toString()) * direction
+                })
+            }
+
             table.requestUpdate()
         }
 
@@ -725,6 +574,8 @@ export function MainViewer () {
             document.addEventListener('click', outsideClickHandler, true)
         }
         // #endregion
+
+        let groupBy_CostRange_Btn: BUI.Button
 
         const onColorByCost = async ({target}: {target: BUI.Button | string}) => {
             const startTime_tot = performance.now(); // Start timer
@@ -1024,6 +875,7 @@ export function MainViewer () {
                     ResourceName: string,
                     ResourceDescription: string,
                     ResourceCost: string,
+                    ResourceCostRange?: string,
                     ResourceUnitCost: string,
                     ElementQuantity: string,
                     NormalizedValue: string,
@@ -1070,6 +922,7 @@ export function MainViewer () {
                                     ResourceName: resourceDetails.resourceName,
                                     ResourceDescription: resourceDetails.resourceDescription,
                                     ResourceCost: `${Math.round((Number(resourceDetails.resourceUnitCost.split(' ')[0])*Number(resourceDetails.elemQuantity.split(' ')[0]))*100)/100} ${elem.currency}`,
+                                    ResourceCostRange: getColorRangeKeyByValue(colorMap[elem.elemId as string]), //this is the range key to which the resource cost belongs based on its color
                                     ResourceUnitCost: resourceDetails.resourceUnitCost,
                                     ElementQuantity: resourceDetails.elemQuantity,
                                     NormalizedValue: '',
@@ -1111,6 +964,7 @@ export function MainViewer () {
                         if (!ItemId) return value //if ItemId is not defined, return the original value
                         return Math.round(normalizedValue[ItemId]*1000)/1000
                     }
+                    //document.getElementById('resource_groupby_costrange')!.click()
 
                 } else if (btn == 'Select') { //if select button is clicked
                     highlighter.highlightByID("select", allSelectedItemsModelIdMap, false, false) //only select elements removing colors
@@ -1194,6 +1048,11 @@ export function MainViewer () {
                     const currency = (row.data.ResourceCost as string).split(' ')[1]
                     const itemId = row.data.ItemId
                     const model = row.data.Model
+
+                    // if (colorMap && itemId) {
+                    //     const colorValue = colorMap[Number(itemId)]
+                    //     row.data.ResourceCostRange = colorValue ? getColorRangeKeyByValue(colorValue) ?? colorValue : colorValue
+                    // }
 
                     if (!resourceCostPerGroupedTable[groupIfcClass]) {
                         resourceCostPerGroupedTable[groupIfcClass] = { resourceCost: 0, currency, model }
@@ -1397,6 +1256,7 @@ export function MainViewer () {
                                     target.style.backgroundColor = 'var(--background-200)';
                                     document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
                                     document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
+                                    document.getElementById('resource_groupby_costrange')!.style.removeProperty('background-color');
                                     sortbyResourceDropdown_optionOne.label = 'ElementIfcClass'
                                     sortbyResourceDropdown.value = []
                                     dynamicResourceTable.groupedBy = ['ElementIfcClass','ElementName']
@@ -1408,6 +1268,7 @@ export function MainViewer () {
                                     target.style.backgroundColor = 'var(--background-200)';
                                     document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
                                     document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
+                                    document.getElementById('resource_groupby_costrange')!.style.removeProperty('background-color');
                                     sortbyResourceDropdown_optionOne.label = 'ElementName'
                                     sortbyResourceDropdown.value = []
                                     dynamicResourceTable.groupedBy = ['ElementName']
@@ -1415,10 +1276,23 @@ export function MainViewer () {
                                     dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
                                 }} id="resource_groupby_element"  label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
                                 <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                    onCreateResourceChart_Element()
+                                    target.style.backgroundColor = 'var(--background-200)';
+                                    document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
+                                    document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
+                                    document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
+                                    sortbyResourceDropdown_optionOne.label = 'ResourceCostRange'
+                                    sortbyTotalCostDropdown.value = []
+                                    dynamicResourceTable.groupedBy = ['ResourceCostRange','ElementName']
+                                    dynamicResourceTable.columns = ['ElementName']
+                                    dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange']
+                                }} id="resource_groupby_costrange"  label="Cost Range" style="max-width:fit-content"></bim-button>
+                                <bim-button @click=${({target}:{target:BUI.Button}) => {
                                     onCreateResourceChart_Resource()
                                     target.style.backgroundColor = 'var(--background-200)';
                                     document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
                                     document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
+                                    document.getElementById('resource_groupby_costrange')!.style.removeProperty('background-color');
                                     sortbyResourceDropdown_optionOne.label = 'ResourceName'
                                     sortbyResourceDropdown.value = []
                                     dynamicResourceTable.groupedBy = ['ResourceName']
@@ -1481,6 +1355,10 @@ export function MainViewer () {
                 panelDown.innerHTML=''
                 panelDown.appendChild(resourceCostPanelControls)
                 panelDown.appendChild(resourceCostPanel)
+
+                if (btn == 'Color') {
+                    document.getElementById('resource_groupby_costrange')!.click() //trigger the default grouping and coloring
+                }
 
             } else if (resource == 'TotalCost'){
 
@@ -1613,7 +1491,7 @@ export function MainViewer () {
 
                 if (btn=='Color') {
                     highlighter.highlightByID("select", {}, true, false)
-                    
+
                     //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
                     const startTime_8 = performance.now(); // Start timer
                     //this is to color items within a range of 5 colors (faster)
@@ -1659,6 +1537,8 @@ export function MainViewer () {
                             `
                         }
                     }
+                    document.getElementById('groupby_costrange')!.click() //trigger the click on the cost range grouping button to show colors in the table
+                    groupBy_CostRange_Btn.disabled = false
 
                 } else if (btn == 'Select') { //if select button is clicked
                     highlighter.highlightByID("select", allSelectedItemsModelIdMap, false, false) //only select elements removing colors
@@ -1891,7 +1771,7 @@ export function MainViewer () {
                     <bim-label>Elements count: ${countItems}</bim-label>
                     <bim-label>Cost Items count: ${countCostItems}</bim-label>
                     <bim-label style="display:${resDisplay}">Resources count: ${countResources}</bim-label>
-                    <bim-label style="display:${colorRangeDisplay}; margin-top: 10px" icon="ion:warning-outline">More than 100 elements: geometries colors remapped in five ranges.</bim-label>
+                    <!-- <bim-label style="display:${colorRangeDisplay}; margin-top: 10px" icon="ion:warning-outline">More than 100 elements: geometries colors remapped in five ranges.</bim-label> -->
                 </div>
             `;
             },
@@ -2651,6 +2531,7 @@ export function MainViewer () {
                 ElementName: string,
                 ElementIfcClass: string,
                 Cost: number|string,
+                CostRange?: string,
                 Quantity: number|string,
                 Currency: string,
                 CostItemName: string,
@@ -2806,6 +2687,7 @@ export function MainViewer () {
                             }
                             dynamicRow.data.NormalizedCost = 0
                             dynamicRow.data.ItemVolume = 0
+                            dynamicRow.data.CostRange = 'nd'
                             dynamicCostTable.data.push(dynamicRow)
                         }
                     } catch (error) {
@@ -2829,7 +2711,8 @@ export function MainViewer () {
                             const button = e.target as BUI.Button
                             button.icon = button.icon=='meteor-icons:arrow-up' ? 'meteor-icons:arrow-down' : 'meteor-icons:arrow-up'
                             const ascending = button.icon=='meteor-icons:arrow-up' ? false : true
-                            onSortDynamicTable(dynamicCostTable, sortbyTotalCostDropdown.value[0], ascending,totalCostPerGroupedTable)}}">
+                            onSortDynamicTable(dynamicCostTable, sortbyTotalCostDropdown.value[0], ascending,totalCostPerGroupedTable)
+                        }}">
                     </bim-button>`,
             )
 
@@ -2837,13 +2720,6 @@ export function MainViewer () {
             const groupIfcClasses = new Set<string>()
             const groupElements = new Set<string>()
             const groupCostItems = new Set<string>()
-            const chartLabelByColorOrder = [
-                'Very High Cost',
-                'High Cost',
-                'Medium Cost',
-                'Low Cost',
-                'Very Low Cost'
-            ]
             const getOrderedChartColors = (colors: string[]) => {
                 const parseColor = (color: string) => {
                     const match = color.match(/\d+(\.\d+)?/g)
@@ -2895,6 +2771,11 @@ export function MainViewer () {
                 const um = (row.data.Quantity as string).split(' ')[1] //unit of measure
                 const itemId = row.data.ItemId
                 const model = row.data.Model
+
+                if (colorMap && itemId) {
+                    const colorValue = colorMap[Number(itemId)]
+                    row.data.CostRange = colorValue ? getColorRangeKeyByValue(colorValue) ?? colorValue : colorValue
+                }
 
                 if (!totalCostPerGroupedTable[groupIfcClass]) {
                     totalCostPerGroupedTable[groupIfcClass] = { cost: 0, quantity: 0, currency, um, model }
@@ -3021,8 +2902,8 @@ export function MainViewer () {
             dynamicCostTable.groupedBy = ['ElementName']
             dynamicCostTable.columns = ['ElementName']
             normalization ? 
-                dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency'] :
-                dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','ItemVolume','NormalizedCost']
+                dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange'] :
+                dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','ItemVolume','NormalizedCost']
 
             const onCreateChart_IfcClass = () => {
                 const groupIfcClassLabels = [...groupIfcClasses]
@@ -3052,7 +2933,7 @@ export function MainViewer () {
                         totalCostPerColor[color].items = (totalCostPerColor[color].items ?? 0) + 1
                     }
                     const elementColorLabels = getOrderedChartColors(Object.keys(totalCostPerColor))
-                    const elementChartLabels = elementColorLabels.map((color, index) => chartLabelByColorOrder[index] ?? color)
+                    const elementChartLabels = elementColorLabels.map((color) => getColorRangeKeyByValue(color)!.slice(3) ?? color)
                     chartPrimary.colors = elementColorLabels
                     chartPrimary.transparentBackground = true
                     chartPrimary.borderColor = 'rgba(0, 0, 0, 0.2)'
@@ -3116,6 +2997,7 @@ export function MainViewer () {
                                 target.style.backgroundColor = 'var(--background-200)';
                                 document.getElementById('groupby_element')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_costrange')!.style.removeProperty('background-color');
                                 sortbyTotalCostDropdown_optionOne.label = 'ElementIfcClass'
                                 sortbyTotalCostDropdown.value = []
                                 dynamicCostTable.groupedBy = ['ElementIfcClass','ElementName']
@@ -3129,19 +3011,35 @@ export function MainViewer () {
                                 target.style.backgroundColor = 'var(--background-200)';
                                 document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_costrange')!.style.removeProperty('background-color');
                                 sortbyTotalCostDropdown_optionOne.label = 'ElementName'
                                 sortbyTotalCostDropdown.value = []
                                 dynamicCostTable.groupedBy = ['ElementName']
                                 dynamicCostTable.columns = ['ElementName']
                                 normalization ? 
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency'] :
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','ItemVolume','NormalizedCost']
-                            }} id="groupby_element"  label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange',] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','ItemVolume','NormalizedCost']
+                            }} id="groupby_element" label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
+                            <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                onCreateChart_Element()
+                                target.style.backgroundColor = 'var(--background-200)';
+                                document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_element')!.style.removeProperty('background-color');
+                                sortbyTotalCostDropdown_optionOne.label = 'CostRange'
+                                sortbyTotalCostDropdown.value = []
+                                dynamicCostTable.groupedBy = ['CostRange','ElementName']
+                                dynamicCostTable.columns = ['ElementName']
+                                normalization ? 
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange',] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','ItemVolume','NormalizedCost']
+                            }} id="groupby_costrange" ${BUI.ref((el) => {groupBy_CostRange_Btn = el as BUI.Button})} tooltip-text="Enabled only for cost analysis coloured panel" label="Cost Range" style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
                                 onCreateChart_CostItem()
                                 target.style.backgroundColor = 'var(--background-200)';
                                 document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_element')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_costrange')!.style.removeProperty('background-color');
                                 sortbyTotalCostDropdown_optionOne.label = 'CostItemName'
                                 sortbyTotalCostDropdown.value = []
                                 dynamicCostTable.groupedBy = ['CostItemName']
@@ -3149,7 +3047,7 @@ export function MainViewer () {
                                 normalization ?
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency'] :
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','ItemVolume','NormalizedCost']
-                            }} id="groupby_costitem"  label="Cost Item" style="max-width:fit-content"></bim-button>
+                            }} id="groupby_costitem" label="Cost Item" style="max-width:fit-content"></bim-button>
                             <bim-label>Sort by:</bim-label>
                             ${sortbyTotalCostDropdown}
                             ${sortbyDirectionTotalCost}
@@ -3473,13 +3371,10 @@ export function MainViewer () {
                         id='elementXCostButton'
                         tooltip-title="Show costs of selected elements"
                         icon="fontisto:dollar"
-                        @click=${()=>{onOpenElementXCostPanel()}}
-                    ></bim-button>
-                    <bim-button
-                        style = "display:none"
-                        tooltip-title="Open cost assignment panel of selected elements - organized by cost item"
-                        icon="tabler:filter-2-dollar"
-                        @click=${() => {console.log('TO DO ...')}}
+                        @click=${async ()=>{
+                            await onOpenElementXCostPanel()
+                            groupBy_CostRange_Btn.disabled = true
+                        }}
                     ></bim-button>
                 </bim-toolbar-section>
             </bim-toolbar>
