@@ -1779,7 +1779,7 @@ export function MainViewer () {
         );
         const noCostItemsLabel = BUI.Component.create<BUI.Label>(() => {
             return BUI.html`
-                <bim-label style="padding:15px">Any COST ITEM related to selected elements!</bim-label>
+                <bim-label style="padding:15px">Any COST ITEM available for the selected elements!</bim-label>
             `;
             }
         );
@@ -2567,7 +2567,6 @@ export function MainViewer () {
 
             //get cost data
             let itemId, itemName, itemIfcClass, costItemName, costItemId, costItemDescription, costItemObjectType, costItemTotalCost, costItemUnitBasis, costItemUnitCost //initialize variables
-            let hasAssignmentsCheck = false
             const getLocalId = (item: any) => item?._localId?.value as number | undefined
             const mapItemsByLocalId = (items: any[] = []) => {
                 const itemsMap: {[key:number]:any} = {}
@@ -2622,7 +2621,6 @@ export function MainViewer () {
                 for (const item of selectedItems) { //loop over selected items
                     try { //needed to skip potential errors and do not interrupt the loop over items
                         if (!item['HasAssignments']) continue //checks if item has assignments --> it could have also different assignments
-                        hasAssignmentsCheck = true
                         //item identity data
                         itemId = (item['_localId'] as FRAGS.ItemAttribute).value ? (item['_localId'] as FRAGS.ItemAttribute).value : 'nd'
                         itemName = (item['Name'] as FRAGS.ItemAttribute).value ? (item['Name'] as FRAGS.ItemAttribute).value : 'nd'
@@ -3081,6 +3079,7 @@ export function MainViewer () {
                     </div>
                 `
             })
+            const hasCostItemsCheck = dynamicCostTable.data.length > 0
             const elementXCostPanel = BUI.Component.create<BUI.Panel>(() => {
                 return BUI.html`
                 <bim-panel style="background:none; height:100%; min-height:0;">
@@ -3102,8 +3101,9 @@ export function MainViewer () {
             })
 
             panelDown.innerHTML=''
-            hasAssignmentsCheck ? panelDown.appendChild(elementXCostPanelControls) : null
-            hasAssignmentsCheck ? panelDown.appendChild(elementXCostPanel) : panelDown.appendChild(noCostItemsLabel)
+
+            hasCostItemsCheck ? panelDown.appendChild(elementXCostPanelControls) : null
+            hasCostItemsCheck ? panelDown.appendChild(elementXCostPanel) : panelDown.appendChild(noCostItemsLabel)
             const gridLayout = floatingGrid.layout as any
             if (!gridLayout.includes('down')){
                 onSetLayout({target:'down'})
@@ -3382,7 +3382,7 @@ export function MainViewer () {
         })
 
         const panelDownHeight = '50%'
-        const panelLeftWidth = '25%'
+        const panelLeftWidth = '25.5%'
         const panelRightWidth = '25%'
         const left_right = {
                 template: `
