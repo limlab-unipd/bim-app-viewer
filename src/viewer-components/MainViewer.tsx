@@ -36,6 +36,8 @@ export function MainViewer () {
         const ifcLoader = components.get(OBC.IfcLoader)
         const fragments = components.get(OBC.FragmentsManager)
         const hider = components.get(OBC.Hider)
+        const clipper = components.get(OBC.Clipper)
+        const casters = components.get(OBC.Raycasters)
         
         let previousSelection: OBC.ModelIdMap
 
@@ -64,6 +66,13 @@ export function MainViewer () {
         // #region COPONENTS GENERAL SETUP
         //INITIALIZE ALL COMPONENTS
         components.init()
+        casters.get(world)
+        clipper.enabled = true
+        container.ondblclick = () => {
+            if (clipper.enabled) {
+                clipper.create(world)
+            }
+        }
 
         const grids = components.get(OBC.Grids)
         const grid = grids.create(world)
@@ -133,6 +142,12 @@ export function MainViewer () {
             const isShadowMaterial = "isShadowMaterial" in material && material.isShadowMaterial
             if (isShadowMaterial) {
                 world.renderer!.postproduction.basePass.isolatedMaterials.push(material)
+            }
+            // Remove z fighting
+            if (!("isLodMaterial" in material && material.isLodMaterial)) {
+                material.polygonOffset = true;
+                material.polygonOffsetUnits = 1;
+                material.polygonOffsetFactor = Math.random();
             }
         })
         // #endregion
@@ -548,30 +563,6 @@ export function MainViewer () {
                     label.style.display = "none";
                 }, 4000); // Nasconde dopo 4 secondi
             }
-        }
-        // tutto ciò serve solo per far tornare a bianco il colore della label quando il context menu con le informazioni della risorsa viene chiuso cliccando fuori,
-        // altrimenti rimarrebbe evidenziata la riga della tabella anche dopo la chiusura del menu
-        const contextMenuOutsideClickHandlers = new WeakMap<BUI.Label, EventListener>()
-        const clearContextMenuHighlight = (label: BUI.Label) => {
-            label.style.removeProperty('color')
-            const registeredHandler = contextMenuOutsideClickHandlers.get(label)
-            if (registeredHandler) {
-                document.removeEventListener('click', registeredHandler, true)
-                contextMenuOutsideClickHandlers.delete(label)
-            }
-        }
-        const registerContextMenuOutsideClick = (label: BUI.Label) => {
-            const previousHandler = contextMenuOutsideClickHandlers.get(label)
-            if (previousHandler) {
-                document.removeEventListener('click', previousHandler, true)
-            }
-            const outsideClickHandler: EventListener = (event) => {
-                const target = event.target as Node | null
-                if (target && label.contains(target)) return
-                clearContextMenuHighlight(label)
-            }
-            contextMenuOutsideClickHandlers.set(label, outsideClickHandler)
-            document.addEventListener('click', outsideClickHandler, true)
         }
         // #endregion
 
@@ -1131,18 +1122,34 @@ export function MainViewer () {
                         if (!ElementName && !ElementIfcClass) {
                             return BUI.html`
                                 <bim-label
-                                    @mouseover=${({target}:{target:BUI.Label}) => {
-                                        const contextMenu = target.querySelector<BUI.ContextMenu>('bim-context-menu')
+                                    @mouseover=${({currentTarget}: {currentTarget: BUI.Label}) => {
+                                        const label = currentTarget
+                                        const contextMenu = label.querySelector<BUI.ContextMenu>('bim-context-menu')
                                         if (!contextMenu) return
                                         contextMenu.visible = true
-                                        target.style.color = "rgba(36, 241, 234, 1)"
-                                        registerContextMenuOutsideClick(target)
-                                    }}
-                                    @mouseleave=${({target}:{target:BUI.Label}) => {
-                                        // target.style.removeProperty('color')
+                                        label.style.color = "rgba(36, 241, 234, 1)"
+
+                                        const closeWhenPointerLeavesLabel = (event: PointerEvent) => {
+                                            const rect = label.getBoundingClientRect()
+                                            const isStillOverLabel =
+                                                event.clientX >= rect.left &&
+                                                event.clientX <= rect.right &&
+                                                event.clientY >= rect.top &&
+                                                event.clientY <= rect.bottom
+
+                                            if (isStillOverLabel) return
+
+                                            label.style.removeProperty('color')
+                                            BUI.ContextMenu.removeMenus()
+                                            document.removeEventListener('pointermove', closeWhenPointerLeavesLabel, true)
+                                        }
+
+                                        requestAnimationFrame(() => {
+                                            document.addEventListener('pointermove', closeWhenPointerLeavesLabel, true)
+                                        })
                                     }}>
                                     ${value}
-                                    <bim-context-menu id="bim-context-menu-resource" style="max-width: 30rem; padding: 0.75rem;">
+                                    <bim-context-menu id="bim-context-menu-resource" style="max-width: 30rem; padding: 0.75rem;" class="blur-background-context-menu">
                                         <bim-label style="display: block; width:20rem; white-space: normal; overflow-wrap: break-word;">
                                             ${resourceCostPerGroupedTable[value]?.resourceUnitCost ? `Unit Cost: ${resourceCostPerGroupedTable[value].resourceUnitCost}` : 'No unit cost available'}
                                         </bim-label>
@@ -2868,18 +2875,31 @@ export function MainViewer () {
                     if (!ElementName && !ElementIfcClass) {
                         return BUI.html`
                             <bim-label
-                                @click=${async () => { 
-                                    onOpenPriceAnalysis(totalCostPerGroupedTable[value].ComponentsValue, value, totalCostPerGroupedTable[value].costItemDescription, totalCostPerGroupedTable[value].costItemUnitCost)
-                                }}
-                                @mouseover=${({target}:{target:BUI.Label}) => {
-                                    const contextMenu = target.querySelector<BUI.ContextMenu>('bim-context-menu')
+                                @mouseover=${({currentTarget}: {currentTarget: BUI.Label}) => {
+                                    const label = currentTarget
+                                    const contextMenu = label.querySelector<BUI.ContextMenu>('bim-context-menu')
                                     if (!contextMenu) return
                                     contextMenu.visible = true
-                                    target.style.color = "rgba(36, 241, 234, 1)"
-                                    registerContextMenuOutsideClick(target)
-                                }}
-                                @mouseleave=${({target}:{target:BUI.Label}) => {
-                                    // target.style.removeProperty('color')
+                                    label.style.color = "rgba(36, 241, 234, 1)"
+
+                                    const closeWhenPointerLeavesLabel = (event: PointerEvent) => {
+                                        const rect = label.getBoundingClientRect()
+                                        const isStillOverLabel =
+                                            event.clientX >= rect.left &&
+                                            event.clientX <= rect.right &&
+                                            event.clientY >= rect.top &&
+                                            event.clientY <= rect.bottom
+
+                                        if (isStillOverLabel) return
+
+                                        label.style.removeProperty('color')
+                                        BUI.ContextMenu.removeMenus()
+                                        document.removeEventListener('pointermove', closeWhenPointerLeavesLabel, true)
+                                    }
+
+                                    requestAnimationFrame(() => {
+                                        document.addEventListener('pointermove', closeWhenPointerLeavesLabel, true)
+                                    })
                                 }}>
                                 ${value}
                                 <bim-context-menu id="bim-context-menu-resource" style="max-width: 30rem; padding: 0.75rem;">
@@ -3255,15 +3275,33 @@ export function MainViewer () {
                     ></bim-button>
                 </bim-toolbar-section>
                 <bim-toolbar-section label="Samples">
-                    <bim-dropdown verical placeholder="Load...">
-                        <bim-option>
-                            <bim-button
-                                icon="fluent:building-48-regular"
-                                label="Sample Partial Building"
-                                @click=${() => {
-                                        loadFragmentFile("/FRAG/Sample_totalCostAndPriceAnalysis.frag")
-                                    }}>
-                            </bim-button>
+                    <bim-dropdown placeholder="Load..." style="align-items: flex-start;">
+                        <bim-option
+                            style="padding:0 10px 0 10px"
+                            icon="boxicons:building-small"
+                            label="Sample ARC Small"
+                            @click=${async ({target}:{target:BUI.Option}) => {
+                                    await loadFragmentFile("/FRAG/Sample_ARC_small.frag")
+                                    target.checked = false
+                                }}>
+                        </bim-option>
+                        <bim-option
+                            style="padding:0 10px 0 10px"
+                            icon="lucide:building"
+                            label="Sample ARC Medium"
+                            @click=${async ({target}:{target:BUI.Option}) => {
+                                    await loadFragmentFile("/FRAG/Sample_ARC_medium.frag")
+                                    target.checked = false
+                                }}>
+                        </bim-option>
+                        <bim-option
+                            style="padding:0 10px 0 10px"
+                            icon="ph:pipe-light"
+                            label="Sample MEP"
+                            @click=${async ({target}:{target:BUI.Option}) => {
+                                    await loadFragmentFile("/FRAG/Sample_MEP.frag")
+                                    target.checked = false
+                                }}>
                         </bim-option>
                     </bim-dropdown>
                 </bim-toolbar-section>
@@ -3306,20 +3344,32 @@ export function MainViewer () {
                     <bim-button
                         id="left"
                         icon="mynaui:panel-left-open"
-                        tooltip-title="Open/Close left panel"
-                        @click=${onSetLayout}>
+                        tooltip-title="Open left panel"
+                        @click=${({target}: { target: BUI.Button}) => {
+                            onSetLayout({target: target.id})
+                            target.icon = target.icon?.includes('open') ? 'mynaui:panel-left-close' : 'mynaui:panel-left-open'
+                            target.tooltipTitle = target.tooltipTitle?.includes('Open') ? 'Close left panel' : 'Open left panel'
+                        }}>
                     </bim-button>
                     <bim-button
                         id="down"
                         icon="mynaui:panel-bottom-open"
-                        tooltip-title="Open/Close bottom panel"
-                        @click=${onSetLayout}>
+                        tooltip-title="Open bottom panel"
+                        @click=${({target}: { target: BUI.Button}) => {
+                            onSetLayout({target: target.id})
+                            target.icon = target.icon?.includes('open') ? 'mynaui:panel-bottom-close' : 'mynaui:panel-bottom-open'
+                            target.tooltipTitle = target.tooltipTitle?.includes('Open') ? 'Close bottom panel' : 'Open bottom panel'
+                        }}>
                     </bim-button>
                     <bim-button
                         id="right"
                         icon="mynaui:panel-right-open"
-                        tooltip-title="Open/Close right panel"
-                        @click=${onSetLayout}>
+                        tooltip-title="Open right panel"
+                        @click=${({target}: { target: BUI.Button}) => {
+                            onSetLayout({target: target.id})
+                            target.icon = target.icon?.includes('open') ? 'mynaui:panel-right-close' : 'mynaui:panel-right-open'
+                            target.tooltipTitle = target.tooltipTitle?.includes('Open') ? 'Close right panel' : 'Open right panel'
+                        }}>
                     </bim-button>
                 </bim-toolbar-section>
                 <bim-toolbar-section label="Selection">
@@ -3366,10 +3416,40 @@ export function MainViewer () {
                         @click=${onResetVisibility}
                     ></bim-button>
                 </bim-toolbar-section>
+                <bim-toolbar-section label="Clipping">
+                    <bim-button
+                        id="disable-clipper"
+                        tooltip-title="Disable clipping planes"
+                        tooltip-text="Double-click on a surface to place a plane"
+                        icon="bi:pause-btn"
+                        @click=${({target}: { target: BUI.Button}) => { 
+                            if (target.id === 'enable-clipper') {
+                                clipper.enabled = true 
+                                clipper.visible = true
+                                target.id = 'disable-clipper'
+                                target.tooltipTitle = "Disable clipping planes"
+                                target.icon = "bi:pause-btn"
+                            } else {
+                                clipper.enabled = false
+                                clipper.visible = false
+                                target.id = 'enable-clipper'
+                                target.tooltipTitle = "Enable clipping planes"
+                                target.icon = "bi:play-btn"
+                            }
+                        }}
+                    ></bim-button>
+                    <bim-button
+                        tooltip-title="Delete all clipping planes"
+                        icon="streamline:delete-keyboard-remix"
+                        @click=${() => {
+                            clipper.deleteAll() 
+                        }}
+                    ></bim-button>
+                </bim-toolbar-section>
                 <bim-toolbar-section label="5D">
                     <bim-button
                         id='elementXCostButton'
-                        tooltip-title="Show costs of selected elements"
+                        tooltip-title="Show costs of selection"
                         icon="fontisto:dollar"
                         @click=${async ()=>{
                             await onOpenElementXCostPanel()
