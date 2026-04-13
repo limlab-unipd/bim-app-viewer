@@ -401,7 +401,8 @@ export function MainViewer () {
         const onExpandTable = (e: Event, table:BUI.Table<any>) => {
             const button = e.target as BUI.Button;
             table.expanded = !table.expanded;
-            button.label = table.expanded ? "Collapse" : "Expand";
+            button.tooltipTitle = table.expanded ? "Collapse" : "Expand";
+            button.icon = table.expanded ? "si:expand-less-fill" : "si:expand-more-fill";
         }
         
         const onSortDynamicTable = (table:BUI.Table<any>, field:string, ascending:boolean=true, totalCostPerGroupedTable: {[group: string]: {cost: number}}) => {
@@ -1256,7 +1257,7 @@ export function MainViewer () {
                     return BUI.html`
                         <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px 10px 5px 10px'})}>
                             <div style="display: flex; gap: 0.5rem;">
-                                <bim-button @click=${(e:Event) => onExpandTable(e,dynamicResourceTable)} label=${dynamicResourceTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                                <bim-button @click=${(e:Event) => onExpandTable(e,dynamicResourceTable)} tooltip-title=${dynamicResourceTable.expanded ? "Collapse" : "Expand" } icon=${dynamicResourceTable.expanded ? "si:expand-less-fill" : "si:expand-more-fill"} style="max-width:fit-content"></bim-button>
                                 <bim-label>Group by:</bim-label>
                                 <bim-button @click=${({target}:{target:BUI.Button}) => {
                                     onCreateResourceChart_IfcClass()
@@ -2197,7 +2198,7 @@ export function MainViewer () {
                         <bim-button @click=${(e:Event) => {onLoadRelationsTable(),onSetGroupingBtnColor(e.target as BUI.Button)}} ${BUI.ref((el) => {btn_Relations = el as BUI.Button})} id="groupingPropsBtn-Relations" label="Relations" icon="flowbite:link-outline" style="flex:1"></bim-button>
                     </div>
                     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                        <bim-button @click=${(e:Event) => onExpandTable(e,dynamicPropertiesTable)} label=${dynamicPropertiesTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                        <bim-button @click=${(e:Event) => onExpandTable(e,dynamicPropertiesTable)} tooltip-title=${dynamicPropertiesTable.expanded ? "Collapse" : "Expand"} icon=${dynamicPropertiesTable.expanded ? "si:expand-less-fill" : "si:expand-more-fill"} style="max-width:fit-content"></bim-button>
                         <bim-button @click=${async () => {
                             const guid = await fragments.modelIdMapToGuids(highlighter.selection.select)
                             if (guid.length==1){
@@ -2205,9 +2206,9 @@ export function MainViewer () {
                             } else {
                                 await navigator.clipboard.writeText(guid.join(','))
                             }
-                        }} label="Guids" tooltip-text="Copy IfcGuids to clipboard. Multiple Guids are separated by a comma." style="max-width:fit-content; z-index:1000"></bim-button>
+                        }} icon='uil:copy' tooltip-text="Copy IfcGlobalIds of selected elements to clipboard" style="max-width:fit-content; z-index:100"></bim-button>
                         <bim-text-input @input=${(e:Event)=>{onSearch(e,dynamicPropertiesTable)}} placeholder="Search..." debounce="200"></bim-text-input>
-                    </div>
+                    </div>\
                     <bim-label ${BUI.ref((el) => {loadingLabelProps = el as BUI.Label})} style="display:none; padding:20px">Loading...</bim-label>
                     ${dynamicPropertiesTable}
                 </bim-panel-section>
@@ -2247,7 +2248,7 @@ export function MainViewer () {
             }
             return BUI.html`
             <bim-panel-section
-                label="Select elements by IfcGuid",
+                label="Select elements by IfcGlobalId",
                 icon="material-symbols:highlight-mouse-cursor-rounded"
                 >
                 <bim-label>
@@ -2256,7 +2257,7 @@ export function MainViewer () {
                 <div style="display:flex; flex-direction:row; gap:0.5rem">
                     <bim-text-input
                         id="search-by-guid",
-                        placeholder="Type elements IfcGuid..."
+                        placeholder="Type elements IfcGlobalId..."
                     >
                     </bim-text-input>
                     <bim-button
@@ -2412,13 +2413,13 @@ export function MainViewer () {
             return BUI.html`
                 <bim-button 
                     @click=${(e:Event) => {
-                        if ((e.target as BUI.Button).label=='Normal'){
+                        if ((e.target as BUI.Button).label=='Percentile'){
                             (e.target as BUI.Button).label = 'Cost';
                             (e.target as BUI.Button).icon = 'mynaui:dollar-square'
-                            rangeInputMax.max = 1000000
-                            rangeInputMin.max = 999999
+                            rangeInputMax.max = 100000
+                            rangeInputMin.max = 99999
                             rangeInputMax.min = 1
-                            rangeInputMax.value = 1000000
+                            rangeInputMax.value = 100000
                             rangeInputMax.step = 10
                             rangeInputMin.step = 10
                             rangeInputMax.suffix = '$'
@@ -2426,7 +2427,7 @@ export function MainViewer () {
                             rangeInputMax.sensitivity = 100
                             rangeInputMin.sensitivity = 100
                         } else {
-                            (e.target as BUI.Button).label = 'Normal';
+                            (e.target as BUI.Button).label = 'Percentile';
                             (e.target as BUI.Button).icon = 'ant-design:field-binary-outlined'
                             rangeInputMax.max = 1
                             rangeInputMin.max = 0.99
@@ -2440,7 +2441,7 @@ export function MainViewer () {
                             rangeInputMin.sensitivity = 0.3
                         }
                     }} 
-                    label='Normal'
+                    label='Percentile'
                     tooltip-text='Click to filter elements using range between 0 and 1 or the cost itself'
                     style='width:8.12rem'
                     icon='ant-design:field-binary-outlined'
@@ -3008,7 +3009,7 @@ export function MainViewer () {
                 return BUI.html`
                     <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px 10px 5px 10px'})}>
                         <div style="display: flex; gap: 0.5rem;">
-                            <bim-button @click=${(e:Event) => onExpandTable(e,dynamicCostTable)} label=${dynamicCostTable.expanded ? "Collapse" : "Expand"} style="max-width:fit-content"></bim-button>
+                            <bim-button @click=${(e:Event) => onExpandTable(e,dynamicCostTable)} tooltip-title=${dynamicCostTable.expanded ? "Collapse" : "Expand"} icon=${dynamicCostTable.expanded ? "si:expand-less-fill" : "si:expand-more-fill"} style="max-width:fit-content"></bim-button>
                             <bim-label>Group by:</bim-label>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
                                 onCreateChart_IfcClass()
@@ -3262,13 +3263,13 @@ export function MainViewer () {
                     </bim-button>
                     <bim-button
                         id='screenshot'
-                        icon="streamline-flex:screenshot-solid"
+                        icon="material-symbols:add-a-photo-outline-rounded"
                         tooltip-title="Screenshot"
                         @click=${takeScreenshot}>
                     </bim-button>
                     <bim-button
                         tooltip-title="Center View"
-                        icon="material-symbols:center-focus-weak"
+                        icon="mdi:image-filter-centre-focus"
                         @click=${async ()=>{
                             await world.camera.controls.setLookAt(30,30,30,0,0,0)
                         }}
