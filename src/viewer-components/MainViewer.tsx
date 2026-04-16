@@ -649,10 +649,16 @@ export function MainViewer () {
                 }
             }
             if (!final_costitem_ids || Object.keys(final_costitem_ids).length == 0) { //return the function if any cost item is found and print the message in the panel
-                panelDown.innerHTML = `
-                    <bim-label style="padding:1rem; padding-bottom:0.25rem;"><strong>Any COST ITEM related to:</strong></bim-label>
-                    <bim-label style="display:flex; padding:1rem; padding-top:0px; white-space:normal">${category.join(", ").replace("ALL IFC CLASSES, ", "")}.</bim-label>
-                `
+                if (limitSelection) {
+                    panelDown.innerHTML = `
+                        <bim-label style="padding:1rem; padding-bottom:0.25rem;"><strong>ATTENTION: "Limit to selected elements" setting is enabled BUT no elements are selected</strong></bim-label>
+                    `
+                } else {
+                    panelDown.innerHTML = `
+                        <bim-label style="padding:1rem; padding-bottom:0.25rem;"><strong>Any COST ITEM related to:</strong></bim-label>
+                        <bim-label style="display:flex; padding:1rem; padding-top:0px; white-space:normal">${category.join(", ").replace("ALL IFC CLASSES, ", "")}.</bim-label>
+                    `
+                }
                 updateCountLabel({countItems:0, countCostItems:0, countResources:0})
                 return
             }
@@ -2405,6 +2411,13 @@ export function MainViewer () {
                     label='Limit to selected elements'
                     tooltip-text='Click to limit the filter to the currently selected elements'
                     icon='hugeicons:cursor-circle-selection-01'
+                    @change=${(e:Event) => {
+                        if ((e.target as BUI.Checkbox).checked){
+                            categoriesDropdown.style.display = 'none'
+                        } else {
+                            categoriesDropdown.style.display = ''
+                        }
+                    }}
                 >
                 </bim-checkbox>
             `
@@ -2457,6 +2470,7 @@ export function MainViewer () {
                     icon = "ic:round-format-color-fill">
                     ${colorScaleDropdown}
                     ${resourcesDropdown}
+                    ${limitToSelection}
                     ${categoriesDropdown}
                     ${unitMeasureDropdown}
                     <div style="display:flex; gap: 1rem; align-items:center">
@@ -2477,7 +2491,6 @@ export function MainViewer () {
                             </div>
                         </div>
                     </div>
-                    ${limitToSelection}
                     ${countLabel}
                     <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
                         <bim-button label='Color' @click=${onColorByCost}></bim-button>
