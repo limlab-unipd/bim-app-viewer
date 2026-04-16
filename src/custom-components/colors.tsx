@@ -178,7 +178,7 @@ export const setHighlighterStyles = (components:OBC.Components, colorscale:strin
  * @param NormalOrCost - Specifies whether the range refers to normalized values (0–1) or to actual cost values before normalization
  * @returns Tuple: [mapping of keys to color strings, mapping of keys to normalized values]
  */
-export function normalizeAndMapToColor (map: Record<string, number>, colorscale: string = 'gnylrd', rangeMin: number, rangeMax: number, InInterval: string = 'Inside', NormalOrCost: string = 'Normal'): [Record<string, string>, Record<string, number>] {
+export function normalizeAndMapToColor (map: Record<string, number>, colorscale: string = 'gnylrd', rangeMin: number, rangeMax: number, InInterval: string = 'Inside', NormalOrCost: string = 'Percentile'): [Record<string, string>, Record<string, number>] {
     const colorScale = colorScaleList[colorscale];
 
     // Normalizzazione dei valori
@@ -196,7 +196,7 @@ export function normalizeAndMapToColor (map: Record<string, number>, colorscale:
     //      - rangeMin and rangeMax values
     //      - values inside or outside the selected range (rangeMin, rangeMax)
     //      - rangeMin and rangeMax refers to normalized values (0–1) or to actual cost values before normalization
-    if (NormalOrCost == 'Normal'){ // if the range uses normalized values
+    if (['Percentile','Normal'].includes(NormalOrCost)){ // if the range uses normalized values
         for (const [key, value] of Object.entries(map)) {
             temporaryResultNormalized[key] = (value - min) / range; // Normalization of all values
         }
@@ -274,9 +274,11 @@ export function groupIdsByNormalizedValuePerModel(components:OBC.Components, nor
             color_08_1: []
         }
         for (const id of Object.keys(elements)) {
-        const value = normalizedData[id];
+            const value = normalizedData[id];
+            console.log(value)
             if (value !== undefined) {
                 const color = colorForValue(value);
+                console.log(color)
                 if (color) {
                     grouped[color].push(id);
                 }

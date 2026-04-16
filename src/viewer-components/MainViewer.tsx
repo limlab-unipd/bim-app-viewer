@@ -1514,7 +1514,7 @@ export function MainViewer () {
                     }
                     const endTime_8 = performance.now(); // End timer
                     const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
-                    console.log(`TIME ${loadTime_8} s: color elements using ranges color map (> 100 items)`);
+                    console.log(`TIME ${loadTime_8} s: color elements using ranges color map (> 100 items)`)
                     
                     const startTime_5 = performance.now(); // Start timer
                     const norm = normalization == 'Volume' ? true : false
