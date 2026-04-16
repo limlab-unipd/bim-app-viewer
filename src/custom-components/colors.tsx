@@ -274,13 +274,11 @@ export function groupIdsByNormalizedValuePerModel(components:OBC.Components, nor
             color_08_1: []
         }
         for (const id of Object.keys(elements)) {
-            const value = normalizedData[id];
-            console.log(value)
+            const value = normalizedData[id]
             if (value !== undefined) {
-                const color = colorForValue(value);
-                console.log(color)
+                const color = colorForValue(value)
                 if (color) {
-                    grouped[color].push(id);
+                    grouped[color].push(id)
                 }
             }
         }
