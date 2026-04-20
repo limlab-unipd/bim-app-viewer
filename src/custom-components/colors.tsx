@@ -188,7 +188,7 @@ export function normalizeAndMapToColor (map: Record<string, number>, colorscale:
     const range = max - min || 1;
 
     const result: Record<string, string> = {};
-    const temporaryResultNormalized: Record<string, number> = {};
+    const tempResultNormalized: Record<string, number> = {};
     const resultNormalized: Record<string, number> = {};
     let filteredEntries: [string, number][] = []
     
@@ -198,10 +198,10 @@ export function normalizeAndMapToColor (map: Record<string, number>, colorscale:
     //      - rangeMin and rangeMax refers to normalized values (0–1) or to actual cost values before normalization
     if (['Percentile','Normal'].includes(NormalOrCost)){ // if the range uses normalized values
         for (const [key, value] of Object.entries(map)) {
-            temporaryResultNormalized[key] = (value - min) / range; // Normalization of all values
+            tempResultNormalized[key] = (value - min) / range; // Normalization of all values
         }
         // Filter elements according to normalized choosen range
-        filteredEntries = Object.entries(temporaryResultNormalized).filter(([, normalized]) => {
+        filteredEntries = Object.entries(tempResultNormalized).filter(([, normalized]) => {
             return InInterval == 'Inside' ? (normalized >= rangeMin && normalized <= rangeMax) : (normalized < rangeMin || normalized > rangeMax) // if the range is inside or outside
         })
     } else { // if the range refers to the cost value
@@ -211,9 +211,9 @@ export function normalizeAndMapToColor (map: Record<string, number>, colorscale:
             } else { // if the range is outside
                 if (value>=rangeMin && value<=rangeMax) continue // exclude if the cost item is inside
             }
-            temporaryResultNormalized[key] = (value - min) / range // normalize the cost value if it passed the previous checks
+            tempResultNormalized[key] = (value - min) / range // normalize the cost value if it passed the previous checks
         }
-        filteredEntries = Object.entries(temporaryResultNormalized) // extract values in the final structure
+        filteredEntries = Object.entries(tempResultNormalized) // extract values in the final structure
     }
 
     // if no cost items respect the filters, return the function

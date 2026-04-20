@@ -615,7 +615,14 @@ export function MainViewer () {
             ])
 
             // ora è possibile colorare solo gli elementi selezionati se la spunta per questo filtro è attiva
+            const modelsList = Array.from(fragments.list.keys())
             let final_costitem_ids: OBC.ModelIdMap | undefined = {}
+            modelsList.forEach((model) => {
+                if (final_costitem_ids) {
+                    final_costitem_ids[model] = new Set<number>()
+                }
+            }) //initialize the map with empty sets for each model --> needed to transparency other models if do not have cost items
+
             if (limitSelection) {
                 const selection = highlighter.selection.select
                 const selectionData = await fragments.getData(selection, { relations: { 'HasAssignments': { attributes: true, relations: false } } })
@@ -643,11 +650,6 @@ export function MainViewer () {
                 console.log(`TIME ${loadTime_1} s: find localIds of all cost items related to selected categories`);
             }
 
-            for (const key in final_costitem_ids) { //remove models if there is any founded cost item
-                if (final_costitem_ids[key] instanceof Set && final_costitem_ids[key].size === 0) {
-                    delete final_costitem_ids[key];
-                }
-            }
             if (!final_costitem_ids || Object.keys(final_costitem_ids).length == 0) { //return the function if any cost item is found and print the message in the panel
                 if (limitSelection) {
                     panelDown.innerHTML = `
@@ -1382,7 +1384,6 @@ export function MainViewer () {
                 const model_volume_map: {[key:string]:any} = {}
                 const model_cost_map: {[key:string]:any} = {}
                 const model_costCount_map: {[key:string]:any} = {}
-                const model_category_map: {[key:string]:any} = {}
                 const getLocalId = (item: any) => item?._localId?.value as number | undefined
                 const mapItemsByLocalId = (items: any[] = []) => {
                     const itemsMap: {[key:number]:any} = {}
@@ -1447,11 +1448,9 @@ export function MainViewer () {
                         category_item_totalCost_map[itemCategory][itemId] ? category_item_totalCost_map[itemCategory][itemId]+=costItemCost : category_item_totalCost_map[itemCategory][itemId]=costItemCost
                     }
                     model_cost_map[model] = Object.assign({}, ...Object.values( category_item_totalCost_map )) //remove category level and flat the map
-                    model_category_map[model] = category_item_totalCost_map
                     model_volume_map[model] = item_volume_map
                 }
 
-                //const model_category_map_flat = flattenModelMap(model_category_map)
                 const model_cost_map_flat = flattenModelMap(model_cost_map)
                 const model_volume_map_flat = flattenModelMap(model_volume_map)
 
