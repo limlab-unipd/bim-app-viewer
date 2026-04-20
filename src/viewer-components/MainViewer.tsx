@@ -3622,7 +3622,7 @@ export function MainViewer () {
         world.renderer.onAfterUpdate.add(() => stats.end())
     }
 
-    // #region FINAL PART
+    //#region FINAL PART
     React.useEffect(() => {
         setViewer() //set the viewer, devMode default = false
         return () => {
@@ -3651,5 +3651,5 @@ export function MainViewer () {
             />
         </>
     )
-    // #endregion
+    //#endregion
 }
