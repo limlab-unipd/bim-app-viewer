@@ -110,8 +110,19 @@ export const colorRangeKeys: Record<string, string[]> = Object.fromEntries(
     ])
 );
 
-export const getColorRangeKeyByValue = (colorValue: string): string | undefined => {
+export const getColorRangeKeyByColorValue = (colorValue: string): string | undefined => {
     return Object.keys(colorRangeKeys).find((rangeKey) => colorRangeKeys[rangeKey].includes(colorValue));
+};
+
+export const getNormalizedValueFromColor = (color: string, colorscale: string = 'gnylrd'): number | undefined => {
+    const scale = colorScaleList[colorscale];
+    if (!scale) return undefined;
+    for (const [position, scaleColor] of scale) {
+        if (scaleColor === color) {
+            return position;
+        }
+    }
+    return undefined;
 };
 
 export const setHighlighterStyles = (components:OBC.Components, colorscale:string='gnylrd', lod:number, viewer:string='cost') => {

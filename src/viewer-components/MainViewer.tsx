@@ -3,12 +3,12 @@ import * as OBC from '@thatopen/components'
 import * as BUI from '@thatopen/ui'
 import * as FRAGS from '@thatopen/fragments'
 import * as BUIC from '@thatopen/ui-obc'
-import * as WEBIFC from 'web-ifc'
+//import * as WEBIFC from 'web-ifc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
 import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-converter'
 import { convertCurrency, convertUnits } from '../custom-components/conversion'
-import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel, getColorRangeKeyByValue } from '../custom-components/colors'
+import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel, getColorRangeKeyByColorValue, getNormalizedValueFromColor } from '../custom-components/colors'
 import Stats, { Panel } from 'stats.js'
 
 
@@ -97,9 +97,9 @@ export function MainViewer () {
                 renderedFaces: 0,
             },
         })
-        highlighter.events.select.onHighlight.add((modelIdMap) => {
+        highlighter.events.select.onClear.add((modelIdMap) => {
             previousSelection = structuredClone(modelIdMap)
-        });
+        })
         highlighter.styles.set('transparent', {
             // you can change this to define the color of your highligthing
             color: new THREE.Color("rgba(123, 123, 123, 1)"),
@@ -199,7 +199,7 @@ export function MainViewer () {
             //THIS IS THE MOST FUNDAMENTAL THING FOR ADDING CLASSES TO IMPORT.
             //FRAGMENTS 2.0 DOES NOT IMPORT BY DEFAULT ALL THE IFC CLASSES
             //These addAllAttributes and addAllRelations methods were added in new versions of fragments to import everything from IFC schema
-            await ifcLoader.load(
+            const model = await ifcLoader.load(
                 buffer,
                 true, //coordinate model
                 name,
@@ -210,6 +210,9 @@ export function MainViewer () {
                     }
                 }
             )
+            // model.getClippingPlanesEvent = () => {
+            //     return Array.from(world.renderer!.three.clippingPlanes) || [];
+            // };
             const endTime = performance.now(); // End timer
             const loadTime = ((endTime - startTime) / 1000).toFixed(2); // seconds
             console.log(`${name} IFC model loaded in ${loadTime} seconds`);
@@ -243,7 +246,10 @@ export function MainViewer () {
             if (modelId) {
                 const file = await fetch(path)
                 const buffer = await file.arrayBuffer()
-                await fragments.core.load(buffer, { modelId: modelId })
+                const model = await fragments.core.load(buffer, { modelId: modelId })
+                // model.getClippingPlanesEvent = () => {
+                //     return Array.from(world.renderer!.three.clippingPlanes) || [];
+                // };
             }
             const endTime = performance.now() // End timer
             const loadTime = ((endTime - startTime) / 1000).toFixed(2) // seconds
@@ -292,6 +298,11 @@ export function MainViewer () {
             const itemdata = await fragments.getData(selection) //frags.itemdata -> attributes, guid and expid (localId)
             console.log("ItemData: ", itemdata)
         }
+        fragments.list.onItemSet.add(({value:model}) => {
+            model.getClippingPlanesEvent = () => {
+                return Array.from(world.renderer!.three.clippingPlanes) || [];
+            }
+        })
 
         //generic functions
         //Visibility
@@ -683,7 +694,7 @@ export function MainViewer () {
                 //initialize some maps needed for the process
                 const model_resources_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
                 const model_costCount_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
-                const category_elements_map: {[key:string]:any} = {} //map to associate to each category the related elements
+                const elementsData_Array: any[] = [] //array to stock data of each element to be shown in the table
                 const elem_resourcesDetails_Map: {[key:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string, resourceName:string}[]} = {} //resource details object
                 const getLocalId = (item: any) => item?._localId?.value as number | undefined
                 const mapItemsByLocalId = (items: any[] = []) => {
@@ -832,7 +843,7 @@ export function MainViewer () {
                     }
                     //step 3: organize elements by category in a new object
                     // this map is needed only for creating the table
-                    const startTime_catElemMap = performance.now(); // Start timer
+                    const startTime_elementsArray = performance.now(); // Start timer
                     for (const [elemId,resourceCost] of Object.entries(elem_resources_Map)){ //loop over each element id and its total resource cost
                         const item = [modelItemsById[Number(elemId)]]
                         if (!item[0]) continue //checks if the item exists
@@ -842,12 +853,13 @@ export function MainViewer () {
                             elemName: (item as any)[0]['Name'].value,
                             totalResourceCost: resourceCost,
                             currency: resourceCurrency,
+                            category: (item as any)[0]['_category'].value
                         }
-                        category_elements_map[(item as any)[0]['_category'].value] ? category_elements_map[(item as any)[0]['_category'].value].push(elemData) : category_elements_map[(item as any)[0]['_category'].value] = [elemData]
+                        elementsData_Array.push(elemData)
                     }
-                    const endTime_catElemMap = performance.now(); // End timer
-                    const loadTime_catElemMap = ((endTime_catElemMap - startTime_catElemMap) / 1000).toFixed(2); // seconds
-                    console.log(`TIME ${loadTime_catElemMap} s: category_elements_map`)
+                    const endTime_elementsArray = performance.now(); // End timer
+                    const loadTime_elementsArray = ((endTime_elementsArray - startTime_elementsArray) / 1000).toFixed(2); // seconds
+                    console.log(`TIME ${loadTime_elementsArray} s: elementsData_Array`)
                     //step 4: associate to each model the map of element id and total resource cost
                     //category map is not needed here, because this one is used for selecting and color elements
                     model_resources_Map[model] = elem_resources_Map
@@ -905,30 +917,28 @@ export function MainViewer () {
                 let countItems = 0, countResources = 0, countCostItems = 0
                 //this works with more models because this map does not divide items by model
                 //so the table is correctly created
-                for (const [cat,elements] of Object.entries(category_elements_map)) {
-                    for (const elem of elements) {
-                        if (!Object.keys(colorMap).includes(elem.elemId.toString())) continue //checks if the item id is outside of the selected form the range or not
-                        countItems += 1
-                        countCostItems += model_costCount_Map_flat[elem.elemId] //sum all the count of cost items only of the items within the range
-                        
-                        for (const resourceDetails of elem_resourcesDetails_Map[elem.elemId]){
-                            countResources += 1
-                            dynamicResourceTable.data.push({
-                                data: {
-                                    Model: elem.elemModel,
-                                    ItemId: elem.elemId,
-                                    ElementName: elem.elemName,
-                                    ElementIfcClass: cat,
-                                    ResourceName: resourceDetails.resourceName,
-                                    ResourceDescription: resourceDetails.resourceDescription,
-                                    ResourceCost: `${Math.round((Number(resourceDetails.resourceUnitCost.split(' ')[0])*Number(resourceDetails.elemQuantity.split(' ')[0]))*100)/100} ${elem.currency}`,
-                                    ResourceCostRange: getColorRangeKeyByValue(colorMap[elem.elemId as string]), //this is the range key to which the resource cost belongs based on its color
-                                    ResourceUnitCost: resourceDetails.resourceUnitCost,
-                                    ElementQuantity: resourceDetails.elemQuantity,
-                                    NormalizedValue: '',
-                                }
-                            })
-                        }
+                for (const elem of elementsData_Array) {
+                    if (!Object.keys(colorMap).includes(elem.elemId.toString())) continue //checks if the item id is outside of the selected form the range or not
+                    countItems += 1
+                    countCostItems += model_costCount_Map_flat[elem.elemId] //sum all the count of cost items only of the items within the range
+                    
+                    for (const resourceDetails of elem_resourcesDetails_Map[elem.elemId]){
+                        countResources += 1
+                        dynamicResourceTable.data.push({
+                            data: {
+                                Model: elem.elemModel,
+                                ItemId: elem.elemId,
+                                ElementName: elem.elemName,
+                                ElementIfcClass: elem.category,
+                                ResourceName: resourceDetails.resourceName,
+                                ResourceDescription: resourceDetails.resourceDescription,
+                                ResourceCost: `${Math.round((Number(resourceDetails.resourceUnitCost.split(' ')[0])*Number(resourceDetails.elemQuantity.split(' ')[0]))*100)/100} ${elem.currency}`,
+                                ResourceCostRange: getColorRangeKeyByColorValue(colorMap[elem.elemId as string]), //this is the range key to which the resource cost belongs based on its color
+                                ResourceUnitCost: resourceDetails.resourceUnitCost,
+                                ElementQuantity: resourceDetails.elemQuantity,
+                                NormalizedValue: '',
+                            }
+                        })
                     }
                 }
 
@@ -990,53 +1000,7 @@ export function MainViewer () {
                 const groupResourceIfcClasses = new Set<string>()
                 const groupResourceElements = new Set<string>()
                 const groupResourceNames = new Set<string>()
-                const resourceChartLabelByColorOrder = [
-                    'Very High Cost',
-                    'High Cost',
-                    'Medium Cost',
-                    'Low Cost',
-                    'Very Low Cost'
-                ]
-                const getOrderedResourceChartColors = (colors: string[]) => {
-                    const parseColor = (color: string) => {
-                        const match = color.match(/\d+(\.\d+)?/g)
-                        if (!match || match.length < 3) return null
-                        const [r, g, b] = match.map(Number)
-                        const max = Math.max(r, g, b) / 255
-                        const min = Math.min(r, g, b) / 255
-                        const delta = max - min
-                        let hue = 0
-                        if (delta !== 0) {
-                            if (max === r / 255) hue = ((g / 255 - b / 255) / delta) % 6
-                            else if (max === g / 255) hue = (b / 255 - r / 255) / delta + 2
-                            else hue = (r / 255 - g / 255) / delta + 4
-                            hue *= 60
-                            if (hue < 0) hue += 360
-                        }
-                        const lightness = (max + min) / 2
-                        return { hue, lightness }
-                    }
 
-                    const getColorRank = (color: string) => {
-                        const parsed = parseColor(color)
-                        if (!parsed) return { group: 99, order: 999 }
-                        const { hue, lightness } = parsed
-                        if (hue >= 345 || hue < 20) return { group: 0, order: hue }
-                        if (hue >= 20 && hue < 45) return { group: 1, order: hue }
-                        if (hue >= 45 && hue < 75) return { group: 2, order: hue }
-                        if (hue >= 75 && hue < 170) return { group: lightness >= 0.5 ? 3 : 4, order: lightness }
-                        return { group: 5, order: hue }
-                    }
-
-                    return [...colors].sort((a, b) => {
-                        const rankA = getColorRank(a)
-                        const rankB = getColorRank(b)
-                        if (rankA.group !== rankB.group) return rankA.group - rankB.group
-                        if (rankA.group === 3) return rankB.order - rankA.order
-                        if (rankA.group === 4) return rankB.order - rankA.order
-                        return rankA.order - rankB.order
-                    })
-                }
                 const resourceCostPerGroupedTable: {[group: string]: {resourceCost: number, currency: string, resourceDescription?: string, resourceUnitCost?: string, model?:string, itemId?: number}} = {}
                 
                 for (const row of dynamicResourceTable.data){
@@ -1051,7 +1015,7 @@ export function MainViewer () {
 
                     // if (colorMap && itemId) {
                     //     const colorValue = colorMap[Number(itemId)]
-                    //     row.data.ResourceCostRange = colorValue ? getColorRangeKeyByValue(colorValue) ?? colorValue : colorValue
+                    //     row.data.ResourceCostRange = colorValue ? getColorRangeKeyByColorValue(colorValue) ?? colorValue : colorValue
                     // }
 
                     if (!resourceCostPerGroupedTable[groupIfcClass]) {
@@ -1196,30 +1160,44 @@ export function MainViewer () {
 
                 const onCreateResourceChart_Element = () => {
                     if (colorMap) {
-                        const resourceCostPerColor: Record<string, {items:number, cost:number}> = {}
+                        const resourceCostPerColor: Record<string, { items: number; cost: number }> = {}
+
                         for (const groupElement of groupResourceElements) {
                             const itemId = resourceCostPerGroupedTable[groupElement]?.itemId
                             const color = itemId !== undefined ? colorMap[Number(itemId)] : undefined
                             if (!color) continue
-                            resourceCostPerColor[color] = resourceCostPerColor[color] ? resourceCostPerColor[color] : { items: 0, cost: 0 }
+                            if (!resourceCostPerColor[color]) {
+                                resourceCostPerColor[color] = { items: 0, cost: 0 }
+                            }
                             resourceCostPerColor[color].cost += resourceCostPerGroupedTable[groupElement]?.resourceCost ?? 0
                             resourceCostPerColor[color].items += 1
                         }
-                        const elementColorLabels = getOrderedResourceChartColors(Object.keys(resourceCostPerColor))
-                        const elementChartLabels = elementColorLabels.map((color, index) => resourceChartLabelByColorOrder[index] ?? color)
-                        chartPrimary.colors = elementColorLabels
+
+                        const orderedColorsWithValue = Object.keys(resourceCostPerColor)
+                            .map((color) => ({
+                                color: color,
+                                rangeValue: getNormalizedValueFromColor(color, colorscale) ?? 0,
+                                rangeLabel: getColorRangeKeyByColorValue(color)?.slice(3) ?? color,
+                                totalCost: Math.round(resourceCostPerColor[color].cost*100)/100,
+                                itemsNumber: resourceCostPerColor[color].items
+                            }))
+                            .sort((a, b) => b.rangeValue - a.rangeValue)
+
+                        chartPrimary.colors = orderedColorsWithValue.length==1 ? 
+                            [orderedColorsWithValue[0].color,orderedColorsWithValue[0].color] : 
+                            orderedColorsWithValue.map(({ color }) => color)
                         chartPrimary.transparentBackground = true
                         chartPrimary.borderColor = 'rgba(0, 0, 0, 0.2)'
-                        chartPrimary.label = `${resource} resource cost and Number of items per Cost range`
+                        chartPrimary.label = 'Total cost and Number of items per Cost range'
                         setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
                         chartPrimary.inputData = {
-                            labels: elementChartLabels,
+                            labels:  orderedColorsWithValue.map(({ rangeLabel }) => rangeLabel),
                             datasets: {
-                                ResourceCost: elementColorLabels.map((color) => ({
-                                    value: Math.round(resourceCostPerColor[color].cost*100)/100
+                                ResourceCost: orderedColorsWithValue.map(({ totalCost }) => ({
+                                    value: totalCost
                                 })),
-                                NumberOfItems: elementColorLabels.map((color) => ({
-                                    value: resourceCostPerColor[color].items
+                                NumberOfItems: orderedColorsWithValue.map(({ itemsNumber }) => ({
+                                    value: itemsNumber
                                 }))
                             }
                         }
@@ -2738,46 +2716,6 @@ export function MainViewer () {
             const groupIfcClasses = new Set<string>()
             const groupElements = new Set<string>()
             const groupCostItems = new Set<string>()
-            const getOrderedChartColors = (colors: string[]) => {
-                const parseColor = (color: string) => {
-                    const match = color.match(/\d+(\.\d+)?/g)
-                    if (!match || match.length < 3) return null
-                    const [r, g, b] = match.map(Number)
-                    const max = Math.max(r, g, b) / 255
-                    const min = Math.min(r, g, b) / 255
-                    const delta = max - min
-                    let hue = 0
-                    if (delta !== 0) {
-                        if (max === r / 255) hue = ((g / 255 - b / 255) / delta) % 6
-                        else if (max === g / 255) hue = (b / 255 - r / 255) / delta + 2
-                        else hue = (r / 255 - g / 255) / delta + 4
-                        hue *= 60
-                        if (hue < 0) hue += 360
-                    }
-                    const lightness = (max + min) / 2
-                    return { hue, lightness }
-                }
-
-                const getColorRank = (color: string) => {
-                    const parsed = parseColor(color)
-                    if (!parsed) return { group: 99, order: 999 }
-                    const { hue, lightness } = parsed
-                    if (hue >= 345 || hue < 20) return { group: 0, order: hue }
-                    if (hue >= 20 && hue < 45) return { group: 1, order: hue }
-                    if (hue >= 45 && hue < 75) return { group: 2, order: hue }
-                    if (hue >= 75 && hue < 170) return { group: lightness >= 0.5 ? 3 : 4, order: lightness }
-                    return { group: 5, order: hue }
-                }
-
-                return [...colors].sort((a, b) => {
-                    const rankA = getColorRank(a)
-                    const rankB = getColorRank(b)
-                    if (rankA.group !== rankB.group) return rankA.group - rankB.group
-                    if (rankA.group === 3) return rankB.order - rankA.order
-                    if (rankA.group === 4) return rankB.order - rankA.order
-                    return rankA.order - rankB.order
-                })
-            }
             for (const row of dynamicCostTable.data){
                 const groupIfcClass = row.data.ElementIfcClass
                 const groupElement = row.data.ElementName
@@ -2792,7 +2730,7 @@ export function MainViewer () {
 
                 if (colorMap && itemId) {
                     const colorValue = colorMap[Number(itemId)]
-                    row.data.CostRange = colorValue ? getColorRangeKeyByValue(colorValue) ?? colorValue : colorValue
+                    row.data.CostRange = colorValue ? getColorRangeKeyByColorValue(colorValue) ?? colorValue : colorValue
                 }
 
                 if (!totalCostPerGroupedTable[groupIfcClass]) {
@@ -2963,21 +2901,33 @@ export function MainViewer () {
                         totalCostPerColor[color].cost = (totalCostPerColor[color].cost ?? 0) + (totalCostPerGroupedTable[groupElement]?.cost ?? 0)
                         totalCostPerColor[color].items = (totalCostPerColor[color].items ?? 0) + 1
                     }
-                    const elementColorLabels = getOrderedChartColors(Object.keys(totalCostPerColor))
-                    const elementChartLabels = elementColorLabels.map((color) => getColorRangeKeyByValue(color)!.slice(3) ?? color)
-                    chartPrimary.colors = elementColorLabels
+
+                    const [colorscale] = colorScaleDropdown.value ? colorScaleDropdown.value : 'gnylrd'
+                    const orderedColorsWithValue = Object.keys(totalCostPerColor)
+                        .map((color) => ({
+                            color: color,
+                            rangeValue: getNormalizedValueFromColor(color, colorscale) ?? 0,
+                            rangeLabel: getColorRangeKeyByColorValue(color)?.slice(3) ?? color,
+                            totalCost: Math.round(totalCostPerColor[color].cost*100)/100,
+                            itemsNumber: totalCostPerColor[color].items
+                        }))
+                        .sort((a, b) => b.rangeValue - a.rangeValue)
+
+                    chartPrimary.colors = orderedColorsWithValue.length==1 ? 
+                        [orderedColorsWithValue[0].color,orderedColorsWithValue[0].color] : 
+                        orderedColorsWithValue.map(({ color }) => color)
                     chartPrimary.transparentBackground = true
                     chartPrimary.borderColor = 'rgba(0, 0, 0, 0.2)'
                     chartPrimary.label = 'Total cost and Number of items per Cost range'
                     setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
                     chartPrimary.inputData = {
-                        labels: elementChartLabels,
+                        labels:  orderedColorsWithValue.map(({ rangeLabel }) => rangeLabel),
                         datasets: {
-                            TotalCost: elementColorLabels.map((color) => ({
-                                value: Math.round(totalCostPerColor[color].cost*100)/100
+                            TotalCost: orderedColorsWithValue.map(({ totalCost }) => ({
+                                value: totalCost
                             })),
-                            NumberOfItems: elementColorLabels.map((color) => ({
-                                value: totalCostPerColor[color].items
+                            NumberOfItems: orderedColorsWithValue.map(({ itemsNumber }) => ({
+                                value: itemsNumber
                             }))
                         }
                     }
@@ -2995,7 +2945,7 @@ export function MainViewer () {
                                 value: Math.round((totalCostPerGroupedTable[groupElement]?.cost ?? 0)*100)/100
                             }))
                         }
-                    }                                    
+                    }
                 }
             }
             const onCreateChart_CostItem = () => {
@@ -3015,7 +2965,7 @@ export function MainViewer () {
                 }
             }
 
-            onCreateChart_Element()
+            //onCreateChart_Element()
             
             const elementXCostPanelControls = BUI.Component.create<HTMLDivElement>(() => {
                 return BUI.html`
@@ -3394,7 +3344,7 @@ export function MainViewer () {
                     <bim-button
                         icon="weui:previous-filled"
                         tooltip-title="Select Previous"
-                        @click=${() => {highlighter.highlightByID('select', previousSelection, false, true)}}>
+                        @click=${() => {highlighter.highlightByID('select', previousSelection, true, true)}}>
                     </bim-button>
                 </bim-toolbar-section>
                 <bim-toolbar-section label="Visibility">
