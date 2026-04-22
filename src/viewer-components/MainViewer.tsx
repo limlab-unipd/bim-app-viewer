@@ -11,6 +11,19 @@ import { convertCurrency, convertUnits } from '../custom-components/conversion'
 import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel, getColorRangeKeyByColorValue, getNormalizedValueFromColor } from '../custom-components/colors'
 import Stats, { Panel } from 'stats.js'
 
+// These constants:
+// - are fundamental for the whole viewer to identify different IfcCostItem and IfcCostValue instances in the IFC model;
+// - could be personalized to different uses but must be consistent with the values used in the IFC file;
+// - define the labels of the dropdown menus for the cost analysis (so they are consistent with the IFC properties they refer to);
+// - define the labels used in the ifc file to identify the different instances of IfcCostItem and IfcCostValue;
+// - must be written in UPPPER CASE so the code automatically avoids problems with different capitalizations in the ifc files;
+// - must be paid attention to their spelling, included special or space charecters
+const IfcFileLabel_CostAssignment = 'COST ASSIGNMENT' // PredefinedType value of IfcCostItem related (through IfcRelAssignsToControl) to model elements
+const IfcFileLabel_TotalCost = 'TOTAL COST' // Category attribute value of IfcCostValue inserted within IfcCostItem instances
+const IfcFileLabel_UnitCost = 'UNIT COST' // Category attribute value of IfcCostValue insert within IfcCostValue instances of total cost
+const IfcFileLabel_PriceAnalysis_Material = 'MATERIAL' // Category attribute value of IfcCostValue insert within IfcCostValue instances of unit cost for materials resource
+const IfcFileLabel_PriceAnalysis_Labor = 'LABOR' // Category attribute value of IfcCostValue insert within IfcCostValue instances of unit cost for labor resource
+const IfcFileLabel_PriceAnalysis_Equipment = 'EQUIPMENT' // Category attribute value of IfcCostValue insert within IfcCostValue instances of unit cost for equipment resource
 
 export function MainViewer () {
 
@@ -594,7 +607,7 @@ export function MainViewer () {
             const rangeNormalOrCost = rangeCost.label
             const limitSelection = limitToSelection.checked
 
-            resource = resource == undefined ? 'TotalCost' : resource //if any resource selected use TotalCost as default
+            resource = resource == undefined ? IfcFileLabel_TotalCost : resource //if any resource selected use TotalCost as default
             category = category.length == 0 ? importedCategories : category  //if any category selected use al categories as default
             
             if (!resource || !category) {
@@ -605,7 +618,7 @@ export function MainViewer () {
             onClearPanel(panelDown) //clear down panel
             onClearPanel(panelRight)
             panelDown.appendChild(loadingLabel)
-            resource!='TotalCost' ? panelDown.label = `${resource} Resource Cost` : panelDown.label = 'Elements Total Cost' //change the title of the panel
+            resource!=IfcFileLabel_TotalCost ? panelDown.label = `${resource} Resource Cost` : panelDown.label = 'Elements Total Cost' //change the title of the panel
             const gridLayout = floatingGrid.layout as any //change the grid layout
             if (!gridLayout.includes('down')){
                 onSetLayout({target:'down'})
@@ -690,7 +703,7 @@ export function MainViewer () {
             const loadTime_2 = ((endTime_2 - startTime_2) / 1000).toFixed(2); // seconds
             console.log(`TIME ${loadTime_2} s: get data of previous cost items localIds`)
 
-            if (resource != 'TotalCost'){ //this means that a resource is selected
+            if (resource != IfcFileLabel_TotalCost){ //this means that a resource is selected
                 //initialize some maps needed for the process
                 const model_resources_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
                 const model_costCount_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
@@ -812,7 +825,7 @@ export function MainViewer () {
                             const pac = priceAnalysisComponentById[pacId] as any
                             if (!pac) continue
                             if (!pac['Category']) continue //checks if the component has a category
-                            if (pac['Category'].value == resource){ //checks the correspondance between components resource category and the one selected
+                            if ((pac['Category'].value as string).toUpperCase() == (resource as string).toUpperCase()){ //checks the correspondance between components resource category and the one selected
                                 const resourceDescription = pac['Description'].value //description of the resource
                                 const resourceName = pac['Name'].value //name of the resource
                                 let resourceUnitCost
@@ -1354,7 +1367,7 @@ export function MainViewer () {
                     document.getElementById('resource_groupby_costrange')!.click() //trigger the default grouping and coloring
                 }
 
-            } else if (resource == 'TotalCost'){
+            } else if (resource == IfcFileLabel_TotalCost){
 
                 const startTime_4 = performance.now(); // Start timer
 
@@ -1378,7 +1391,7 @@ export function MainViewer () {
                     const costItemMeta = costItems.map((ci) => {
                         const itemId = (((ci.Controls as any)[0] as FRAGS.ItemData)._localId as FRAGS.ItemAttribute).value as number //localId of filtered elements
                         const itemCategory = (((ci.Controls as any)[0] as FRAGS.ItemData)._category as FRAGS.ItemAttribute).value as string //localId of filtered elements
-                        const costItemObjectType = (ci['ObjectType'] as FRAGS.ItemAttribute).value as string
+                        const costItemObjectType = ((ci['ObjectType'] as FRAGS.ItemAttribute).value as string).toUpperCase()
                         const cvId = (ci['CostValues'] as any)[0]._localId.value ? (ci['CostValues'] as any)[0]._localId.value : 'nd'
                         return typeof cvId === 'number' ? { itemId, itemCategory, costItemObjectType, cvId } : null
                     }).filter(Boolean) as {itemId:number, itemCategory:string, costItemObjectType:string, cvId:number}[]
@@ -1421,7 +1434,7 @@ export function MainViewer () {
                             costItemCost = itemVolume ? costItemCost/itemVolume : costItemCost
                         }
                         
-                        if (costItemObjectType != 'Cost assignment') continue //ATTENTION!!! this value is USERDEFINED so it could be different in projects
+                        if (costItemObjectType != IfcFileLabel_CostAssignment) continue //ATTENTION!!! this value is USERDEFINED so it could be different in projects
                         category_item_totalCost_map[itemCategory] ? category_item_totalCost_map[itemCategory]=category_item_totalCost_map[itemCategory] : category_item_totalCost_map[itemCategory] = {}
                         category_item_totalCost_map[itemCategory][itemId] ? category_item_totalCost_map[itemCategory][itemId]+=costItemCost : category_item_totalCost_map[itemCategory][itemId]=costItemCost
                     }
@@ -2288,13 +2301,13 @@ export function MainViewer () {
             </bim-dropdown>`,
         )
         //resources dropdown menu
-        const resources: string[] = ['TotalCost','Labor','Equipment','Material']
+        const resources: string[] = [IfcFileLabel_TotalCost, IfcFileLabel_PriceAnalysis_Labor, IfcFileLabel_PriceAnalysis_Equipment, IfcFileLabel_PriceAnalysis_Material]
         resources.sort() //sort resources
         const resourcesIcon: {[key:string]:string} = {
-            TotalCost: 'ic:round-monetization-on',
-            Labor: 'hugeicons:labor',
-            Equipment: 'fa-solid:tools',
-            Material: 'game-icons:brick-pile',
+            [IfcFileLabel_TotalCost]: 'ic:round-monetization-on',
+            [IfcFileLabel_PriceAnalysis_Labor]: 'hugeicons:labor',
+            [IfcFileLabel_PriceAnalysis_Equipment]: 'fa-solid:tools',
+            [IfcFileLabel_PriceAnalysis_Material]: 'game-icons:brick-pile',
         }
         const resourcesDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`<bim-dropdown name="resources" label='Resource' icon='clarity:resource-pool-outline-alerted'>
@@ -2336,7 +2349,7 @@ export function MainViewer () {
         unitMeasureDropdown.style.display = 'none'
         resourcesDropdown.addEventListener('change', (event) => {
             if (!event.target) return
-            if ((event.target as any).value[0] == 'TotalCost'){
+            if ((event.target as any).value[0] == IfcFileLabel_TotalCost){
                 unitMeasureDropdown.style.display = ''
             } else {
                 unitMeasureDropdown.style.display = 'none'
@@ -2637,7 +2650,7 @@ export function MainViewer () {
                             //cost item identity data
                             costItemName = dynamicRow.data.CostItemName = costItem['Name'].value ? costItem['Name'].value : 'nd'
                             costItemDescription = dynamicRow.data.CostItemDescription = costItem['Description'].value ? costItem['Description'].value : 'nd'
-                            costItemObjectType = costItem['ObjectType'].value ? costItem['ObjectType'].value : 'nd'
+                            costItemObjectType = costItem['ObjectType'].value ? (costItem['ObjectType'].value as string).toUpperCase() : 'nd'
 
                             costItemId = costItem['_localId'].value ? costItem['_localId'].value : 'nd'
                             const costItemFull = typeof costItemId === 'number' ? costItemsById[costItemId] : null
@@ -2663,7 +2676,7 @@ export function MainViewer () {
                                 costItemUnitBasis = dynamicRow.data.Quantity = `${Math.round(costValueUnitBasis*1000)/1000} ${unitMeasure}`
                                 //unit cost of cost item
                                 try {
-                                    if (costValue['Components'] && costValue['Components'][0]['Category'].value == 'Unit cost'){
+                                    if (costValue['Components'] && (costValue['Components'][0]['Category'].value as string).toUpperCase() == IfcFileLabel_UnitCost){
                                         const costValueUnitCostAppliedValue = costValue['Components'][0]['AppliedValue'][0]['ValueComponent'].value ? costValue['Components'][0]['AppliedValue'][0]['ValueComponent'].value : 'nd'
                                         const costValueUnitCostUnitComponent = costValue['Components'][0]['AppliedValue'][0]['UnitComponent'][0]['Currency'].value ? costValue['Components'][0]['AppliedValue'][0]['UnitComponent'][0]['Currency'].value : 'nd'
                                         const currency = convertCurrency(costValueUnitCostUnitComponent)
@@ -3151,7 +3164,7 @@ export function MainViewer () {
                         data: {},
                     }
                     row.data.Name = component['Name'] ? component['Name'].value : component['Description'] ? component['Description'].value : 'nd'
-                    row.data.Category = component['Category'] ? component['Category'].value : 'nd'
+                    row.data.Category = component['Category'] ? (component['Category'].value as string).toUpperCase() : 'nd'
                     const valueComponent = component['AppliedValue'][0]['ValueComponent'].value
                     const unitComponent = component['AppliedValue'][0]['UnitComponent'][0]['Currency'].value
                     row.data.Cost = `${Math.round(valueComponent*1000)/1000} ${convertCurrency(unitComponent)}`
