@@ -7,7 +7,7 @@ import { MainViewer } from './viewer-components/MainViewer'
 import { HomePage } from './viewer-components/HomePage'
 import { SurveyPage } from './viewer-components/SurveyPage'
 import * as BUI from '@thatopen/ui'
-import { UrbanViewer } from './viewer-components/UrbanViewer'
+//import { UrbanViewer } from './viewer-components/UrbanViewer'
 
 //#region REACT COMPONENTS
 const rootElement = document.getElementById('app') as HTMLDivElement
@@ -40,7 +40,7 @@ appRoot.render(
                     element={
                         <div className="app-layout">
                             <MenuSidebar />
-                            <UrbanViewer />
+                            {/* <UrbanViewer /> */}
                         </div>
                     }
                 />
