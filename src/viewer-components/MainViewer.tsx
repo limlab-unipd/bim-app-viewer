@@ -678,6 +678,10 @@ export function MainViewer () {
                         for (const assignment of assignments) {
                             const isCostItem = assignment?._category?.value === "IFCCOSTITEM"
                             const localId = assignment?._localId?.value
+                            const costItemName = assignment?.Name?.value as string
+                            if (limitToCostItemNameList.length > 0 && !limitToCostItemNameList.includes(costItemName)) {
+                                continue //skip this cost item if its name is not in the list of allowed names
+                            }
                             if (isCostItem && typeof localId === 'number') {
                                 costItemIds.add(localId)
                             }
