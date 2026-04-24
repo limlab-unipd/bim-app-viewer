@@ -595,7 +595,6 @@ export function MainViewer () {
 
         const onColorByCost = async ({target}: {target: BUI.Button | string}) => {
             const startTime_tot = performance.now(); // Start timer
-            updateCountLabel({countItems:'loading...', countCostItems:'loading...', countResources:'loading...'})
             const btn = typeof target === 'string' ? target : target.label //read if the clicked button is "color" or "select"
             let [resource] = resourcesDropdown.value //read the value of the resource dropdown menu (single choice)
             let category = categoriesDropdown.value.includes('ALL IFC CLASSES') ? importedCategories : categoriesDropdown.value //read the value of category dropdown menu, list is kept because multiple choices are accepted
@@ -606,6 +605,7 @@ export function MainViewer () {
             const rangeIntervalInOut = rangeInterval.label
             const rangeNormalOrCost = rangeCost.label
             const limitSelection = limitToSelection.checked
+            const limitToCostItemNameList = limitToCostItemName.value ? limitToCostItemName.value.split(',').map(s => s.trim()) : []
 
             resource = resource == undefined ? IfcFileLabel_TotalCost : resource //if any resource selected use TotalCost as default
             category = category.length == 0 ? importedCategories : category  //if any category selected use al categories as default
@@ -615,13 +615,16 @@ export function MainViewer () {
                 return //if one of the two is not selected return the function (nothing will be done)
             }
             
-            onClearPanel(panelDown) //clear down panel
-            onClearPanel(panelRight)
-            panelDown.appendChild(loadingLabel)
-            resource!=IfcFileLabel_TotalCost ? panelDown.label = `${resource} Resource Cost` : panelDown.label = 'Elements Total Cost' //change the title of the panel
-            const gridLayout = floatingGrid.layout as any //change the grid layout
-            if (!gridLayout.includes('down')){
-                onSetLayout({target:'down'})
+            if (btn == 'Color'){
+                updateCountLabel({countItems:'loading...', countCostItems:'loading...', countResources:'loading...'})
+                onClearPanel(panelDown) //clear down panel
+                onClearPanel(panelRight)
+                panelDown.appendChild(loadingLabel)
+                resource!=IfcFileLabel_TotalCost ? panelDown.label = `${resource} Resource Cost` : panelDown.label = 'Elements Total Cost' //change the title of the panel
+                const gridLayout = floatingGrid.layout as any //change the grid layout
+                if (!gridLayout.includes('down')){
+                    onSetLayout({target:'down'})
+                }
             }
 
             //step 1: find all cost items ids related to all object of the selected category
@@ -630,6 +633,23 @@ export function MainViewer () {
                 {
                     categories: [/COSTITEM/],
                     relation: { 
+                        name: "Controls",
+                        query: {
+                            categories: Array.isArray(category) ? category.map(c => new RegExp(`^${c}$`)) : [new RegExp(`^${category}$`)]
+                        }
+                    }
+                },
+            ])
+            finder.create('COSTITEM_REL_CATEGORY_CODE', [
+                {
+                    categories: [/COSTITEM/],
+                    attributes: {
+                        queries: [{
+                            name: /^Name$/,
+                            value: limitToCostItemNameList.map(v => new RegExp(`^${v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`))
+                        }]
+                    },
+                    relation: {
                         name: "Controls",
                         query: {
                             categories: Array.isArray(category) ? category.map(c => new RegExp(`^${c}$`)) : [new RegExp(`^${category}$`)]
@@ -668,7 +688,9 @@ export function MainViewer () {
             } else {
                 //here query is executed
                 const startTime_1 = performance.now(); // Start timer
-                final_costitem_ids = await finder.list.get('COSTITEM_REL_CATEGORY')?.test()
+                limitToCostItemNameList.length == 0 ?
+                    final_costitem_ids = await finder.list.get('COSTITEM_REL_CATEGORY')?.test() :
+                    final_costitem_ids = await finder.list.get('COSTITEM_REL_CATEGORY_CODE')?.test()
                 const endTime_1 = performance.now(); // End timer
                 const loadTime_1 = ((endTime_1 - startTime_1) / 1000).toFixed(2); // seconds
                 console.log(`TIME ${loadTime_1} s: find localIds of all cost items related to selected categories`);
@@ -878,94 +900,93 @@ export function MainViewer () {
                     model_resources_Map[model] = elem_resources_Map
                     model_costCount_Map[model] = elem_costCount_Map
                 }
-                
                 const endTime_resourceCostData = performance.now(); // End timer
                 const loadTime_resourceCostData = ((endTime_resourceCostData - startTime_resourceCostData) / 1000).toFixed(2); // seconds
                 console.log(`TIME ${loadTime_resourceCostData} s: get resource cost data`)
-    
-                //this step is moved here to handle with ranges, in this way the colorMap contains only item within the range
-                //step 5.0 flatten map removing models level
-                const model_resources_Map_flat = flattenModelMap(model_resources_Map)
-                const model_costCount_Map_flat = flattenModelMap(model_costCount_Map) //not properly correct because you can have multiple items with same id, but this is needed to sum count items count
-                //step 5.0.1: normalize total resource cost to color across models
-                const [colorMap, normalizedValue] = normalizeAndMapToColor(model_resources_Map_flat,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost) //use this function to normalize values between 0 and 1 and return color and normalized value
-
-                //step 5: RESOURCE TABLE CREATION
-                //table type for resource table
-                type dynamicResourceTableData = {
-                    Model?: string,
-                    ItemId?: number, //optional because it is not needed in the first row
-                    ElementName: string,
-                    ElementIfcClass: string,
-                    ResourceName: string,
-                    ResourceDescription: string,
-                    ResourceCost: string,
-                    ResourceCostRange?: string,
-                    ResourceUnitCost: string,
-                    ElementQuantity: string,
-                    NormalizedValue: string,
-                }
-                //resource table
-                const dynamicResourceTable = document.createElement("bim-table") as BUI.Table<dynamicResourceTableData>
-                dynamicResourceTable.data = [{
-                    data: {
-                        ElementName: '',
-                        ElementIfcClass: '',
-                        ResourceName: '',
-                        ResourceDescription: '',
-                        ResourceCost: '',
-                        NormalizedValue: '',
-                        ResourceUnitCost: '',
-                        ElementQuantity: '',
-                    }
-                }]
-                dynamicResourceTable.data = [] //initialize the table and some settings
-                dynamicResourceTable.preserveStructureOnFilter = true
-                dynamicResourceTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
-                dynamicResourceTable.hiddenColumns = ['Model','ItemId']
-                //create the table:
-                //initialize also NormalizedValue column which will be populated after
                 
-                //time to do next operations very low
-                let countItems = 0, countResources = 0, countCostItems = 0
-                //this works with more models because this map does not divide items by model
-                //so the table is correctly created
-                for (const elem of elementsData_Array) {
-                    if (!Object.keys(colorMap).includes(elem.elemId.toString())) continue //checks if the item id is outside of the selected form the range or not
-                    countItems += 1
-                    countCostItems += model_costCount_Map_flat[elem.elemId] //sum all the count of cost items only of the items within the range
-                    
-                    for (const resourceDetails of elem_resourcesDetails_Map[elem.elemId]){
-                        countResources += 1
-                        dynamicResourceTable.data.push({
-                            data: {
-                                Model: elem.elemModel,
-                                ItemId: elem.elemId,
-                                ElementName: elem.elemName,
-                                ElementIfcClass: elem.category,
-                                ResourceName: resourceDetails.resourceName,
-                                ResourceDescription: resourceDetails.resourceDescription,
-                                ResourceCost: `${Math.round((Number(resourceDetails.resourceUnitCost.split(' ')[0])*Number(resourceDetails.elemQuantity.split(' ')[0]))*100)/100} ${elem.currency}`,
-                                ResourceCostRange: getColorRangeKeyByColorValue(colorMap[elem.elemId as string]), //this is the range key to which the resource cost belongs based on its color
-                                ResourceUnitCost: resourceDetails.resourceUnitCost,
-                                ElementQuantity: resourceDetails.elemQuantity,
-                                NormalizedValue: '',
-                            }
-                        })
-                    }
-                }
-
                 const allSelectedItemsModelIdMap = Object.fromEntries(
                     Object.entries(model_resources_Map).map(([k, v]) => [k, new Set(Object.keys(v).map(Number))])
                 )
-
-                await highlighter.clear() //reset previous selections of highlighter
-                updateCountLabel({countItems:Object.entries(colorMap).length, countCostItems:countCostItems, countResources:countResources})
 
                 //step 6: highlight or color element
                 //color rows indipendentely from models
                 //time to do next if very low
                 if (btn == 'Color'){
+        
+                    //this step is moved here to handle with ranges, in this way the colorMap contains only item within the range
+                    //step 5.0 flatten map removing models level
+                    const model_resources_Map_flat = flattenModelMap(model_resources_Map)
+                    const model_costCount_Map_flat = flattenModelMap(model_costCount_Map) //not properly correct because you can have multiple items with same id, but this is needed to sum count items count
+                    //step 5.0.1: normalize total resource cost to color across models
+                    const [colorMap, normalizedValue] = normalizeAndMapToColor(model_resources_Map_flat,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost) //use this function to normalize values between 0 and 1 and return color and normalized value
+    
+                    //step 5: RESOURCE TABLE CREATION
+                    //table type for resource table
+                    type dynamicResourceTableData = {
+                        Model?: string,
+                        ItemId?: number, //optional because it is not needed in the first row
+                        ElementName: string,
+                        ElementIfcClass: string,
+                        ResourceName: string,
+                        ResourceDescription: string,
+                        ResourceCost: string,
+                        ResourceCostRange?: string,
+                        ResourceUnitCost: string,
+                        ElementQuantity: string,
+                        NormalizedValue: string,
+                    }
+                    //resource table
+                    const dynamicResourceTable = document.createElement("bim-table") as BUI.Table<dynamicResourceTableData>
+                    dynamicResourceTable.data = [{
+                        data: {
+                            ElementName: '',
+                            ElementIfcClass: '',
+                            ResourceName: '',
+                            ResourceDescription: '',
+                            ResourceCost: '',
+                            NormalizedValue: '',
+                            ResourceUnitCost: '',
+                            ElementQuantity: '',
+                        }
+                    }]
+                    dynamicResourceTable.data = [] //initialize the table and some settings
+                    dynamicResourceTable.preserveStructureOnFilter = true
+                    dynamicResourceTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
+                    dynamicResourceTable.hiddenColumns = ['Model','ItemId']
+                    //create the table:
+                    //initialize also NormalizedValue column which will be populated after
+                    
+                    //time to do next operations very low
+                    let countItems = 0, countResources = 0, countCostItems = 0
+                    //this works with more models because this map does not divide items by model
+                    //so the table is correctly created
+                    for (const elem of elementsData_Array) {
+                        if (!Object.keys(colorMap).includes(elem.elemId.toString())) continue //checks if the item id is outside of the selected form the range or not
+                        countItems += 1
+                        countCostItems += model_costCount_Map_flat[elem.elemId] //sum all the count of cost items only of the items within the range
+                        
+                        for (const resourceDetails of elem_resourcesDetails_Map[elem.elemId]){
+                            countResources += 1
+                            dynamicResourceTable.data.push({
+                                data: {
+                                    Model: elem.elemModel,
+                                    ItemId: elem.elemId,
+                                    ElementName: elem.elemName,
+                                    ElementIfcClass: elem.category,
+                                    ResourceName: resourceDetails.resourceName,
+                                    ResourceDescription: resourceDetails.resourceDescription,
+                                    ResourceCost: `${Math.round((Number(resourceDetails.resourceUnitCost.split(' ')[0])*Number(resourceDetails.elemQuantity.split(' ')[0]))*100)/100} ${elem.currency}`,
+                                    ResourceCostRange: getColorRangeKeyByColorValue(colorMap[elem.elemId as string]), //this is the range key to which the resource cost belongs based on its color
+                                    ResourceUnitCost: resourceDetails.resourceUnitCost,
+                                    ElementQuantity: resourceDetails.elemQuantity,
+                                    NormalizedValue: '',
+                                }
+                            })
+                        }
+                    }
+    
+                    await highlighter.clear() //reset previous selections of highlighter
+                    updateCountLabel({countItems:Object.entries(colorMap).length, countCostItems:countCostItems, countResources:countResources})
                     //6.1: color model before table creation
                     //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
                     //here things comes different because to highlight and color elements the model is needed
@@ -989,382 +1010,381 @@ export function MainViewer () {
                     }
                     //document.getElementById('resource_groupby_costrange')!.click()
 
-                } else if (btn == 'Select') { //if select button is clicked
-                    highlighter.highlightByID("select", allSelectedItemsModelIdMap, false, false) //only select elements removing colors
-                }
-
-                sortbyResourceDropdown.addEventListener('change', (e) => {
-                    if (!e.target) return
-                    const field = (e.target as BUI.Dropdown).value[0]
-                    const ascending = sortbyDirectionResourceCost.icon=='meteor-icons:arrow-up' ? false : true
-                    onSortDynamicResourceTable(dynamicResourceTable, field, ascending, resourceCostPerGroupedTable)}
-                )
-                const sortbyDirectionResourceCost = BUI.Component.create<BUI.Dropdown>(
-                    () => BUI.html`
-                        <bim-button icon='meteor-icons:arrow-up' style="max-width:fit-content; z-index:100" tooltip-text='Ascending or descending order'
-                            @click="${(e:Event) => {
-                                if (!e.target) return
-                                const button = e.target as BUI.Button
-                                button.icon = button.icon=='meteor-icons:arrow-up' ? 'meteor-icons:arrow-down' : 'meteor-icons:arrow-up'
-                                const ascending = button.icon=='meteor-icons:arrow-up' ? false : true
-                                onSortDynamicResourceTable(dynamicResourceTable, sortbyResourceDropdown.value[0], ascending, resourceCostPerGroupedTable)}}">
-                    </bim-button>`,
-                )
-                const groupResourceIfcClasses = new Set<string>()
-                const groupResourceElements = new Set<string>()
-                const groupResourceNames = new Set<string>()
-
-                const resourceCostPerGroupedTable: {[group: string]: {resourceCost: number, currency: string, resourceDescription?: string, resourceUnitCost?: string, model?:string, itemId?: number}} = {}
-                
-                for (const row of dynamicResourceTable.data){
-                    const groupIfcClass = row.data.ElementIfcClass
-                    const groupElement = row.data.ElementName
-                    const groupResourceName = row.data.ResourceName
-                    if (!groupIfcClass || !groupElement || !groupResourceName) continue
-                    const cost = Number((row.data.ResourceCost as string).split(' ')[0])
-                    const currency = (row.data.ResourceCost as string).split(' ')[1]
-                    const itemId = row.data.ItemId
-                    const model = row.data.Model
-
-                    // if (colorMap && itemId) {
-                    //     const colorValue = colorMap[Number(itemId)]
-                    //     row.data.ResourceCostRange = colorValue ? getColorRangeKeyByColorValue(colorValue) ?? colorValue : colorValue
-                    // }
-
-                    if (!resourceCostPerGroupedTable[groupIfcClass]) {
-                        resourceCostPerGroupedTable[groupIfcClass] = { resourceCost: 0, currency, model }
+                    sortbyResourceDropdown.addEventListener('change', (e) => {
+                        if (!e.target) return
+                        const field = (e.target as BUI.Dropdown).value[0]
+                        const ascending = sortbyDirectionResourceCost.icon=='meteor-icons:arrow-up' ? false : true
+                        onSortDynamicResourceTable(dynamicResourceTable, field, ascending, resourceCostPerGroupedTable)}
+                    )
+                    const sortbyDirectionResourceCost = BUI.Component.create<BUI.Dropdown>(
+                        () => BUI.html`
+                            <bim-button icon='meteor-icons:arrow-up' style="max-width:fit-content; z-index:100" tooltip-text='Ascending or descending order'
+                                @click="${(e:Event) => {
+                                    if (!e.target) return
+                                    const button = e.target as BUI.Button
+                                    button.icon = button.icon=='meteor-icons:arrow-up' ? 'meteor-icons:arrow-down' : 'meteor-icons:arrow-up'
+                                    const ascending = button.icon=='meteor-icons:arrow-up' ? false : true
+                                    onSortDynamicResourceTable(dynamicResourceTable, sortbyResourceDropdown.value[0], ascending, resourceCostPerGroupedTable)}}">
+                        </bim-button>`,
+                    )
+                    const groupResourceIfcClasses = new Set<string>()
+                    const groupResourceElements = new Set<string>()
+                    const groupResourceNames = new Set<string>()
+    
+                    const resourceCostPerGroupedTable: {[group: string]: {resourceCost: number, currency: string, resourceDescription?: string, resourceUnitCost?: string, model?:string, itemId?: number}} = {}
+                    
+                    for (const row of dynamicResourceTable.data){
+                        const groupIfcClass = row.data.ElementIfcClass
+                        const groupElement = row.data.ElementName
+                        const groupResourceName = row.data.ResourceName
+                        if (!groupIfcClass || !groupElement || !groupResourceName) continue
+                        const cost = Number((row.data.ResourceCost as string).split(' ')[0])
+                        const currency = (row.data.ResourceCost as string).split(' ')[1]
+                        const itemId = row.data.ItemId
+                        const model = row.data.Model
+    
+                        // if (colorMap && itemId) {
+                        //     const colorValue = colorMap[Number(itemId)]
+                        //     row.data.ResourceCostRange = colorValue ? getColorRangeKeyByColorValue(colorValue) ?? colorValue : colorValue
+                        // }
+    
+                        if (!resourceCostPerGroupedTable[groupIfcClass]) {
+                            resourceCostPerGroupedTable[groupIfcClass] = { resourceCost: 0, currency, model }
+                        }
+                        resourceCostPerGroupedTable[groupIfcClass].resourceCost += cost
+                        groupResourceIfcClasses.add(groupIfcClass)
+    
+                        if (!resourceCostPerGroupedTable[groupElement]) {
+                            resourceCostPerGroupedTable[groupElement] = { resourceCost: 0, currency, model, itemId}
+                        }
+                        resourceCostPerGroupedTable[groupElement].resourceCost += cost
+                        groupResourceElements.add(groupElement)
+    
+                        if (!resourceCostPerGroupedTable[groupResourceName]) {
+                            resourceCostPerGroupedTable[groupResourceName] = { resourceCost: 0, currency, model, resourceDescription: row.data.ResourceDescription, resourceUnitCost: row.data.ResourceUnitCost}
+                        }
+                        resourceCostPerGroupedTable[groupResourceName].resourceCost += cost
+                        groupResourceNames.add(groupResourceName)
                     }
-                    resourceCostPerGroupedTable[groupIfcClass].resourceCost += cost
-                    groupResourceIfcClasses.add(groupIfcClass)
-
-                    if (!resourceCostPerGroupedTable[groupElement]) {
-                        resourceCostPerGroupedTable[groupElement] = { resourceCost: 0, currency, model, itemId}
-                    }
-                    resourceCostPerGroupedTable[groupElement].resourceCost += cost
-                    groupResourceElements.add(groupElement)
-
-                    if (!resourceCostPerGroupedTable[groupResourceName]) {
-                        resourceCostPerGroupedTable[groupResourceName] = { resourceCost: 0, currency, model, resourceDescription: row.data.ResourceDescription, resourceUnitCost: row.data.ResourceUnitCost}
-                    }
-                    resourceCostPerGroupedTable[groupResourceName].resourceCost += cost
-                    groupResourceNames.add(groupResourceName)
-                }
-                dynamicResourceTable.dataTransform = {
-                    ResourceCost: (value, rowData) => {
-                        const { ElementName, ElementIfcClass, ResourceName } = rowData
-                        if (!ElementName && !ResourceName && ElementIfcClass) {
-                            if (value!='') return value
-                            return Math.round(resourceCostPerGroupedTable[ElementIfcClass]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ElementIfcClass]?.currency
-                        } else if (!ElementName && ResourceName && !ElementIfcClass) {
-                            if (value!='') return value
-                            return Math.round(resourceCostPerGroupedTable[ResourceName]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ResourceName]?.currency
-                        } else if (ElementName && !ResourceName && !ElementIfcClass) {
-                            if (value!='') return value
-                            if (colorMap) {
-                                return BUI.html`
-                                    <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
-                                        <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; 
-                                            background-color:${colorMap[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};
-                                            color:${colorMap[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
-                                        <bim-label>${Math.round(resourceCostPerGroupedTable[ElementName]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ElementName]?.currency}</bim-label>
-                                    </div>
-                                `
+                    dynamicResourceTable.dataTransform = {
+                        ResourceCost: (value, rowData) => {
+                            const { ElementName, ElementIfcClass, ResourceName } = rowData
+                            if (!ElementName && !ResourceName && ElementIfcClass) {
+                                if (value!='') return value
+                                return Math.round(resourceCostPerGroupedTable[ElementIfcClass]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ElementIfcClass]?.currency
+                            } else if (!ElementName && ResourceName && !ElementIfcClass) {
+                                if (value!='') return value
+                                return Math.round(resourceCostPerGroupedTable[ResourceName]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ResourceName]?.currency
+                            } else if (ElementName && !ResourceName && !ElementIfcClass) {
+                                if (value!='') return value
+                                if (colorMap) {
+                                    return BUI.html`
+                                        <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
+                                            <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; 
+                                                background-color:${colorMap[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};
+                                                color:${colorMap[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
+                                            <bim-label>${Math.round(resourceCostPerGroupedTable[ElementName]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ElementName]?.currency}</bim-label>
+                                        </div>
+                                    `
+                                } else {
+                                    return Math.round(resourceCostPerGroupedTable[ElementName]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ElementName]?.currency
+                                }
                             } else {
-                                return Math.round(resourceCostPerGroupedTable[ElementName]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ElementName]?.currency
+                                return value
                             }
-                        } else {
-                            return value
-                        }
-                    },
-                    ResourceDescription: (value, rowData) => {
-                        const { ElementName, ElementIfcClass, ResourceName } = rowData
-                        if (!ElementName && ResourceName && !ElementIfcClass) {
-                            if (value!='') return value
-                            return resourceCostPerGroupedTable[ResourceName]?.resourceDescription ? resourceCostPerGroupedTable[ResourceName].resourceDescription : value
-                        } else {
-                            return value
-                        }
-                    },
-                    ElementName: (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-                        const { Model, ItemId } = rowData
-                        let id = ItemId
-                        let m = Model
-                        // grouped rows do not have Model and ItemId, so I need to get them from the resourceCostPerGroupedTable using the group name (value)
-                        if (!ItemId) id = Number(resourceCostPerGroupedTable[value]?.itemId)
-                        if (!Model) m = resourceCostPerGroupedTable[value]?.model
-                        return BUI.html`
-                            <bim-label
-                                @click=${async () => {
-                                    highlighter.highlightByID("select", {[m as string]: new Set<number>([id as number])}, false, true)
-                                    const guid = await fragments.modelIdMapToGuids({[m as string]: new Set<number>([id as number])})
-                                    await navigator.clipboard.writeText(guid[0])
-                                    }}
-                                @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
-                                @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
-                            >${value}</bim-label>`
-                    },
-                    ResourceName: (value, rowData) => {
-                        const { ElementIfcClass, ElementName } = rowData
-                        if (!ElementName && !ElementIfcClass) {
+                        },
+                        ResourceDescription: (value, rowData) => {
+                            const { ElementName, ElementIfcClass, ResourceName } = rowData
+                            if (!ElementName && ResourceName && !ElementIfcClass) {
+                                if (value!='') return value
+                                return resourceCostPerGroupedTable[ResourceName]?.resourceDescription ? resourceCostPerGroupedTable[ResourceName].resourceDescription : value
+                            } else {
+                                return value
+                            }
+                        },
+                        ElementName: (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+                            const { Model, ItemId } = rowData
+                            let id = ItemId
+                            let m = Model
+                            // grouped rows do not have Model and ItemId, so I need to get them from the resourceCostPerGroupedTable using the group name (value)
+                            if (!ItemId) id = Number(resourceCostPerGroupedTable[value]?.itemId)
+                            if (!Model) m = resourceCostPerGroupedTable[value]?.model
                             return BUI.html`
                                 <bim-label
-                                    @mouseover=${({currentTarget}: {currentTarget: BUI.Label}) => {
-                                        const label = currentTarget
-                                        const contextMenu = label.querySelector<BUI.ContextMenu>('bim-context-menu')
-                                        if (!contextMenu) return
-                                        contextMenu.visible = true
-                                        label.style.color = "rgba(36, 241, 234, 1)"
-
-                                        const closeWhenPointerLeavesLabel = (event: PointerEvent) => {
-                                            const rect = label.getBoundingClientRect()
-                                            const isStillOverLabel =
-                                                event.clientX >= rect.left &&
-                                                event.clientX <= rect.right &&
-                                                event.clientY >= rect.top &&
-                                                event.clientY <= rect.bottom
-
-                                            if (isStillOverLabel) return
-
-                                            label.style.removeProperty('color')
-                                            BUI.ContextMenu.removeMenus()
-                                            document.removeEventListener('pointermove', closeWhenPointerLeavesLabel, true)
-                                        }
-
-                                        requestAnimationFrame(() => {
-                                            document.addEventListener('pointermove', closeWhenPointerLeavesLabel, true)
-                                        })
-                                    }}>
-                                    ${value}
-                                    <bim-context-menu id="bim-context-menu-resource" style="max-width: 30rem; padding: 0.75rem;" class="blur-background-context-menu">
-                                        <bim-label style="display: block; width:20rem; white-space: normal; overflow-wrap: break-word;">
-                                            ${resourceCostPerGroupedTable[value]?.resourceUnitCost ? `Unit Cost: ${resourceCostPerGroupedTable[value].resourceUnitCost}` : 'No unit cost available'}
-                                        </bim-label>
-                                        <bim-label style="display: block; width:20rem; white-space: normal; overflow-wrap: break-word;">
-                                            ${resourceCostPerGroupedTable[value]?.resourceDescription ? `Description: ${resourceCostPerGroupedTable[value].resourceDescription}` : 'No description available'}
-                                        </bim-label>
-                                    </bim-context-menu>
-                                </bim-label>`
-                        } else {
-                            return value
-                        }
-                    }
-                }
-
-                dynamicResourceTable.groupedBy = ['ElementName']
-                dynamicResourceTable.columns = ['ElementName']
-                dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
-
-                const onCreateResourceChart_IfcClass = () => {
-                    const groupIfcClassLabels = [...groupResourceIfcClasses]
-                    chartPrimary.colors = ['rgb(200, 200, 200)','rgb(138, 138, 138)']
-                    chartPrimary.transparentBackground = true
-                    chartPrimary.borderColor = 'transparent'
-                    chartPrimary.label = `${resource} resource cost per IfcClass`
-                    setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
-                    chartPrimary.inputData = {
-                        labels: groupIfcClassLabels,
-                        datasets: {
-                            ResourceCost: groupIfcClassLabels.map((groupIfcClass) => ({
-                                value: Math.round((resourceCostPerGroupedTable[groupIfcClass]?.resourceCost ?? 0)*100)/100
-                            }))
-                        }
-                    }
-                }
-
-                const onCreateResourceChart_Element = () => {
-                    if (colorMap) {
-                        const resourceCostPerColor: Record<string, { items: number; cost: number }> = {}
-
-                        for (const groupElement of groupResourceElements) {
-                            const itemId = resourceCostPerGroupedTable[groupElement]?.itemId
-                            const color = itemId !== undefined ? colorMap[Number(itemId)] : undefined
-                            if (!color) continue
-                            if (!resourceCostPerColor[color]) {
-                                resourceCostPerColor[color] = { items: 0, cost: 0 }
-                            }
-                            resourceCostPerColor[color].cost += resourceCostPerGroupedTable[groupElement]?.resourceCost ?? 0
-                            resourceCostPerColor[color].items += 1
-                        }
-
-                        const orderedColorsWithValue = Object.keys(resourceCostPerColor)
-                            .map((color) => ({
-                                color: color,
-                                rangeValue: getNormalizedValueFromColor(color, colorscale) ?? 0,
-                                rangeLabel: getColorRangeKeyByColorValue(color)?.slice(3) ?? color,
-                                totalCost: Math.round(resourceCostPerColor[color].cost*100)/100,
-                                itemsNumber: resourceCostPerColor[color].items
-                            }))
-                            .sort((a, b) => b.rangeValue - a.rangeValue)
-
-                        chartPrimary.colors = orderedColorsWithValue.length==1 ? 
-                            [orderedColorsWithValue[0].color,orderedColorsWithValue[0].color] : 
-                            orderedColorsWithValue.map(({ color }) => color)
-                        chartPrimary.transparentBackground = true
-                        chartPrimary.borderColor = 'rgba(0, 0, 0, 0.2)'
-                        chartPrimary.label = 'Total cost and Number of items per Cost range'
-                        setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
-                        chartPrimary.inputData = {
-                            labels:  orderedColorsWithValue.map(({ rangeLabel }) => rangeLabel),
-                            datasets: {
-                                ResourceCost: orderedColorsWithValue.map(({ totalCost }) => ({
-                                    value: totalCost
-                                })),
-                                NumberOfItems: orderedColorsWithValue.map(({ itemsNumber }) => ({
-                                    value: itemsNumber
-                                }))
+                                    @click=${async () => {
+                                        highlighter.highlightByID("select", {[m as string]: new Set<number>([id as number])}, false, true)
+                                        const guid = await fragments.modelIdMapToGuids({[m as string]: new Set<number>([id as number])})
+                                        await navigator.clipboard.writeText(guid[0])
+                                        }}
+                                    @mouseover=${({target}:{target:BUI.Label}) => {target.style.color = "rgba(36, 241, 234, 1)"}}
+                                    @mouseleave=${({target}:{target:BUI.Label}) => {target.style.removeProperty('color')}}
+                                >${value}</bim-label>`
+                        },
+                        ResourceName: (value, rowData) => {
+                            const { ElementIfcClass, ElementName } = rowData
+                            if (!ElementName && !ElementIfcClass) {
+                                return BUI.html`
+                                    <bim-label
+                                        @mouseover=${({currentTarget}: {currentTarget: BUI.Label}) => {
+                                            const label = currentTarget
+                                            const contextMenu = label.querySelector<BUI.ContextMenu>('bim-context-menu')
+                                            if (!contextMenu) return
+                                            contextMenu.visible = true
+                                            label.style.color = "rgba(36, 241, 234, 1)"
+    
+                                            const closeWhenPointerLeavesLabel = (event: PointerEvent) => {
+                                                const rect = label.getBoundingClientRect()
+                                                const isStillOverLabel =
+                                                    event.clientX >= rect.left &&
+                                                    event.clientX <= rect.right &&
+                                                    event.clientY >= rect.top &&
+                                                    event.clientY <= rect.bottom
+    
+                                                if (isStillOverLabel) return
+    
+                                                label.style.removeProperty('color')
+                                                BUI.ContextMenu.removeMenus()
+                                                document.removeEventListener('pointermove', closeWhenPointerLeavesLabel, true)
+                                            }
+    
+                                            requestAnimationFrame(() => {
+                                                document.addEventListener('pointermove', closeWhenPointerLeavesLabel, true)
+                                            })
+                                        }}>
+                                        ${value}
+                                        <bim-context-menu id="bim-context-menu-resource" style="max-width: 30rem; padding: 0.75rem;" class="blur-background-context-menu">
+                                            <bim-label style="display: block; width:20rem; white-space: normal; overflow-wrap: break-word;">
+                                                ${resourceCostPerGroupedTable[value]?.resourceUnitCost ? `Unit Cost: ${resourceCostPerGroupedTable[value].resourceUnitCost}` : 'No unit cost available'}
+                                            </bim-label>
+                                            <bim-label style="display: block; width:20rem; white-space: normal; overflow-wrap: break-word;">
+                                                ${resourceCostPerGroupedTable[value]?.resourceDescription ? `Description: ${resourceCostPerGroupedTable[value].resourceDescription}` : 'No description available'}
+                                            </bim-label>
+                                        </bim-context-menu>
+                                    </bim-label>`
+                            } else {
+                                return value
                             }
                         }
-                    } else {
-                        const groupElementsNoColor = [...groupResourceElements]
+                    }
+    
+                    dynamicResourceTable.groupedBy = ['ElementName']
+                    dynamicResourceTable.columns = ['ElementName']
+                    dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
+    
+                    const onCreateResourceChart_IfcClass = () => {
+                        const groupIfcClassLabels = [...groupResourceIfcClasses]
                         chartPrimary.colors = ['rgb(200, 200, 200)','rgb(138, 138, 138)']
                         chartPrimary.transparentBackground = true
                         chartPrimary.borderColor = 'transparent'
-                        chartPrimary.label = `${resource} resource cost per Element`
+                        chartPrimary.label = `${resource} resource cost per IfcClass`
                         setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
                         chartPrimary.inputData = {
-                            labels: groupElementsNoColor,
+                            labels: groupIfcClassLabels,
                             datasets: {
-                                ResourceCost: groupElementsNoColor.map((groupElement) => ({
-                                    value: Math.round((resourceCostPerGroupedTable[groupElement]?.resourceCost ?? 0)*100)/100
+                                ResourceCost: groupIfcClassLabels.map((groupIfcClass) => ({
+                                    value: Math.round((resourceCostPerGroupedTable[groupIfcClass]?.resourceCost ?? 0)*100)/100
                                 }))
                             }
                         }
                     }
-                }
-
-                const onCreateResourceChart_Resource = () => {
-                    const groupResourceLabels = [...groupResourceNames]
-                    chartPrimary.colors = ['rgb(200, 200, 200)','rgb(138, 138, 138)']
-                    chartPrimary.transparentBackground = true
-                    chartPrimary.borderColor = 'transparent'
-                    chartPrimary.label = `${resource} resource cost per Resource`
-                    setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
-                    chartPrimary.inputData = {
-                        labels: groupResourceLabels,
-                        datasets: {
-                            ResourceCost: groupResourceLabels.map((groupResourceName) => ({
-                                value: Math.round((resourceCostPerGroupedTable[groupResourceName]?.resourceCost ?? 0)*100)/100
-                            }))
+    
+                    const onCreateResourceChart_Element = () => {
+                        if (colorMap) {
+                            const resourceCostPerColor: Record<string, { items: number; cost: number }> = {}
+    
+                            for (const groupElement of groupResourceElements) {
+                                const itemId = resourceCostPerGroupedTable[groupElement]?.itemId
+                                const color = itemId !== undefined ? colorMap[Number(itemId)] : undefined
+                                if (!color) continue
+                                if (!resourceCostPerColor[color]) {
+                                    resourceCostPerColor[color] = { items: 0, cost: 0 }
+                                }
+                                resourceCostPerColor[color].cost += resourceCostPerGroupedTable[groupElement]?.resourceCost ?? 0
+                                resourceCostPerColor[color].items += 1
+                            }
+    
+                            const orderedColorsWithValue = Object.keys(resourceCostPerColor)
+                                .map((color) => ({
+                                    color: color,
+                                    rangeValue: getNormalizedValueFromColor(color, colorscale) ?? 0,
+                                    rangeLabel: getColorRangeKeyByColorValue(color)?.slice(3) ?? color,
+                                    totalCost: Math.round(resourceCostPerColor[color].cost*100)/100,
+                                    itemsNumber: resourceCostPerColor[color].items
+                                }))
+                                .sort((a, b) => b.rangeValue - a.rangeValue)
+    
+                            chartPrimary.colors = orderedColorsWithValue.length==1 ? 
+                                [orderedColorsWithValue[0].color,orderedColorsWithValue[0].color] : 
+                                orderedColorsWithValue.map(({ color }) => color)
+                            chartPrimary.transparentBackground = true
+                            chartPrimary.borderColor = 'rgba(0, 0, 0, 0.2)'
+                            chartPrimary.label = 'Total cost and Number of items per Cost range'
+                            setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
+                            chartPrimary.inputData = {
+                                labels:  orderedColorsWithValue.map(({ rangeLabel }) => rangeLabel),
+                                datasets: {
+                                    ResourceCost: orderedColorsWithValue.map(({ totalCost }) => ({
+                                        value: totalCost
+                                    })),
+                                    NumberOfItems: orderedColorsWithValue.map(({ itemsNumber }) => ({
+                                        value: itemsNumber
+                                    }))
+                                }
+                            }
+                        } else {
+                            const groupElementsNoColor = [...groupResourceElements]
+                            chartPrimary.colors = ['rgb(200, 200, 200)','rgb(138, 138, 138)']
+                            chartPrimary.transparentBackground = true
+                            chartPrimary.borderColor = 'transparent'
+                            chartPrimary.label = `${resource} resource cost per Element`
+                            setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
+                            chartPrimary.inputData = {
+                                labels: groupElementsNoColor,
+                                datasets: {
+                                    ResourceCost: groupElementsNoColor.map((groupElement) => ({
+                                        value: Math.round((resourceCostPerGroupedTable[groupElement]?.resourceCost ?? 0)*100)/100
+                                    }))
+                                }
+                            }
                         }
                     }
-                }
-
-                onCreateResourceChart_Element()
-
-                //step 7: create the panel component to show the table
-                const resourceCostPanelControls = BUI.Component.create<HTMLDivElement>(() => {
-                    return BUI.html`
-                        <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px 10px 5px 10px'})}>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <bim-button @click=${(e:Event) => onExpandTable(e,dynamicResourceTable)} tooltip-title=${dynamicResourceTable.expanded ? "Collapse" : "Expand" } icon=${dynamicResourceTable.expanded ? "si:expand-less-fill" : "si:expand-more-fill"} style="max-width:fit-content"></bim-button>
-                                <bim-label>Group by:</bim-label>
-                                <bim-button @click=${({target}:{target:BUI.Button}) => {
-                                    onCreateResourceChart_IfcClass()
-                                    target.style.backgroundColor = 'var(--background-200)';
-                                    document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
-                                    document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
-                                    document.getElementById('resource_groupby_costrange')!.style.removeProperty('background-color');
-                                    sortbyResourceDropdown_optionOne.label = 'ElementIfcClass'
-                                    sortbyResourceDropdown.value = []
-                                    dynamicResourceTable.groupedBy = ['ElementIfcClass','ElementName']
-                                    dynamicResourceTable.columns = ['ElementIfcClass','ElementName']
-                                    dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
-                                }} id="resource_groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
-                                <bim-button @click=${({target}:{target:BUI.Button}) => {
-                                    onCreateResourceChart_Element()
-                                    target.style.backgroundColor = 'var(--background-200)';
-                                    document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
-                                    document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
-                                    document.getElementById('resource_groupby_costrange')!.style.removeProperty('background-color');
-                                    sortbyResourceDropdown_optionOne.label = 'ElementName'
-                                    sortbyResourceDropdown.value = []
-                                    dynamicResourceTable.groupedBy = ['ElementName']
-                                    dynamicResourceTable.columns = ['ElementName']
-                                    dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
-                                }} id="resource_groupby_element"  label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
-                                <bim-button @click=${({target}:{target:BUI.Button}) => {
-                                    onCreateResourceChart_Element()
-                                    target.style.backgroundColor = 'var(--background-200)';
-                                    document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
-                                    document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
-                                    document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
-                                    sortbyResourceDropdown_optionOne.label = 'ResourceCostRange'
-                                    sortbyTotalCostDropdown.value = []
-                                    dynamicResourceTable.groupedBy = ['ResourceCostRange','ElementName']
-                                    dynamicResourceTable.columns = ['ElementName']
-                                    dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange']
-                                }} id="resource_groupby_costrange"  label="Cost Range" style="max-width:fit-content"></bim-button>
-                                <bim-button @click=${({target}:{target:BUI.Button}) => {
-                                    onCreateResourceChart_Resource()
-                                    target.style.backgroundColor = 'var(--background-200)';
-                                    document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
-                                    document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
-                                    document.getElementById('resource_groupby_costrange')!.style.removeProperty('background-color');
-                                    sortbyResourceDropdown_optionOne.label = 'ResourceName'
-                                    sortbyResourceDropdown.value = []
-                                    dynamicResourceTable.groupedBy = ['ResourceName']
-                                    dynamicResourceTable.columns = ['ResourceName']
-                                    dynamicResourceTable.hiddenColumns = ['Model','ItemId','ResourceName','NormalizedValue','ResourceDescription','ResourceUnitCost']
-                                }} id="resource_groupby_resource"  label="Resource" style="max-width:fit-content"></bim-button>
-                                <bim-label>Sort by:</bim-label>
-                                ${sortbyResourceDropdown}
-                                ${sortbyDirectionResourceCost}
-                                <bim-label>Ghost mode:</bim-label>
-                                <bim-button 
-                                    id='ghost-mode' 
-                                    @click=${async (e:Event) => {
-                                        await onSetTransparencyToCostColor(e);
-                                        (e.target as any).label = (e.target as any).label=='Ghost' ? 'Reset' : 'Ghost'
-                                    }} 
-                                    label="Ghost"
-                                    tooltip-text="Set transparency to non-selected items. On the side, you can set their opacity. Ghost mode works only on cost analysis colored items."
-                                    style="max-width:fit-content; z-index:100">
-                                </bim-button>
-                                <bim-number-input
-                                    id='ghost-mode-opacity' slider step="0.01"value="0.5" min="0" max="1"
-                                    style="max-width:fit-content; z-index:100"
-                                    @change="${async ({ target }: { target: BUI.NumberInput }) => {
-                                        (highlighter.styles.get('color_0_02_transparent') as any).opacity = target.value;
-                                        (highlighter.styles.get('color_02_04_transparent') as any).opacity = target.value;
-                                        (highlighter.styles.get('color_04_06_transparent') as any).opacity = target.value;
-                                        (highlighter.styles.get('color_06_08_transparent') as any).opacity = target.value;
-                                        (highlighter.styles.get('color_08_1_transparent') as any).opacity = target.value;
-                                        await highlighter.updateColors()
-                                    }}">
-                                </bim-number-input>
-                                <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,dynamicResourceTable)}}></bim-text-input>
-                                <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
-                            </div>
-                        </div>`
-                })
-                const resourceCostPanel = BUI.Component.create<BUI.Panel>(() => {
-                    //return the UI of the component
-                    return BUI.html`
-                        <bim-panel style="background:none; height:100%; min-height:0;">
-                            <div style="display:grid; grid-template-columns:80% 20%; gap:10px; margin:5px 15px 5px 15px; background-color:transparent; flex:1; height:100%; min-height:0;">
-                                ${dynamicResourceTable ? dynamicResourceTable : 'Any resource cost found for this cateogory.'}
-                                <div style="background:none; height:90%; min-height:0;">
-                                    ${chartPrimary}
-                                    <bim-checkbox
-                                        label='Display labels'
-                                        style="padding:0.5rem"
-                                        ?checked=${chartPrimaryLabelsVisible}
-                                        @change=${({ target }: { target: BUI.Checkbox }) => {
-                                            setChartPrimaryLabelsVisible(target.value)
-                                        }}>
-                                    </bim-checkbox>
+    
+                    const onCreateResourceChart_Resource = () => {
+                        const groupResourceLabels = [...groupResourceNames]
+                        chartPrimary.colors = ['rgb(200, 200, 200)','rgb(138, 138, 138)']
+                        chartPrimary.transparentBackground = true
+                        chartPrimary.borderColor = 'transparent'
+                        chartPrimary.label = `${resource} resource cost per Resource`
+                        setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
+                        chartPrimary.inputData = {
+                            labels: groupResourceLabels,
+                            datasets: {
+                                ResourceCost: groupResourceLabels.map((groupResourceName) => ({
+                                    value: Math.round((resourceCostPerGroupedTable[groupResourceName]?.resourceCost ?? 0)*100)/100
+                                }))
+                            }
+                        }
+                    }
+    
+                    onCreateResourceChart_Element()
+    
+                    //step 7: create the panel component to show the table
+                    const resourceCostPanelControls = BUI.Component.create<HTMLDivElement>(() => {
+                        return BUI.html`
+                            <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px 10px 5px 10px'})}>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <bim-button @click=${(e:Event) => onExpandTable(e,dynamicResourceTable)} tooltip-title=${dynamicResourceTable.expanded ? "Collapse" : "Expand" } icon=${dynamicResourceTable.expanded ? "si:expand-less-fill" : "si:expand-more-fill"} style="max-width:fit-content"></bim-button>
+                                    <bim-label>Group by:</bim-label>
+                                    <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                        onCreateResourceChart_IfcClass()
+                                        target.style.backgroundColor = 'var(--background-200)';
+                                        document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_costrange')!.style.removeProperty('background-color');
+                                        sortbyResourceDropdown_optionOne.label = 'ElementIfcClass'
+                                        sortbyResourceDropdown.value = []
+                                        dynamicResourceTable.groupedBy = ['ElementIfcClass','ElementName']
+                                        dynamicResourceTable.columns = ['ElementIfcClass','ElementName']
+                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange']
+                                    }} id="resource_groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
+                                    <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                        onCreateResourceChart_Element()
+                                        target.style.backgroundColor = 'var(--background-200)';
+                                        document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_costrange')!.style.removeProperty('background-color');
+                                        sortbyResourceDropdown_optionOne.label = 'ElementName'
+                                        sortbyResourceDropdown.value = []
+                                        dynamicResourceTable.groupedBy = ['ElementName']
+                                        dynamicResourceTable.columns = ['ElementName']
+                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange']
+                                    }} id="resource_groupby_element"  label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
+                                    <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                        onCreateResourceChart_Element()
+                                        target.style.backgroundColor = 'var(--background-200)';
+                                        document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
+                                        sortbyResourceDropdown_optionOne.label = 'ResourceCostRange'
+                                        sortbyTotalCostDropdown.value = []
+                                        dynamicResourceTable.groupedBy = ['ResourceCostRange','ElementName']
+                                        dynamicResourceTable.columns = ['ElementName']
+                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange']
+                                    }} id="resource_groupby_costrange"  label="Cost Range" style="max-width:fit-content"></bim-button>
+                                    <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                        onCreateResourceChart_Resource()
+                                        target.style.backgroundColor = 'var(--background-200)';
+                                        document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_costrange')!.style.removeProperty('background-color');
+                                        sortbyResourceDropdown_optionOne.label = 'ResourceName'
+                                        sortbyResourceDropdown.value = []
+                                        dynamicResourceTable.groupedBy = ['ResourceName']
+                                        dynamicResourceTable.columns = ['ResourceName']
+                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ResourceName','NormalizedValue','ResourceDescription','ResourceUnitCost','ResourceCostRange']
+                                    }} id="resource_groupby_resource"  label="Resource" style="max-width:fit-content"></bim-button>
+                                    <bim-label>Sort by:</bim-label>
+                                    ${sortbyResourceDropdown}
+                                    ${sortbyDirectionResourceCost}
+                                    <bim-label>Ghost mode:</bim-label>
+                                    <bim-button 
+                                        id='ghost-mode' 
+                                        @click=${async (e:Event) => {
+                                            await onSetTransparencyToCostColor(e);
+                                            (e.target as any).label = (e.target as any).label=='Ghost' ? 'Reset' : 'Ghost'
+                                        }} 
+                                        label="Ghost"
+                                        tooltip-text="Set transparency to non-selected items. On the side, you can set their opacity. Ghost mode works only on cost analysis colored items."
+                                        style="max-width:fit-content; z-index:100">
+                                    </bim-button>
+                                    <bim-number-input
+                                        id='ghost-mode-opacity' slider step="0.01"value="0.5" min="0" max="1"
+                                        style="max-width:fit-content; z-index:100"
+                                        @change="${async ({ target }: { target: BUI.NumberInput }) => {
+                                            (highlighter.styles.get('color_0_02_transparent') as any).opacity = target.value;
+                                            (highlighter.styles.get('color_02_04_transparent') as any).opacity = target.value;
+                                            (highlighter.styles.get('color_04_06_transparent') as any).opacity = target.value;
+                                            (highlighter.styles.get('color_06_08_transparent') as any).opacity = target.value;
+                                            (highlighter.styles.get('color_08_1_transparent') as any).opacity = target.value;
+                                            await highlighter.updateColors()
+                                        }}">
+                                    </bim-number-input>
+                                    <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,dynamicResourceTable)}}></bim-text-input>
+                                    <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                                 </div>
-                            </div>
-                        </bim-panel>
-                    `
-                })
-                //step 8: append the component to the down panel
-                panelDown.innerHTML=''
-                panelDown.appendChild(resourceCostPanelControls)
-                panelDown.appendChild(resourceCostPanel)
-
-                if (btn == 'Color') {
+                            </div>`
+                    })
+                    const resourceCostPanel = BUI.Component.create<BUI.Panel>(() => {
+                        //return the UI of the component
+                        return BUI.html`
+                            <bim-panel style="background:none; height:100%; min-height:0;">
+                                <div style="display:grid; grid-template-columns:80% 20%; gap:10px; margin:5px 15px 5px 15px; background-color:transparent; flex:1; height:100%; min-height:0;">
+                                    ${dynamicResourceTable ? dynamicResourceTable : 'Any resource cost found for this cateogory.'}
+                                    <div style="background:none; height:90%; min-height:0;">
+                                        ${chartPrimary}
+                                        <bim-checkbox
+                                            label='Display labels'
+                                            style="padding:0.5rem"
+                                            ?checked=${chartPrimaryLabelsVisible}
+                                            @change=${({ target }: { target: BUI.Checkbox }) => {
+                                                setChartPrimaryLabelsVisible(target.value)
+                                            }}>
+                                        </bim-checkbox>
+                                    </div>
+                                </div>
+                            </bim-panel>
+                        `
+                    })
+                    //step 8: append the component to the down panel
+                    panelDown.innerHTML=''
+                    panelDown.appendChild(resourceCostPanelControls)
+                    panelDown.appendChild(resourceCostPanel)
+    
                     document.getElementById('resource_groupby_costrange')!.click() //trigger the default grouping and coloring
+
+                } else if (btn == 'Select') { //if select button is clicked
+                    highlighter.highlightByID("select", allSelectedItemsModelIdMap, false, false) //only select elements removing colors
+                    updateCountLabel({countItems: 0,countCostItems: 0,countResources: 0})
                 }
 
             } else if (resource == IfcFileLabel_TotalCost){
@@ -1409,8 +1429,14 @@ export function MainViewer () {
                     const costValuesById = mapItemsByLocalId(costValueRecord?.[model] as any[] ?? [])
 
                     const modelItemIds = [...new Set(costItemMeta.map(({ itemId }) => itemId))]
+                    //console.log(modelItemIds)
                     if (normalization == 'Volume' && modelItemIds.length > 0){
-                        const itemVolumes = await fragments.list.get(model)?.getItemsVolume(modelItemIds)
+                        const itemVolumes: number[] = []
+                        for (const i of modelItemIds) {
+                            const vol = await fragments.list.get(model)?.getItemsVolume([i])
+                            itemVolumes.push(vol ? vol : 1)
+                        }
+                        //console.log('itemVolumes',itemVolumes)
                         if (Array.isArray(itemVolumes)) {
                             modelItemIds.forEach((itemId, index) => {
                                 item_volume_map[itemId] = itemVolumes[index]
@@ -1514,39 +1540,40 @@ export function MainViewer () {
                     
                     const startTime_5 = performance.now(); // Start timer
                     const norm = normalization == 'Volume' ? true : false
-                    await onOpenElementXCostPanel(allSelectedItemsModelIdMap,norm,colorMap)
+                    const dynamicCostTable = await onOpenElementXCostPanel(allSelectedItemsModelIdMap,norm,colorMap,limitToCostItemNameList)
                     const endTime_5 = performance.now(); // End timer
                     const loadTime_5 = ((endTime_5 - startTime_5) / 1000).toFixed(2); // seconds
                     console.log(`TIME ${loadTime_5} s: total time to create and render cost table`);
 
-                    const dynamicCostTable = document.getElementById('dynamicCostTable') as BUI.Table
-                    if (normalization == 'Volume') {
+                    if (normalization == 'Volume' && dynamicCostTable) {
                         dynamicCostTable.dataTransform.ItemVolume = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
+                            console.log(value)
+                            //if (!value) return ''
                             const { ItemId } = rowData
-                            if (!ItemId) return value //if ItemId is not defined, return the original value
+                            if (!ItemId) return '' //if ItemId is not defined, return the original value
                             const volume = model_volume_map_flat[Number(ItemId)]
-                            if(!volume) return value
+                            if(!volume) return ''
                             return BUI.html`
                                 <bim-label>${Math.round(volume*1000)/1000} m³</bim-label>
                             `
                         }
                         dynamicCostTable.dataTransform.NormalizedCost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
                             const { ItemId, Currency } = rowData
-                            if (!ItemId) return value //if ItemId is not defined, return the original value
+                            if (!ItemId) return '' //if ItemId is not defined, return the original value
                             const normCost = normalized_cost[Number(ItemId)]
                             const normValue = normalizedValue[Number(ItemId)] as number
-                            if(normCost==null || normValue==null) return value
+                            if(normCost==null || normValue==null) return ''
                             return BUI.html`
                                 <bim-label>${Math.round(normCost*100)/100} ${Currency}/m³ (${Math.round(normValue*100)/100})</bim-label>
                             `
                         }
                     }
-                    document.getElementById('groupby_costrange')!.click() //trigger the click on the cost range grouping button to show colors in the table
+                    //document.getElementById('groupby_costrange')!.click() //trigger the click on the cost range grouping button to show colors in the table
                     groupBy_CostRange_Btn.disabled = false
 
                 } else if (btn == 'Select') { //if select button is clicked
                     highlighter.highlightByID("select", allSelectedItemsModelIdMap, false, false) //only select elements removing colors
-                    await onOpenElementXCostPanel(allSelectedItemsModelIdMap)
+                    updateCountLabel({countItems: 0,countCostItems: 0,countResources: 0})
                 }
             }
             
@@ -2350,9 +2377,12 @@ export function MainViewer () {
         resourcesDropdown.addEventListener('change', (event) => {
             if (!event.target) return
             if ((event.target as any).value[0] == IfcFileLabel_TotalCost){
-                unitMeasureDropdown.style.display = ''
+                //unitMeasureDropdown.style.display = ''
+                limitToCostItemName.style.display = ''
             } else {
-                unitMeasureDropdown.style.display = 'none'
+                //unitMeasureDropdown.style.display = 'none'
+                limitToCostItemName.style.display = 'none'
+                limitToCostItemName.value = ''
             }
         });
 
@@ -2412,6 +2442,17 @@ export function MainViewer () {
                 </bim-checkbox>
             `
         })
+        const limitToCostItemName = BUI.Component.create<BUI.TextInput>(() => {
+            return BUI.html`
+                <bim-text-input
+                    label='Limit to cost items (by Name)'
+                    tooltip-text='Type cost item names to limit the analysis to items with these cost items'
+                    icon='hugeicons:cursor-circle-selection-01'
+                    placeholder='Use comma to separate'
+                >
+                </bim-text-input>
+            `
+        })
         const rangeCost = BUI.Component.create<BUI.Button>(() => {
             return BUI.html`
                 <bim-button 
@@ -2461,6 +2502,7 @@ export function MainViewer () {
                     ${colorScaleDropdown}
                     ${resourcesDropdown}
                     ${limitToSelection}
+                    ${limitToCostItemName}
                     ${categoriesDropdown}
                     ${unitMeasureDropdown}
                     <div style="display:flex; gap: 1rem; align-items:center">
@@ -2499,7 +2541,7 @@ export function MainViewer () {
         panelLeft.appendChild(colorResourcesPanelSection)
 
         //advanced costs functions and components
-        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined,normalization:boolean=false,colorMap?:Record<string, string>) => {
+        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined,normalization:boolean=false,colorMap?:Record<string, string>,limitToCostItemNameList:string[]=[]) => {
             //clean panel
             panelDown.innerHTML=''
             panelDown.appendChild(loadingLabel)
@@ -2647,7 +2689,10 @@ export function MainViewer () {
                             dynamicRow.data.Model = model
                             dynamicRow.data.ItemId = itemId
                             if (costItem['_category'].value != 'IFCCOSTITEM') continue //checks if the assignment is of IfcCostItem else go to the next one
+
                             //cost item identity data
+                            if (limitToCostItemNameList.length > 0 && !limitToCostItemNameList.includes(costItem['Name'].value)) continue
+
                             costItemName = dynamicRow.data.CostItemName = costItem['Name'].value ? costItem['Name'].value : 'nd'
                             costItemDescription = dynamicRow.data.CostItemDescription = costItem['Description'].value ? costItem['Description'].value : 'nd'
                             costItemObjectType = costItem['ObjectType'].value ? (costItem['ObjectType'].value as string).toUpperCase() : 'nd'
@@ -2997,8 +3042,8 @@ export function MainViewer () {
                                 dynamicCostTable.groupedBy = ['ElementIfcClass','ElementName']
                                 dynamicCostTable.columns = ['ElementIfcClass','ElementName']
                                 normalization ?
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName'] :
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName','ItemVolume','NormalizedCost']
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName','CostRange'] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName','ItemVolume','NormalizedCost','CostRange']
                             }} id="groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
                                 onCreateChart_Element()
@@ -3011,7 +3056,7 @@ export function MainViewer () {
                                 dynamicCostTable.groupedBy = ['ElementName']
                                 dynamicCostTable.columns = ['ElementName']
                                 normalization ? 
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange',] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange'] :
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','ItemVolume','NormalizedCost']
                             }} id="groupby_element" label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
@@ -3025,7 +3070,7 @@ export function MainViewer () {
                                 dynamicCostTable.groupedBy = ['CostRange','ElementName']
                                 dynamicCostTable.columns = ['ElementName']
                                 normalization ? 
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange',] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange'] :
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','ItemVolume','NormalizedCost']
                             }} id="groupby_costrange" ${BUI.ref((el) => {groupBy_CostRange_Btn = el as BUI.Button})} tooltip-text="Enabled only for cost analysis coloured panel" label="Cost Range" style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
@@ -3039,8 +3084,8 @@ export function MainViewer () {
                                 dynamicCostTable.groupedBy = ['CostItemName']
                                 dynamicCostTable.columns = ['CostItemName']
                                 normalization ?
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency'] :
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','ItemVolume','NormalizedCost']
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','CostRange'] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','ItemVolume','NormalizedCost','CostRange']
                             }} id="groupby_costitem" label="Cost Item" style="max-width:fit-content"></bim-button>
                             <bim-label>Sort by:</bim-label>
                             ${sortbyTotalCostDropdown}
@@ -3108,6 +3153,7 @@ export function MainViewer () {
             const endTime_6 = performance.now(); // End timer
             const loadTime_6 = ((endTime_6 - startTime_6) / 1000).toFixed(2); // seconds
             console.log(`TIME ${loadTime_6} s: only create and append the cost table (within onOpenElementXCostPanel method)`);
+            return dynamicCostTable
         }
 
         const onOpenPriceAnalysis = (resourcesCostValues: any, unitCostName:any, unitCostDescription: any, unitCost: any) => {
