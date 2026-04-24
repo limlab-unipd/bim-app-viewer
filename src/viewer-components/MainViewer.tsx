@@ -2449,9 +2449,9 @@ export function MainViewer () {
         const limitToCostItemName = BUI.Component.create<BUI.TextInput>(() => {
             return BUI.html`
                 <bim-text-input
-                    label='Limit to cost items (by Name)'
+                    label='Limit to cost items (by Name attribute)'
                     tooltip-text='Type cost item names to limit the analysis to items with these cost items'
-                    icon='hugeicons:cursor-circle-selection-01'
+                    icon='fluent:rename-a-20-regular'
                     placeholder='Use comma to separate'
                 >
                 </bim-text-input>
