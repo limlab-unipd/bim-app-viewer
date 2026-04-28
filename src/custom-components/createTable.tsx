@@ -2,7 +2,7 @@ import * as OBC from '@thatopen/components'
 import * as BUI from '@thatopen/ui'
 import * as OBCF from '@thatopen/components-front'
 import type { Identifier, ItemAttribute, ItemData } from '@thatopen/fragments';
-import { formatNumber } from './conversion';
+import { formatNumber, parseFormattedNumber } from './conversion';
 import { barsIfcCategory } from './parametersForGrouping';
 
 
@@ -20,11 +20,11 @@ const onSortTable = (table: BUI.Table<any>, field: string, ascending: boolean = 
     // funzione per capire se il valore è un numero
     const isNumeric = (v: any) =>
         typeof v === 'number' ||
-        (typeof v === 'string' && !isNaN(Number(v)));
+        (typeof v === 'string' && !isNaN(parseFormattedNumber(v)));
     // funzione per comparare i valori
     const compareValues = (valA: any, valB: any) => {
-        const numA = isNumeric(valA) ? Number(valA) : null;
-        const numB = isNumeric(valB) ? Number(valB) : null;
+        const numA = isNumeric(valA) ? parseFormattedNumber(valA) : null;
+        const numB = isNumeric(valB) ? parseFormattedNumber(valB) : null;
         if (numA !== null && numB !== null) {
             return (numA - numB) * direction;
         }
@@ -132,8 +132,10 @@ export async function createTable (
             pSets = pSets.filter(item => (item.Name as ItemAttribute).value == 'EnvironmentalAnalysisData') //mantiene solo i pset con quel nome
             const param1 = (pSets[0][paramOne] as ItemAttribute).value
             const param2 = (pSets[0][paramTwo] as ItemAttribute).value
-            param1_cityTotal += Number.isFinite(Number(param1)) ? Number(param1) : 0
-            param2_cityTotal += Number.isFinite(Number(param2)) ? Number(param2) : 0
+            const param1Number = parseFormattedNumber(param1)
+            const param2Number = parseFormattedNumber(param2)
+            param1_cityTotal += Number.isFinite(param1Number) ? param1Number : 0
+            param2_cityTotal += Number.isFinite(param2Number) ? param2Number : 0
             //aggiunge le righe nella tabella
             urbanTable.data.push({
                 data: {

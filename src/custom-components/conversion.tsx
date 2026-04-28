@@ -142,8 +142,14 @@ export function formatNumber(n: number): string {
         s = s.replace(/(\.\d*?[1-9])0+$/g, '$1');
         // se tutto dopo la virgola sono zeri, rimuove anche il punto
         s = s.replace(/\.0+$/, '');
-        return s;
+        const [integerPart, decimalPart] = s.split('.');
+        const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        return decimalPart ? `${formattedInteger}.${decimalPart}` : formattedInteger;
     }
+}
+
+export function parseFormattedNumber(value: string | number): number {
+    return Number(String(value).replace(/\s+/g, ''));
 }
 
 export function normalizeParamOne(data: Record<string, any>): Record<string, any> {
@@ -181,7 +187,7 @@ export function normalizeParamTwoForColorsNormalization(input: NestedStringObjec
     const allFiniteValues: number[] = [];
     for (const inner of Object.values(input)) {
         for (const raw of Object.values(inner)) {
-            const num = Number(raw);
+            const num = parseFormattedNumber(raw);
             if (Number.isFinite(num)) {
                 allFiniteValues.push(num);
             }
@@ -193,7 +199,7 @@ export function normalizeParamTwoForColorsNormalization(input: NestedStringObjec
     for (const [key, innerObj] of Object.entries(input)) {
         const newInner: Record<string | number, number> = {};
         for (const [subKey, raw] of Object.entries(innerObj)) {
-            const num = Number(raw);
+            const num = parseFormattedNumber(raw);
             let normalized: number;
             if (num === Infinity) normalized = 1;
             else if (num === -Infinity) normalized = 0;
@@ -211,14 +217,14 @@ export function normalizeParamTwoForColorsOriginal(input: NestedStringObject) {
         const finiteValues: number[] = [];
         // Estrai solo valori finiti del gruppo
         for (const raw of Object.values(innerObj)) {
-            const num = Number(raw);
+            const num = parseFormattedNumber(raw);
             if (Number.isFinite(num)) finiteValues.push(num);
         }
         const min = Math.min(...finiteValues);
         const max = Math.max(...finiteValues);
         const newInner: Record<string | number, number> = {};
         for (const [subKey, raw] of Object.entries(innerObj)) {
-            const num = Number(raw);
+            const num = parseFormattedNumber(raw);
             let normalized: number;
             if (num === Infinity) normalized = 1;
             else if (num === -Infinity) normalized = 0;
