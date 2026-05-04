@@ -68,7 +68,7 @@ export function MainViewer () {
         world.scene.setup()
         world.scene.three.background = new THREE.Color('rgb(53, 53, 70)')
         //RENDERER
-        const container = document.getElementById("main-viewer")! as HTMLElement
+        const container = document.getElementById("main-viewer")! as BUI.Viewport
         world.renderer = new OBCF.PostproductionRenderer(components, container)
         //world.renderer = new OBC.SimpleRenderer(components, container)
         //CAMERA
@@ -78,6 +78,8 @@ export function MainViewer () {
 
         // #region COPONENTS GENERAL SETUP
         //INITIALIZE ALL COMPONENTS
+        BUIC.Manager.init()
+        //BUI.Manager.init()
         components.init()
         casters.get(world)
         clipper.enabled = true
@@ -93,6 +95,43 @@ export function MainViewer () {
         
         world.renderer.postproduction.enabled = true
         world.dynamicAnchor = false
+
+        //VIEW CUBE
+        const viewCube = document.createElement("bim-view-cube") as BUIC.ViewCube
+        viewCube.camera = world.camera.three
+        container.append(viewCube)
+        world.camera.controls.addEventListener("update", () => viewCube.updateOrientation())
+        viewCube.topText = "TOP"
+        viewCube.bottomText = "BOTTOM"
+        viewCube.leftText = "LEFT"
+        viewCube.rightText = "RIGHT"
+        viewCube.frontText = "FRONT"
+        viewCube.backText = "BACK"
+        const getModelsBoundingSphere = () => {
+            const totalBox = new THREE.Box3()
+            fragments.list.forEach((model) => {totalBox.union(model.box)})
+            if (totalBox.isEmpty()) return null
+            const sphere = new THREE.Sphere()
+            totalBox.getBoundingSphere(sphere)
+            return sphere
+        }
+        const lookAtModelFromDirection = (direction: THREE.Vector3) => {
+            const sphere = getModelsBoundingSphere()
+            if (!sphere) return
+            const cameraPosition = sphere.center.clone().add(direction.clone().multiplyScalar(sphere.radius))
+            world.camera.controls.setLookAt(cameraPosition.x,cameraPosition.y,cameraPosition.z,sphere.center.x,sphere.center.y,sphere.center.z,true)
+        }
+        viewCube.addEventListener("leftclick", () => {lookAtModelFromDirection(new THREE.Vector3(-1, 0, 0))})
+        viewCube.addEventListener("rightclick", () => {lookAtModelFromDirection(new THREE.Vector3(1, 0, 0))})
+        viewCube.addEventListener("topclick", () => {lookAtModelFromDirection(new THREE.Vector3(0, 1, 0))})
+        viewCube.addEventListener("bottomclick", () => {lookAtModelFromDirection(new THREE.Vector3(0, -1, 0))})
+        viewCube.addEventListener("frontclick", () => {lookAtModelFromDirection(new THREE.Vector3(0, 0, 1))})
+        viewCube.addEventListener("backclick", () => {lookAtModelFromDirection(new THREE.Vector3(0, 0, -1))})
+        viewCube.style.setProperty('--bim-view-cube_x--bgc', 'rgba(59, 60, 79, 0.9)')
+        viewCube.style.setProperty('--bim-view-cube_y--bgc', 'rgba(69, 70, 89, 0.9)')
+        viewCube.style.setProperty('--bim-view-cube_z--bgc', 'rgba(79, 80, 99, 0.9)')
+        viewCube.style.zIndex = '0'
+        //END VIEW CUBE
 
         //components.get(OBC.Raycasters).get(world);
 
