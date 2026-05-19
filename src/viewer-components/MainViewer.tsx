@@ -7,7 +7,7 @@ import * as BUIC from '@thatopen/ui-obc'
 import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
 import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-converter'
-import { convertCurrency, convertUnits } from '../custom-components/conversion'
+import { convertCurrency, convertUnits, formatNumber, formatNumber_Cost } from '../custom-components/conversion'
 import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel, getColorRangeKeyByColorValue, getNormalizedValueFromColor } from '../custom-components/colors'
 import Stats, { Panel } from 'stats.js'
 
@@ -468,106 +468,72 @@ export function MainViewer () {
             button.icon = table.expanded ? "si:expand-less-fill" : "si:expand-more-fill";
         }
         
-        const onSortDynamicTable = (table:BUI.Table<any>, field:string, ascending:boolean=true, totalCostPerGroupedTable: {[group: string]: {cost: number}}) => {
+        const onSortDynamicTable = ( //funziona sia per total che resource cost
+            table:BUI.Table<any>,
+            field:string,
+            ascending:boolean=true,
+            totalOrResourceCostPerGroupedTable: {[group: string]: {cost?: number, resourceCost?: number}},
+            totalOrResource:string='total'
+        ) => {
             function parseValue(value: string | number): number | string {
                 const normalizedValue = String(value ?? '')
-                const numericPart = normalizedValue.split(' ')[0]
+                const valueParts = normalizedValue.split(' ')
+                const numericPart = valueParts.length > 1 ? valueParts.slice(0, -1).join('') : valueParts[0]
                 const parsed = Number(numericPart)
-                if (!isNaN(parsed) && normalizedValue.trim().startsWith(numericPart)) { return parsed }
+                if (!isNaN(parsed) && numericPart) { return parsed }
                 return normalizedValue.toLowerCase()
             }
-            function getSortSourceValue(row: BUI.TableGroupData<any>) {
-                // se il criterio è Cost allora prende i valori di uno di quei tre campi (ElementName, CostItemName o ElementIfcClass) 
-                // per identificare a quale gruppo di costo appartiene e prende il costo totale di quel gruppo dalla totalCostPerGroupedTable 
-                // invece di prendere il valore del campo Cost che è vuoto nelle row raggruppate della table
-                if (field === 'Cost') {
-                    const groupKey =
-                        row.data.ElementName ||
-                        row.data.CostItemName ||
-                        row.data.ElementIfcClass
-                    if (groupKey && totalCostPerGroupedTable[groupKey]) {
-                        return totalCostPerGroupedTable[groupKey].cost
-                    }
-                }
-                // se il criterio è qualsiasi altro prende direttamente il suo valore
-                return row.data[field] ?? ''
-            }
-            const direction = ascending ? 1 : -1
 
-            if (sortbyTotalCostDropdown_optionOne.label == 'CostRange' && field === 'Cost') {
-                for (const costRangeGroup of table.value) {
-                    if (!costRangeGroup.children) continue
-                    costRangeGroup.children.sort((a, b) => {
-                        const valA = parseValue(getSortSourceValue(a))
-                        const valB = parseValue(getSortSourceValue(b))
-                        if (typeof valA === 'number' && typeof valB === 'number') {
-                            return (valA - valB) * direction
-                        }
-                        return valA.toString().localeCompare(valB.toString()) * direction
-                    })
-                }
-            } else {
-                table.value.sort((a, b) => {
-                    const valA = parseValue(getSortSourceValue(a))
-                    const valB = parseValue(getSortSourceValue(b))
-                    if (typeof valA === 'number' && typeof valB === 'number') {
-                        return (valA - valB) * direction
-                    }
-                    return valA.toString().localeCompare(valB.toString()) * direction
-                })
-            }
-
-            table.requestUpdate()
-        }
-        const onSortDynamicResourceTable = (table:BUI.Table<any>, field:string, ascending:boolean=true, totalCostPerGroupedTable: {[group: string]: {resourceCost: number}}) => {
-            function parseValue(value: string | number): number | string {
-                const normalizedValue = String(value ?? '')
-                const numericPart = normalizedValue.split(' ')[0]
-                const parsed = Number(numericPart)
-                if (!isNaN(parsed) && normalizedValue.trim().startsWith(numericPart)) { return parsed }
-                return normalizedValue.toLowerCase()
-            }
             function getSortSourceValue(row: BUI.TableGroupData<any>) {
-                // se il criterio è Cost allora prende i valori di uno di quei tre campi (ElementName, CostItemName o ElementIfcClass) 
-                // per identificare a quale gruppo di costo appartiene e prende il costo totale di quel gruppo dalla totalCostPerGroupedTable 
-                // invece di prendere il valore del campo Cost che è vuoto nelle row raggruppate della table
-                if (field === 'Cost') {
+                const sortField = field === 'Cost' // se field = Cost sceglie tra total or resource altrimenti ritorna direttamente field
+                    ? totalOrResource === 'total' ? 'Cost' : 'ResourceCost'
+                    : field
+                if (field === 'Cost' && row.children?.length) {
                     const groupKey =
                         row.data.ElementName ||
                         row.data.ResourceName ||
+                        row.data.CostItemName ||
                         row.data.ElementIfcClass
-                    if (groupKey && totalCostPerGroupedTable[groupKey]) {
-                        return totalCostPerGroupedTable[groupKey].resourceCost
+                    if (groupKey && totalOrResourceCostPerGroupedTable[groupKey]) {
+                        const groupedCost = totalOrResourceCostPerGroupedTable[groupKey]
+                        return groupedCost.cost ?? groupedCost.resourceCost ?? ''
                     }
                 }
-                // se il criterio è qualsiasi altro prende direttamente il suo valore
-                return row.data[field] ?? ''
-            }
-            const direction = ascending ? 1 : -1
-            
-            if (sortbyResourceDropdown_optionOne.label == 'ResourceCostRange' && field === 'Cost') {
-                for (const costRangeGroup of table.value) {
-                    if (!costRangeGroup.children) continue
-                    costRangeGroup.children.sort((a, b) => {
-                        const valA = parseValue(getSortSourceValue(a))
-                        const valB = parseValue(getSortSourceValue(b))
-                        if (typeof valA === 'number' && typeof valB === 'number') {
-                            return (valA - valB) * direction
-                        }
-                        return valA.toString().localeCompare(valB.toString()) * direction
-                    })
+                if ([sortbyTotalCostDropdown_optionOne.label, sortbyResourceDropdown_optionOne.label].includes(`${sortField}Range`) && row.data[sortField] == '') {
+                    return row.data[`${sortField}Range`] ?? ''
                 }
-            } else {
-                table.value.sort((a, b) => {
-                    const valA = parseValue(getSortSourceValue(a))
-                    const valB = parseValue(getSortSourceValue(b))
-                    if (typeof valA === 'number' && typeof valB === 'number') {
-                        return (valA - valB) * direction
-                    }
-                    return valA.toString().localeCompare(valB.toString()) * direction
-                })
+                return row.data[sortField] ?? ''
             }
 
+            const direction = ascending ? 1 : -1
+            const sortValueCache = new WeakMap<BUI.TableGroupData<any>, number | string>()
+
+            const getComparableValue = (row: BUI.TableGroupData<any>) => {
+                const cached = sortValueCache.get(row)
+                if (cached !== undefined) return cached
+                const value = parseValue(getSortSourceValue(row))
+                sortValueCache.set(row, value)
+                return value
+            }
+
+            const compareRows = (a: BUI.TableGroupData<any>, b: BUI.TableGroupData<any>) => {
+                const valA = getComparableValue(a)
+                const valB = getComparableValue(b)
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    return (valA - valB) * direction
+                }
+                return valA.toString().localeCompare(valB.toString()) * direction
+            }
+
+            const sortRowsRecursively = (rows: BUI.TableGroupData<any>[]) => {
+                rows.sort(compareRows)
+                for (const row of rows) {
+                    if (!row.children?.length) continue
+                    sortRowsRecursively(row.children)
+                }
+            }
+
+            sortRowsRecursively(table.value)
             table.requestUpdate()
         }
 
@@ -1057,7 +1023,7 @@ export function MainViewer () {
                         if (!e.target) return
                         const field = (e.target as BUI.Dropdown).value[0]
                         const ascending = sortbyDirectionResourceCost.icon=='meteor-icons:arrow-up' ? false : true
-                        onSortDynamicResourceTable(dynamicResourceTable, field, ascending, resourceCostPerGroupedTable)}
+                        onSortDynamicTable(dynamicResourceTable, field, ascending, resourceCostPerGroupedTable, 'resource')}
                     )
                     const sortbyDirectionResourceCost = BUI.Component.create<BUI.Dropdown>(
                         () => BUI.html`
@@ -1067,7 +1033,7 @@ export function MainViewer () {
                                     const button = e.target as BUI.Button
                                     button.icon = button.icon=='meteor-icons:arrow-up' ? 'meteor-icons:arrow-down' : 'meteor-icons:arrow-up'
                                     const ascending = button.icon=='meteor-icons:arrow-up' ? false : true
-                                    onSortDynamicResourceTable(dynamicResourceTable, sortbyResourceDropdown.value[0], ascending, resourceCostPerGroupedTable)}}">
+                                    onSortDynamicTable(dynamicResourceTable, sortbyResourceDropdown.value[0], ascending, resourceCostPerGroupedTable, 'resource')}}">
                         </bim-button>`,
                     )
                     const groupResourceIfcClasses = new Set<string>()
@@ -1114,10 +1080,10 @@ export function MainViewer () {
                             const { ElementName, ElementIfcClass, ResourceName } = rowData
                             if (!ElementName && !ResourceName && ElementIfcClass) {
                                 if (value!='') return value
-                                return Math.round(resourceCostPerGroupedTable[ElementIfcClass]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ElementIfcClass]?.currency
+                                return formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ElementIfcClass]?.resourceCost*100)/100)+' '+resourceCostPerGroupedTable[ElementIfcClass]?.currency
                             } else if (!ElementName && ResourceName && !ElementIfcClass) {
                                 if (value!='') return value
-                                return Math.round(resourceCostPerGroupedTable[ResourceName]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ResourceName]?.currency
+                                return formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ResourceName]?.resourceCost*100)/100)+' '+resourceCostPerGroupedTable[ResourceName]?.currency
                             } else if (ElementName && !ResourceName && !ElementIfcClass) {
                                 if (value!='') return value
                                 if (colorMap) {
@@ -1126,14 +1092,14 @@ export function MainViewer () {
                                             <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; 
                                                 background-color:${colorMap[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};
                                                 color:${colorMap[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
-                                            <bim-label>${Math.round(resourceCostPerGroupedTable[ElementName]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ElementName]?.currency}</bim-label>
+                                            <bim-label>${formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ElementName]?.resourceCost*100)/100)+' '+resourceCostPerGroupedTable[ElementName]?.currency}</bim-label>
                                         </div>
                                     `
                                 } else {
-                                    return Math.round(resourceCostPerGroupedTable[ElementName]?.resourceCost*100)/100+' '+resourceCostPerGroupedTable[ElementName]?.currency
+                                    return formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ElementName]?.resourceCost*100)/100)+' '+resourceCostPerGroupedTable[ElementName]?.currency
                                 }
                             } else {
-                                return value
+                                return formatNumber_Cost(value)
                             }
                         },
                         ResourceDescription: (value, rowData) => {
@@ -2859,10 +2825,10 @@ export function MainViewer () {
                     const { ElementName, ElementIfcClass, CostItemName } = rowData
                     if (!ElementName && !CostItemName && ElementIfcClass) {
                         if (value!='') return value
-                        return Math.round(totalCostPerGroupedTable[ElementIfcClass]?.cost*100)/100+' '+totalCostPerGroupedTable[ElementIfcClass]?.currency
+                        return formatNumber_Cost(Math.round(totalCostPerGroupedTable[ElementIfcClass]?.cost*100)/100)+' '+totalCostPerGroupedTable[ElementIfcClass]?.currency
                     } else if (!ElementName && CostItemName && !ElementIfcClass) {
                         if (value!='') return value
-                        return Math.round(totalCostPerGroupedTable[CostItemName]?.cost*100)/100+' '+totalCostPerGroupedTable[CostItemName]?.currency
+                        return formatNumber_Cost(Math.round(totalCostPerGroupedTable[CostItemName]?.cost*100)/100)+' '+totalCostPerGroupedTable[CostItemName]?.currency
                     } else if (ElementName && !CostItemName && !ElementIfcClass) {
                         if (value!='') return value
                         if (colorMap) {
@@ -2871,23 +2837,23 @@ export function MainViewer () {
                                     <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; 
                                         background-color:${colorMap[Number(totalCostPerGroupedTable[ElementName]?.itemId)]};
                                         color:${colorMap[Number(totalCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
-                                    <bim-label>${Math.round(totalCostPerGroupedTable[ElementName]?.cost*100)/100+' '+totalCostPerGroupedTable[ElementName]?.currency}</bim-label>
+                                    <bim-label>${formatNumber_Cost(Math.round(totalCostPerGroupedTable[ElementName]?.cost*100)/100)+' '+totalCostPerGroupedTable[ElementName]?.currency}</bim-label>
                                 </div>
                             `
                         } else {
-                            return Math.round(totalCostPerGroupedTable[ElementName]?.cost*100)/100+' '+totalCostPerGroupedTable[ElementName]?.currency
+                            return formatNumber_Cost(Math.round(totalCostPerGroupedTable[ElementName]?.cost*100)/100)+' '+totalCostPerGroupedTable[ElementName]?.currency
                         }
                     } else {
-                        return value
+                        return formatNumber_Cost(value)
                     }
                 },
                 Quantity: (value, rowData) => {
                     const { ElementName, ElementIfcClass, CostItemName } = rowData
                     if (!ElementName && CostItemName && !ElementIfcClass) {
                         if (value!='') return value
-                        return Math.round(totalCostPerGroupedTable[CostItemName]?.quantity*100)/100+' '+totalCostPerGroupedTable[CostItemName]?.um
+                        return formatNumber_Cost(Math.round(totalCostPerGroupedTable[CostItemName]?.quantity*100)/100)+' '+totalCostPerGroupedTable[CostItemName]?.um
                     } else {
-                        return value
+                        return formatNumber_Cost(value)
                     }
                 },
                 CostItemUnitCost: (value, rowData) => {

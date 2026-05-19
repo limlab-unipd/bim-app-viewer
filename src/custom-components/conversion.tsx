@@ -131,6 +131,19 @@ export function formatNumber(n: number): string {
         return s;
     }
 }
+export function formatNumber_Cost(n: number|string): string {
+    // rimuove zeri finali dopo la virgola
+    let s = n.toString().replace(/(\.\d*?[1-9])0+$/g, '$1');
+    // se tutto dopo la virgola sono zeri, rimuove anche il punto
+    s = s.replace(/\.0+$/, '');
+    const [integerPart, decimalPart] = s.split('.');
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return decimalPart ? `${formattedInteger}.${decimalPart}` : formattedInteger;
+}
+
+export function parseFormattedNumber(value: string | number): number {
+    return Number(String(value).replace(/\s+/g, ''));
+}
 
 export function normalizeParamOne(data: Record<string, any>): Record<string, any> {
     const rawValues = Object.values(data).map(d => d.param_one);
