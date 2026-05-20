@@ -19,14 +19,14 @@ type GroupedData = Record<ColorRangeKey, string[]>;
  * Outer key is the model name, inner key is element ID, value can be any metadata.
  */
 type PerModelInput = Record<string, Record<string, any>>;
+type PerModelNumberMap = Record<string, Record<string, number>>;
+type PerModelColorMap = Record<string, Record<string, string>>;
 
 /**
  * Grouped data per model.
  * Outer key is the model name, value is GroupedData (elements grouped by color range).
  */
 type PerModelGrouped = Record<string, GroupedData>;
-
-
 
 // Custom function needed only here
 /**
@@ -181,83 +181,96 @@ export const setHighlighterStyles = (components:OBC.Components, colorscale:strin
  * Normalizes input values in a map and maps them to colors based on a colorscale.
  * Performs a two-step normalization: global normalization and then filtered range normalization.
  *
- * @param map - Record of keys and numerical values
+ * @param map - Record of model keys and nested numerical values
  * @param colorscale - Name of the color scale to use (default: 'gnylrd')
  * @param rangeMin - Minimum normalized value to include
  * @param rangeMax - Maximum normalized value to include
  * @param InInterval - Defines whether the filter applies to values inside or outside the selected range (rangeMin, rangeMax)
  * @param NormalOrCost - Specifies whether the range refers to normalized values (0–1) or to actual cost values before normalization
- * @returns Tuple: [mapping of keys to color strings, mapping of keys to normalized values]
+ * @returns Tuple: [mapping of model keys to color strings, mapping of model keys to normalized values]
  */
-export function normalizeAndMapToColor (map: Record<string, number>, colorscale: string = 'gnylrd', rangeMin: number, rangeMax: number, InInterval: string = 'Inside', NormalOrCost: string = 'Percentile'): [Record<string, string>, Record<string, number>] {
+export function normalizeAndMapToColor (map: PerModelNumberMap, colorscale: string = 'gnylrd', rangeMin: number, rangeMax: number, InInterval: string = 'Inside', NormalOrCost: string = 'Percentile'): [PerModelColorMap, PerModelNumberMap] {
     const colorScale = colorScaleList[colorscale];
 
-    // Normalizzazione dei valori
-    const values = Object.values(map);
+    // Values normalization
+    const entries = Object.entries(map).flatMap(([model, modelMap]) =>
+        Object.entries(modelMap).map(([key, value]) => ({ model, key, value })) //this is an array of objects with model, key and value, where value is the cost value before normalization
+    );
+    const values = entries.map(({ value }) => value) //array of cost values before normalization, used to find min and max for normalization
+    if (values.length === 0) return [{}, {}];
+
     const min = Math.min(...values);
     const max = Math.max(...values);
     const range = max - min || 1;
 
-    const result: Record<string, string> = {};
-    const tempResultNormalized: Record<string, number> = {};
-    const resultNormalized: Record<string, number> = {};
-    let filteredEntries: [string, number][] = []
+    const result: PerModelColorMap = {};
+    const tempResultNormalized: PerModelNumberMap = {};
+    const resultNormalized: PerModelNumberMap = {};
+    let filteredEntries: { model: string; key: string; normalized: number }[] = []
     
     // Here will be done all the filtering of costs according to:
     //      - rangeMin and rangeMax values
     //      - values inside or outside the selected range (rangeMin, rangeMax)
     //      - rangeMin and rangeMax refers to normalized values (0–1) or to actual cost values before normalization
     if (['Percentile','Normal'].includes(NormalOrCost)){ // if the range uses normalized values
-        for (const [key, value] of Object.entries(map)) {
-            tempResultNormalized[key] = (value - min) / range; // Normalization of all values
+        for (const { model, key, value } of entries) {
+            tempResultNormalized[model] ??= {};
+            tempResultNormalized[model][key] = (value - min) / range; // Normalization of all values
         }
         // Filter elements according to normalized choosen range
-        filteredEntries = Object.entries(tempResultNormalized).filter(([, normalized]) => {
+        filteredEntries = Object.entries(tempResultNormalized).flatMap(([model, modelMap]) =>
+            Object.entries(modelMap).map(([key, normalized]) => ({ model, key, normalized }))
+        ).filter(({ normalized }) => {
             return InInterval == 'Inside' ? (normalized >= rangeMin && normalized <= rangeMax) : (normalized < rangeMin || normalized > rangeMax) // if the range is inside or outside
         })
     } else { // if the range refers to the cost value
-        for (const [key, value] of Object.entries(map)) { // here the filter has to be done in the initial map before normalization
+        for (const { model, key, value } of entries) { // here the filter has to be done in the initial map before normalization
             if (InInterval=='Inside'){ // if the range is inside min and max values
                 if (value<rangeMin || value>rangeMax) continue // exclude this cost item if it is outside the range
             } else { // if the range is outside
                 if (value>=rangeMin && value<=rangeMax) continue // exclude if the cost item is inside
             }
-            tempResultNormalized[key] = (value - min) / range // normalize the cost value if it passed the previous checks
+            tempResultNormalized[model] ??= {};
+            tempResultNormalized[model][key] = (value - min) / range // normalize the cost value if it passed the previous checks
         }
-        filteredEntries = Object.entries(tempResultNormalized) // extract values in the final structure
+        filteredEntries = Object.entries(tempResultNormalized).flatMap(([model, modelMap]) =>
+            Object.entries(modelMap).map(([key, normalized]) => ({ model, key, normalized }))
+        ) // extract values in the final structure
     }
 
     // if no cost items respect the filters, return the function
     if (filteredEntries.length === 0) return [{}, {}];
 
     // Trova il minimo e massimo dei valori filtrati (per la seconda normalizzazione)
-    const filteredValues = filteredEntries.map(([, normalized]) => normalized);
+    const filteredValues = filteredEntries.map(({ normalized }) => normalized);
     const fMin = Math.min(...filteredValues);
     const fMax = Math.max(...filteredValues);
     const fRange = fMax - fMin || 1;
 
-    for (const [key, normalized] of filteredEntries) {
+    for (const { model, key, normalized } of filteredEntries) {
         // Seconda normalizzazione tra 0 e 1 sui valori filtrati
         const renormalized = (normalized - fMin) / fRange;
-        resultNormalized[key] = renormalized;
+        resultNormalized[model] ??= {};
+        resultNormalized[model][key] = renormalized;
+        result[model] ??= {};
 
         // Determina il colore in base al valore normalizzato finale
         const colorRange = colorForValue(renormalized);
         switch (colorRange) {
             case "color_0_02":
-                result[key] = colorScale.find(([v]) => v === 0)?.[1] as string;
+                result[model][key] = colorScale.find(([v]) => v === 0)?.[1] as string;
                 break;
             case "color_02_04":
-                result[key] = colorScale.find(([v]) => v === 0.25)?.[1] as string;
+                result[model][key] = colorScale.find(([v]) => v === 0.25)?.[1] as string;
                 break;
             case "color_04_06":
-                result[key] = colorScale.find(([v]) => v === 0.5)?.[1] as string;
+                result[model][key] = colorScale.find(([v]) => v === 0.5)?.[1] as string;
                 break;
             case "color_06_08":
-                result[key] = colorScale.find(([v]) => v === 0.75)?.[1] as string;
+                result[model][key] = colorScale.find(([v]) => v === 0.75)?.[1] as string;
                 break;
             case "color_08_1":
-                result[key] = colorScale.find(([v]) => v === 1)?.[1] as string;
+                result[model][key] = colorScale.find(([v]) => v === 1)?.[1] as string;
                 break;
         }
     }
@@ -269,12 +282,17 @@ export function normalizeAndMapToColor (map: Record<string, number>, colorscale:
  * Also assigns corresponding Three.js color styles to the highlighter component.
  *
  * @param components - ThatOpen Components instance
- * @param normalizedData - Record of element IDs to normalized values (0-1)
+ * @param normalizedData - Record of model names to element IDs and their normalized values (0–1)
  * @param perModelData - Record of model names to element data
  * @param colorscale - Name of the color scale to use (default: 'gnylrd')
  * @returns Grouped data per model, with color ranges and lists of IDs
  */
-export function groupIdsByNormalizedValuePerModel(components:OBC.Components, normalizedData: Record<string, number>, perModelData: PerModelInput, colorscale:string='gnylrd'): PerModelGrouped { //for cost
+export function groupIdsByNormalizedValuePerModel(
+    components:OBC.Components,
+    normalizedData: PerModelNumberMap,
+    perModelData: PerModelInput,
+    colorscale:string='gnylrd')
+: PerModelGrouped { //for cost
     const result: PerModelGrouped = {}
     for (const [modelName, elements] of Object.entries(perModelData)) {
         const grouped: GroupedData = {
@@ -285,9 +303,9 @@ export function groupIdsByNormalizedValuePerModel(components:OBC.Components, nor
             color_08_1: []
         }
         for (const id of Object.keys(elements)) {
-            const value = normalizedData[id]
+            const value = normalizedData[modelName]?.[id]
             if (value !== undefined) {
-                const color = colorForValue(value)
+                const color = colorForValue(Number(value))
                 if (color) {
                     grouped[color].push(id)
                 }

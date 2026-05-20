@@ -548,17 +548,6 @@ export function MainViewer () {
             panel.innerHTML = ''
             panel.label = title
         }
-        const flattenModelMap = (map:{[key:string]:{[key:string|number]:any}}) => {
-            const flatten_map = Object.values(map).reduce((acc, curr) => {
-                Object.entries(curr).forEach(([k, v]) => {
-                    acc[k] = acc[k] ? {...acc[k],...v} : v
-                    return acc[k]
-                })
-                return acc},
-                {} as { [key: number|string]: any }
-            )
-            return flatten_map
-        }
 
         // #region
         //advanced functions
@@ -735,10 +724,18 @@ export function MainViewer () {
             console.log(`TIME ${loadTime_2} s: get data of previous cost items localIds`)
 
             if (resource != IfcFileLabel_TotalCost){ //this means that a resource is selected
+                type elemDataType = {
+                    elemModel: string,
+                    elemId: number,
+                    elemName: string,
+                    totalResourceCost: number,
+                    currency: string,
+                    category: string,
+                }
                 //initialize some maps needed for the process
                 const model_resources_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
                 const model_costCount_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
-                const elementsData_Array: any[] = [] //array to stock data of each element to be shown in the table
+                const elementsData_Array: elemDataType[] = [] //array to stock data of each element to be shown in the table
                 const elem_resourcesDetails_Map: {[key:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string, resourceName:string}[]} = {} //resource details object
                 const getLocalId = (item: any) => item?._localId?.value as number | undefined
                 const mapItemsByLocalId = (items: any[] = []) => {
@@ -857,8 +854,15 @@ export function MainViewer () {
                             if (!pac) continue
                             if (!pac['Category']) continue //checks if the component has a category
                             if ((pac['Category'].value as string).toUpperCase() == (resource as string).toUpperCase()){ //checks the correspondance between components resource category and the one selected
-                                const resourceDescription = pac['Description'].value //description of the resource
-                                const resourceName = pac['Name'].value //name of the resource
+                                const getPacValue = (propertyName: string) => {
+                                    try {
+                                        return pac[propertyName]?.value ?? 'nd'
+                                    } catch (error) {
+                                        return 'nd'
+                                    }
+                                }
+                                const resourceDescription = getPacValue('Description') //description of the resource
+                                const resourceName = getPacValue('Name') //name of the resource
                                 let resourceUnitCost
                                 try {
                                     resourceUnitCost = pac['AppliedValue'][0]['ValueComponent'].value //unit cost of the resource
@@ -891,7 +895,7 @@ export function MainViewer () {
                     for (const [elemId,resourceCost] of Object.entries(elem_resources_Map)){ //loop over each element id and its total resource cost
                         const item = [modelItemsById[Number(elemId)]]
                         if (!item[0]) continue //checks if the item exists
-                        const elemData = {
+                        const elemData : elemDataType = {
                             elemModel: model,
                             elemId: Number(elemId),
                             elemName: (item as any)[0]['Name'].value,
@@ -921,18 +925,14 @@ export function MainViewer () {
                 //color rows indipendentely from models
                 //time to do next if very low
                 if (btn == 'Color'){
-        
-                    //this step is moved here to handle with ranges, in this way the colorMap contains only item within the range
-                    //step 5.0 flatten map removing models level
-                    const model_resources_Map_flat = flattenModelMap(model_resources_Map)
-                    const model_costCount_Map_flat = flattenModelMap(model_costCount_Map) //not properly correct because you can have multiple items with same id, but this is needed to sum count items count
+                    //this step is moved here to handle with ranges, in this way the localIdToColor_map contains only item within the range
                     //step 5.0.1: normalize total resource cost to color across models
-                    const [colorMap, normalizedValue] = normalizeAndMapToColor(model_resources_Map_flat,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost) //use this function to normalize values between 0 and 1 and return color and normalized value
-    
+                    const [modelTo_localIdToColor_map, modelTo_localIdToNormalizedValue_map] = normalizeAndMapToColor(model_resources_Map,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost) //use this function to normalize values between 0 and 1 and return color and normalized value
+
                     //step 5: RESOURCE TABLE CREATION
                     //table type for resource table
                     type dynamicResourceTableData = {
-                        Model?: string,
+                        Model: string,
                         ItemId?: number, //optional because it is not needed in the first row
                         ElementName: string,
                         ElementIfcClass: string,
@@ -970,9 +970,10 @@ export function MainViewer () {
                     //this works with more models because this map does not divide items by model
                     //so the table is correctly created
                     for (const elem of elementsData_Array) {
-                        if (!Object.keys(colorMap).includes(elem.elemId.toString())) continue //checks if the item id is outside of the selected form the range or not
+                        const elemColor = modelTo_localIdToColor_map[elem.elemModel]?.[elem.elemId]
+                        if (!elemColor) continue //checks if the item id is outside of the selected form the range or not
                         countItems += 1
-                        countCostItems += model_costCount_Map_flat[elem.elemId] //sum all the count of cost items only of the items within the range
+                        countCostItems += model_costCount_Map[elem.elemModel]?.[elem.elemId] || 0 //sum all the count of cost items only of the items within the range
                         
                         for (const resourceDetails of elem_resourcesDetails_Map[elem.elemId]){
                             countResources += 1
@@ -985,7 +986,7 @@ export function MainViewer () {
                                     ResourceName: resourceDetails.resourceName,
                                     ResourceDescription: resourceDetails.resourceDescription,
                                     ResourceCost: `${Math.round((Number(resourceDetails.resourceUnitCost.split(' ')[0])*Number(resourceDetails.elemQuantity.split(' ')[0]))*100)/100} ${elem.currency}`,
-                                    ResourceCostRange: getColorRangeKeyByColorValue(colorMap[elem.elemId as string]), //this is the range key to which the resource cost belongs based on its color
+                                    ResourceCostRange: getColorRangeKeyByColorValue(elemColor), //this is the range key to which the resource cost belongs based on its color
                                     ResourceUnitCost: resourceDetails.resourceUnitCost,
                                     ElementQuantity: resourceDetails.elemQuantity,
                                     NormalizedValue: '',
@@ -995,16 +996,16 @@ export function MainViewer () {
                     }
     
                     await highlighter.clear() //reset previous selections of highlighter
-                    updateCountLabel({countItems:Object.entries(colorMap).length, countCostItems:countCostItems, countResources:countResources})
+                    updateCountLabel({countItems:countItems, countCostItems:countCostItems, countResources:countResources})
                     //6.1: color model before table creation
                     //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
                     //here things comes different because to highlight and color elements the model is needed
                     //so, the highlighting is by model but the color and the normal value is kept from the map calculated outside of this loop
-                    const groupedColors = groupIdsByNormalizedValuePerModel(components, normalizedValue as Record<string,number>, model_resources_Map, colorscale)
-                    for (const [model,colorMap] of Object.entries(groupedColors)) {
+                    const groupedColors = groupIdsByNormalizedValuePerModel(components, modelTo_localIdToNormalizedValue_map, model_resources_Map, colorscale)
+                    for (const [model,modelTo_localIdToColor_map] of Object.entries(groupedColors)) {
                         const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
                         onSetTransparency({[model]:new Set(geomItems)})
-                        for (const [color,ids] of Object.entries(colorMap)) {
+                        for (const [color,ids] of Object.entries(modelTo_localIdToColor_map)) {
                             const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
                             highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
                         }
@@ -1013,9 +1014,9 @@ export function MainViewer () {
                     //step 6.2: add the normalized value to the table, pay attention: it is only a render value, it will not be saved in the table
                     //changing this value here is independent from model
                     dynamicResourceTable.dataTransform.NormalizedValue = (value, rowData) => {
-                        const { ItemId } = rowData
-                        if (!ItemId) return value //if ItemId is not defined, return the original value
-                        return Math.round(normalizedValue[ItemId]*1000)/1000
+                        const { Model, ItemId } = rowData
+                        if (!Model || !ItemId) return value //if Model or ItemId is not defined, return the original value
+                        return Math.round(modelTo_localIdToNormalizedValue_map[Model]?.[ItemId]*1000)/1000
                     }
                     //document.getElementById('resource_groupby_costrange')!.click()
 
@@ -1052,8 +1053,8 @@ export function MainViewer () {
                         const itemId = row.data.ItemId
                         const model = row.data.Model
     
-                        // if (colorMap && itemId) {
-                        //     const colorValue = colorMap[Number(itemId)]
+                        // if (modelTo_localIdToColor_map && itemId) {
+                        //     const colorValue = modelTo_localIdToColor_map[Number(itemId)]
                         //     row.data.ResourceCostRange = colorValue ? getColorRangeKeyByColorValue(colorValue) ?? colorValue : colorValue
                         // }
     
@@ -1086,12 +1087,12 @@ export function MainViewer () {
                                 return formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ResourceName]?.resourceCost*100)/100)+' '+resourceCostPerGroupedTable[ResourceName]?.currency
                             } else if (ElementName && !ResourceName && !ElementIfcClass) {
                                 if (value!='') return value
-                                if (colorMap) {
+                                if (modelTo_localIdToColor_map) {
                                     return BUI.html`
                                         <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
                                             <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; 
-                                                background-color:${colorMap[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};
-                                                color:${colorMap[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
+                                                background-color:${modelTo_localIdToColor_map[resourceCostPerGroupedTable[ElementName]?.model ?? '']?.[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};
+                                                color:${modelTo_localIdToColor_map[resourceCostPerGroupedTable[ElementName]?.model ?? '']?.[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
                                             <bim-label>${formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ElementName]?.resourceCost*100)/100)+' '+resourceCostPerGroupedTable[ElementName]?.currency}</bim-label>
                                         </div>
                                     `
@@ -1198,12 +1199,13 @@ export function MainViewer () {
                     }
     
                     const onCreateResourceChart_Element = () => {
-                        if (colorMap) {
+                        if (modelTo_localIdToColor_map) {
                             const resourceCostPerColor: Record<string, { items: number; cost: number }> = {}
     
                             for (const groupElement of groupResourceElements) {
                                 const itemId = resourceCostPerGroupedTable[groupElement]?.itemId
-                                const color = itemId !== undefined ? colorMap[Number(itemId)] : undefined
+                                const model = resourceCostPerGroupedTable[groupElement]?.model
+                                const color = model && itemId !== undefined ? modelTo_localIdToColor_map[model]?.[Number(itemId)] : undefined
                                 if (!color) continue
                                 if (!resourceCostPerColor[color]) {
                                     resourceCostPerColor[color] = { items: 0, cost: 0 }
@@ -1358,7 +1360,7 @@ export function MainViewer () {
                                             await highlighter.updateColors()
                                         }}">
                                     </bim-number-input>
-                                    <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,dynamicResourceTable)}}></bim-text-input>
+                                    <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,dynamicResourceTable)}} debounce="300"></bim-text-input>
                                     <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                                 </div>
                             </div>`
@@ -1396,16 +1398,16 @@ export function MainViewer () {
                     updateCountLabel({countItems: 0,countCostItems: 0,countResources: 0})
                 }
 
-            } else if (resource == IfcFileLabel_TotalCost){
+            } else if (resource == IfcFileLabel_TotalCost){ //if the analysis is on total costs
 
-                const startTime_4 = performance.now(); // Start timer
+                const startTime_4 = performance.now() // Start timer
 
                 await highlighter.clear() //reset previous selections of highlighter
                 const model_volume_map: {[key:string]:any} = {}
-                const model_cost_map: {[key:string]:any} = {}
+                const model_cost_map: {[key:string]:{[key: number]: number}} = {}
                 const model_costCount_map: {[key:string]:any} = {}
                 const getLocalId = (item: any) => item?._localId?.value as number | undefined
-                const mapItemsByLocalId = (items: any[] = []) => {
+                const mapItemsByLocalId = (items: any[] = []) => { // qui crea solo la mappa localId-item
                     const itemsMap: {[key:number]:any} = {}
                     for (const item of items) {
                         const localId = getLocalId(item)
@@ -1414,16 +1416,15 @@ export function MainViewer () {
                     return itemsMap
                 }
                 for (const [model,costItems] of Object.entries(filteredCostItems)){
-                    const category_item_totalCost_map: {[key:string]:{[key:number]:number}} = {}
+                    const item_totalCost_map: {[key:number]:number} = {}
                     const item_volume_map: {[key:number]:number|undefined} = {}
                     model_costCount_map[model] = {}
                     const costItemMeta = costItems.map((ci) => {
                         const itemId = (((ci.Controls as any)[0] as FRAGS.ItemData)._localId as FRAGS.ItemAttribute).value as number //localId of filtered elements
-                        const itemCategory = (((ci.Controls as any)[0] as FRAGS.ItemData)._category as FRAGS.ItemAttribute).value as string //localId of filtered elements
                         const costItemObjectType = ((ci['ObjectType'] as FRAGS.ItemAttribute).value as string).toUpperCase()
                         const cvId = (ci['CostValues'] as any)[0]._localId.value ? (ci['CostValues'] as any)[0]._localId.value : 'nd'
-                        return typeof cvId === 'number' ? { itemId, itemCategory, costItemObjectType, cvId } : null
-                    }).filter(Boolean) as {itemId:number, itemCategory:string, costItemObjectType:string, cvId:number}[]
+                        return typeof cvId === 'number' ? { itemId, costItemObjectType, cvId } : null
+                    }).filter(Boolean) as {itemId:number, costItemObjectType:string, cvId:number}[]
 
                     const costValueIds = new Set<number>(costItemMeta.map(({ cvId }) => cvId))
                     const costValueRecord = costValueIds.size === 0 ? null : await fragments.getData({[model]: costValueIds},{
@@ -1455,7 +1456,7 @@ export function MainViewer () {
                         }
                     }
 
-                    for (const { itemId, itemCategory, costItemObjectType, cvId } of costItemMeta){
+                    for (const { itemId, costItemObjectType, cvId } of costItemMeta){
 
                         //create a cost count per each item
                         model_costCount_map[model][itemId] ? model_costCount_map[model][itemId] += 1 : model_costCount_map[model][itemId] = 1
@@ -1470,33 +1471,34 @@ export function MainViewer () {
                         }
                         
                         if (costItemObjectType != IfcFileLabel_CostAssignment) continue //ATTENTION!!! this value is USERDEFINED so it could be different in projects
-                        category_item_totalCost_map[itemCategory] ? category_item_totalCost_map[itemCategory]=category_item_totalCost_map[itemCategory] : category_item_totalCost_map[itemCategory] = {}
-                        category_item_totalCost_map[itemCategory][itemId] ? category_item_totalCost_map[itemCategory][itemId]+=costItemCost : category_item_totalCost_map[itemCategory][itemId]=costItemCost
+                        item_totalCost_map[itemId] ? item_totalCost_map[itemId] += costItemCost : item_totalCost_map[itemId] = costItemCost
                     }
-                    model_cost_map[model] = Object.assign({}, ...Object.values( category_item_totalCost_map )) //remove category level and flat the map
+                    model_cost_map[model] = item_totalCost_map
                     model_volume_map[model] = item_volume_map
-                }
 
-                const model_cost_map_flat = flattenModelMap(model_cost_map)
-                const model_volume_map_flat = flattenModelMap(model_volume_map)
+                }
 
                 const endTime_4 = performance.now(); // End timer
                 const loadTime_4 = ((endTime_4 - startTime_4) / 1000).toFixed(2); // seconds
                 console.log(`TIME ${loadTime_4} s: whole process of getting total costs data`);
 
                 //normalize cost to get colors and filter according to chosen range
-                const normalized_cost: {[key:string]:number} = {}
-                let colorMap: Record<string, string>
-                let normalizedValue: Record<string, string|number>
+                const normalized_cost: {[key:string]:{[key:string]:number}} = {}
+                let modelTo_localIdToColor_map: {[key:string]: Record<string, string>} = {}
+                let modelTo_localIdToNormalizedValue_map: {[key:string]: Record<string, number>} = {}
+
                 if (normalization=='Volume'){
-                    for (const [itemId,cost] of Object.entries(model_cost_map_flat)){
-                        const volume = model_volume_map_flat[itemId]
-                        if (volume == 0) continue //very important to not consider non geometrical items, otherwise the normalization of cost is infinite, coloring all elements in green
-                        normalized_cost[itemId] = cost / volume
+                    for (const [model, cost_map] of Object.entries(model_cost_map)) {
+                        normalized_cost[model] = {}
+                        for (const [itemId,cost] of Object.entries(cost_map)){
+                            const volume = model_volume_map[model][itemId]
+                            if (volume == 0) continue //very important to not consider non geometrical items, otherwise the normalization of cost is infinite, coloring all elements in green
+                            normalized_cost[model][itemId] = cost / volume
+                        }
                     }
-                    [colorMap,normalizedValue] = normalizeAndMapToColor(normalized_cost,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost)
+                    [modelTo_localIdToColor_map,modelTo_localIdToNormalizedValue_map] = normalizeAndMapToColor(normalized_cost,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost)
                 } else {
-                    [colorMap,normalizedValue] = normalizeAndMapToColor(model_cost_map_flat,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost)
+                    [modelTo_localIdToColor_map,modelTo_localIdToNormalizedValue_map] = normalizeAndMapToColor(model_cost_map,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost)
                 }
 
                 //filter all the found elements according to the range
@@ -1505,7 +1507,7 @@ export function MainViewer () {
                         k,
                         new Set(Object.keys(v)
                             .map(Number)
-                            .filter(num => Object.keys(colorMap).includes(num.toString()))
+                            .filter(num => Boolean(modelTo_localIdToColor_map[k]?.[num]))
                         )
                     ])
                 )
@@ -1534,11 +1536,12 @@ export function MainViewer () {
                     //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
                     const startTime_8 = performance.now(); // Start timer
                     //this is to color items within a range of 5 colors (faster)
-                    const groupedColors = groupIdsByNormalizedValuePerModel(components, normalizedValue as Record<string,number>, model_cost_map, colorscale)
-                    for (const [model,colorMap] of Object.entries(groupedColors)) {
+                    //for (const [model, {localIdToColor_map, normalizedValue}] of Object.entries(modelTo_localIdToColor_map_normalizedValue_map)) {
+                    const groupedColors = groupIdsByNormalizedValuePerModel(components, modelTo_localIdToNormalizedValue_map, model_cost_map, colorscale)
+                    for (const [model,localIdToColor_map] of Object.entries(groupedColors)) {
                         const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
                         onSetTransparency({[model]:new Set(geomItems)})
-                        for (const [color,ids] of Object.entries(colorMap)) {
+                        for (const [color,ids] of Object.entries(localIdToColor_map)) {
                             const modelIdMap: OBC.ModelIdMap = { [model]: new Set<number>(ids.map(str => Number(str)).filter(n => !isNaN(n))) } //create the model id map
                             highlighter.highlightByID(color,modelIdMap,false,false) //color elements using highlighter
                         }
@@ -1549,34 +1552,34 @@ export function MainViewer () {
                     
                     const startTime_5 = performance.now(); // Start timer
                     const norm = normalization == 'Volume' ? true : false
-                    const dynamicCostTable = await onOpenElementXCostPanel(allSelectedItemsModelIdMap,norm,colorMap,limitToCostItemNameList)
+                    const dynamicCostTable = await onOpenElementXCostPanel(allSelectedItemsModelIdMap,norm,modelTo_localIdToColor_map,limitToCostItemNameList)
                     const endTime_5 = performance.now(); // End timer
                     const loadTime_5 = ((endTime_5 - startTime_5) / 1000).toFixed(2); // seconds
                     console.log(`TIME ${loadTime_5} s: total time to create and render cost table`);
 
                     if (normalization == 'Volume' && dynamicCostTable) {
                         dynamicCostTable.dataTransform.ItemVolume = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-                            console.log(value)
                             //if (!value) return ''
-                            const { ItemId } = rowData
-                            if (!ItemId) return '' //if ItemId is not defined, return the original value
-                            const volume = model_volume_map_flat[Number(ItemId)]
+                            const { ItemId, Model } = rowData
+                            if (!ItemId || !Model) return '' //if ItemId or Model is not defined, return the original value
+                            const volume = model_volume_map[Model][Number(ItemId)]
                             if(!volume) return ''
                             return BUI.html`
                                 <bim-label>${Math.round(volume*1000)/1000} m³</bim-label>
                             `
                         }
                         dynamicCostTable.dataTransform.NormalizedCost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-                            const { ItemId, Currency } = rowData
-                            if (!ItemId) return '' //if ItemId is not defined, return the original value
-                            const normCost = normalized_cost[Number(ItemId)]
-                            const normValue = normalizedValue[Number(ItemId)] as number
+                            const { ItemId, Currency, Model } = rowData
+                            if (!ItemId || !Model) return '' //if ItemId or Model is not defined, return the original value
+                            const normCost = normalized_cost[Model]?.[Number(ItemId)]
+                            const normValue = modelTo_localIdToNormalizedValue_map[Model]?.[Number(ItemId)]
                             if(normCost==null || normValue==null) return ''
                             return BUI.html`
                                 <bim-label>${Math.round(normCost*100)/100} ${Currency}/m³ (${Math.round(normValue*100)/100})</bim-label>
                             `
                         }
                     }
+                    //}
                     //document.getElementById('groupby_costrange')!.click() //trigger the click on the cost range grouping button to show colors in the table
                     groupBy_CostRange_Btn.disabled = false
 
@@ -1843,7 +1846,7 @@ export function MainViewer () {
             spatialTree.preserveStructureOnFilter = true
             return BUI.html`
                 <bim-panel-section label='Spatial Structure' icon="ri:node-tree">
-                    <bim-text-input @input=${(e:Event)=>{onSearch(e,spatialTree)}} placeholder="Search..." debounce="200"></bim-text-input>
+                    <bim-text-input @input=${(e:Event)=>{onSearch(e,spatialTree)}} placeholder="Search..." debounce="300"></bim-text-input>
                     ${spatialTree}
                 </bim-panel-section>
             `
@@ -1934,7 +1937,6 @@ export function MainViewer () {
             dynamicPropertiesTable.data = []
             const selection = highlighter.selection.select
             const itemsData = await fragments.getData(selection, {attributesDefault: true, relationsDefault: { attributes: true, relations: false }}) //questi sono gli attributi
-            console.log(itemsData)
             for (const [modelId, itemIdSet] of Object.entries(selection)){
                 for (const itemId of itemIdSet){
                     const itemData = itemsData[modelId]?.find((item: FRAGS.ItemData) => (item._localId as FRAGS.ItemAttribute).value == itemId)
@@ -2239,7 +2241,7 @@ export function MainViewer () {
                                 await navigator.clipboard.writeText(guid.join(','))
                             }
                         }} icon='uil:copy' tooltip-text="Copy IfcGlobalIds of selected elements to clipboard" style="max-width:fit-content; z-index:100"></bim-button>
-                        <bim-text-input @input=${(e:Event)=>{onSearch(e,dynamicPropertiesTable)}} placeholder="Search..." debounce="200"></bim-text-input>
+                        <bim-text-input @input=${(e:Event)=>{onSearch(e,dynamicPropertiesTable)}} placeholder="Search..." debounce="300"></bim-text-input>
                     </div>\
                     <bim-label ${BUI.ref((el) => {loadingLabelProps = el as BUI.Label})} style="display:none; padding:20px">Loading...</bim-label>
                     ${dynamicPropertiesTable}
@@ -2550,7 +2552,7 @@ export function MainViewer () {
         panelLeft.appendChild(colorResourcesPanelSection)
 
         //advanced costs functions and components
-        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined,normalization:boolean=false,colorMap?:Record<string, string>,limitToCostItemNameList:string[]=[]) => {
+        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined,normalization:boolean=false,modelTo_localIdToColor_map?:{[key: string]: Record<string, string>},limitToCostItemNameList:string[]=[]) => {
             //clean panel
             panelDown.innerHTML=''
             panelDown.appendChild(loadingLabel)
@@ -2600,7 +2602,7 @@ export function MainViewer () {
                 CostItemDescription: string,
                 CostItemUnitCost: number|string,
                 ComponentsCostValues: any,
-                Model?: string,
+                Model: string,
                 ItemId?: number,
                 ItemVolume?: number,
                 NormalizedCost?: number,
@@ -2610,6 +2612,7 @@ export function MainViewer () {
             dynamicCostTable.id = 'dynamicCostTable'
             dynamicCostTable.data = [{
                     data: {
+                        Model: '',
                         ElementName: '',
                         ElementIfcClass: '',
                         Cost: '',
@@ -2693,6 +2696,7 @@ export function MainViewer () {
                             let dynamicRow: BUI.TableGroupData<dynamicCostTableData> = {
                                 data: {},
                             }
+                            dynamicRow.data.Model = model
                             dynamicRow.data.ElementName = itemName
                             dynamicRow.data.ElementIfcClass = itemIfcClass
                             dynamicRow.data.Model = model
@@ -2779,7 +2783,7 @@ export function MainViewer () {
                     </bim-button>`,
             )
 
-            const totalCostPerGroupedTable: {[group: string]: {cost: number, quantity: number, currency: string, um: string, model?:string, itemId?: number, costItemUnitCost?: string|number, costItemDescription?: string, ComponentsValue?: any}} = {}
+            const totalCostPerGroupedTable: {[group: string]: {cost: number, quantity: number, currency: string, um: string, model:string, itemId?: number, costItemUnitCost?: string|number, costItemDescription?: string, ComponentsValue?: any}} = {}
             const groupIfcClasses = new Set<string>()
             const groupElements = new Set<string>()
             const groupCostItems = new Set<string>()
@@ -2795,11 +2799,12 @@ export function MainViewer () {
                 const itemId = row.data.ItemId
                 const model = row.data.Model
 
-                if (colorMap && itemId) {
-                    const colorValue = colorMap[Number(itemId)]
+                if (modelTo_localIdToColor_map && itemId && model) {
+                    const colorValue = modelTo_localIdToColor_map[model]?.[Number(itemId)]
                     row.data.CostRange = colorValue ? getColorRangeKeyByColorValue(colorValue) ?? colorValue : colorValue
                 }
 
+                if (!model) continue
                 if (!totalCostPerGroupedTable[groupIfcClass]) {
                     totalCostPerGroupedTable[groupIfcClass] = { cost: 0, quantity: 0, currency, um, model }
                 }
@@ -2831,12 +2836,13 @@ export function MainViewer () {
                         return formatNumber_Cost(Math.round(totalCostPerGroupedTable[CostItemName]?.cost*100)/100)+' '+totalCostPerGroupedTable[CostItemName]?.currency
                     } else if (ElementName && !CostItemName && !ElementIfcClass) {
                         if (value!='') return value
-                        if (colorMap) {
+                        const m = totalCostPerGroupedTable[ElementName]?.model // this is needed only here because the Element grouping is the only one with colors
+                        if (modelTo_localIdToColor_map) {
                             return BUI.html`
                                 <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
                                     <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; 
-                                        background-color:${colorMap[Number(totalCostPerGroupedTable[ElementName]?.itemId)]};
-                                        color:${colorMap[Number(totalCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
+                                        background-color:${modelTo_localIdToColor_map[m!]?.[Number(totalCostPerGroupedTable[ElementName]?.itemId)]};
+                                        color:${modelTo_localIdToColor_map[m!]?.[Number(totalCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
                                     <bim-label>${formatNumber_Cost(Math.round(totalCostPerGroupedTable[ElementName]?.cost*100)/100)+' '+totalCostPerGroupedTable[ElementName]?.currency}</bim-label>
                                 </div>
                             `
@@ -2958,11 +2964,13 @@ export function MainViewer () {
                 }
             }
             const onCreateChart_Element = () => {
-                if (colorMap) {
+                if (modelTo_localIdToColor_map) {
                     const totalCostPerColor: Record<string, {items:number, cost:number}> = {}
                     for (const groupElement of groupElements) {
                         const itemId = totalCostPerGroupedTable[groupElement]?.itemId
-                        const color = itemId !== undefined ? colorMap![Number(itemId)] : undefined
+                        const model = totalCostPerGroupedTable[groupElement]?.model
+                        if (!model || !itemId) continue
+                        const color = itemId !== undefined ? modelTo_localIdToColor_map[model]?.[Number(itemId)] : undefined
                         if (!color) continue
                         totalCostPerColor[color] = totalCostPerColor[color] ? totalCostPerColor[color] : { items: 0, cost: 0 }
                         totalCostPerColor[color].cost = (totalCostPerColor[color].cost ?? 0) + (totalCostPerGroupedTable[groupElement]?.cost ?? 0)
@@ -3122,7 +3130,7 @@ export function MainViewer () {
                                     await highlighter.updateColors()
                                 }}">
                             </bim-number-input>
-                            <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,dynamicCostTable)}}></bim-text-input>
+                            <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,dynamicCostTable)}} debounce="300"></bim-text-input>
                             <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-button tooltip-text="Click on item's name to add it to the selection" icon='majesticons:lightbulb-shine' style="max-width:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
                         </div>
