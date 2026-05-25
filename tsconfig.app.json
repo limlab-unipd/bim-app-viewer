@@ -23,6 +23,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "files": ["./types/custom-elements.d.ts"],
+  "files": ["types/custom-elements.d.tsx"],
   "include": ["src", "types"]
 }
