@@ -3040,7 +3040,7 @@ export function MainViewer () {
                 }
             }
 
-            //onCreateChart_Element()
+            onCreateChart_Element()
             
             const elementXCostPanelControls = BUI.Component.create<HTMLDivElement>(() => {
                 return BUI.html`
