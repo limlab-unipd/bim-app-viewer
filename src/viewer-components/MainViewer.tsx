@@ -11,7 +11,7 @@ import { convertCurrency, convertUnits, formatNumber, formatNumber_Cost } from '
 import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel, getColorRangeKeyByColorValue, getNormalizedValueFromColor } from '../custom-components/colors'
 import Stats, { Panel } from 'stats.js'
 
-// These constants:
+// These constants: 
 // - are fundamental for the whole viewer to identify different IfcCostItem and IfcCostValue instances in the IFC model;
 // - could be personalized to different uses but must be consistent with the values used in the IFC file;
 // - define the labels of the dropdown menus for the cost analysis (so they are consistent with the IFC properties they refer to);
