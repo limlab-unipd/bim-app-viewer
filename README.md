@@ -2,7 +2,7 @@
 
 A web-based BIM viewer for IFC-native cost data visualization and model-based cost analysis.
 
-**Live viewer:** The application is deployed on Vercel and can be accessed at: https://bim-app-viewer.vercel.app
+**Link viewer:** The application is deployed on Vercel and can be accessed at: https://bim-app-viewer.vercel.app
 
 **Video demo:** A short video-tutorial demonstrates the main functionalities of the viewer, including model loading, cost inspection, unit-cost exploration, resource-based cost analysis, and scene-visibility controls at: https://www.youtube.com/watch?v=VLsOLtp-TaI
 
@@ -23,6 +23,8 @@ The research context behind this repository focuses on the use of IFC-native ent
 - `IfcRelAssignsToControl`
 
 The viewer reads these cost structures and exposes them through an interactive interface designed for model-based cost inspection and analysis.
+
+<img width="1472" height="805" alt="Viewer graphical example" src="https://github.com/user-attachments/assets/6cc3d9be-1c3d-4d8d-996c-2d296a0fbd54" />
 
 ---
 
