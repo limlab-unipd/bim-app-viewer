@@ -964,9 +964,25 @@ export function MainViewer () {
                     dynamicResourceTable.hiddenColumns = ['Model','ItemId']
                     //create the table:
                     //initialize also NormalizedValue column which will be populated after
+
+                    const onVisibleColumnsResourceChange = (e: Event) => {
+                        const dropdown = e.currentTarget as BUI.Dropdown
+                        const checkedFields = [...dropdown.value]
+                        dynamicResourceTable.visibleColumns = checkedFields
+                        dynamicResourceTable.data = [...dynamicResourceTable.data]
+                        dynamicResourceTable.requestUpdate()
+                    }
+                    visibleColumnsResourceDropdown_ResourceGroup.addEventListener('change', (e) => {
+                        onVisibleColumnsResourceChange(e)
+                    })
+                    visibleColumnsResourceDropdown_classicGroups.addEventListener('change', (e) => {
+                        onVisibleColumnsResourceChange(e)
+                    })
                     
                     //time to do next operations very low
                     let countItems = 0, countResources = 0, countCostItems = 0
+                    let totalResourceCost = 0
+                    let totalResourceCurrency = ''
                     //this works with more models because this map does not divide items by model
                     //so the table is correctly created
                     for (const elem of elementsData_Array) {
@@ -977,6 +993,9 @@ export function MainViewer () {
                         
                         for (const resourceDetails of elem_resourcesDetails_Map[elem.elemId]){
                             countResources += 1
+                            const resourceRowCost = Math.round((Number(resourceDetails.resourceUnitCost.split(' ')[0])*Number(resourceDetails.elemQuantity.split(' ')[0]))*100)/100
+                            totalResourceCost += resourceRowCost
+                            totalResourceCurrency = elem.currency
                             dynamicResourceTable.data.push({
                                 data: {
                                     Model: elem.elemModel,
@@ -985,7 +1004,7 @@ export function MainViewer () {
                                     ElementIfcClass: elem.category,
                                     ResourceName: resourceDetails.resourceName,
                                     ResourceDescription: resourceDetails.resourceDescription,
-                                    ResourceCost: `${Math.round((Number(resourceDetails.resourceUnitCost.split(' ')[0])*Number(resourceDetails.elemQuantity.split(' ')[0]))*100)/100} ${elem.currency}`,
+                                    ResourceCost: `${resourceRowCost} ${elem.currency}`,
                                     ResourceCostRange: getColorRangeKeyByColorValue(elemColor), //this is the range key to which the resource cost belongs based on its color
                                     ResourceUnitCost: resourceDetails.resourceUnitCost,
                                     ElementQuantity: resourceDetails.elemQuantity,
@@ -1180,7 +1199,7 @@ export function MainViewer () {
                     dynamicResourceTable.groupedBy = ['ElementName']
                     dynamicResourceTable.columns = ['ElementName']
                     dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
-    
+                    
                     const onCreateResourceChart_IfcClass = () => {
                         const groupIfcClassLabels = [...groupResourceIfcClasses]
                         chartPrimary.colors = ['rgb(200, 200, 200)','rgb(138, 138, 138)']
@@ -1297,6 +1316,8 @@ export function MainViewer () {
                                         dynamicResourceTable.groupedBy = ['ElementIfcClass','ElementName']
                                         dynamicResourceTable.columns = ['ElementIfcClass','ElementName']
                                         dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange']
+                                        setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
+                                        dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value
                                     }} id="resource_groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
                                     <bim-button @click=${({target}:{target:BUI.Button}) => {
                                         onCreateResourceChart_Element()
@@ -1309,6 +1330,8 @@ export function MainViewer () {
                                         dynamicResourceTable.groupedBy = ['ElementName']
                                         dynamicResourceTable.columns = ['ElementName']
                                         dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange']
+                                        setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
+                                        dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value
                                     }} id="resource_groupby_element"  label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
                                     <bim-button @click=${({target}:{target:BUI.Button}) => {
                                         onCreateResourceChart_Element()
@@ -1321,6 +1344,8 @@ export function MainViewer () {
                                         dynamicResourceTable.groupedBy = ['ResourceCostRange','ElementName']
                                         dynamicResourceTable.columns = ['ElementName']
                                         dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange']
+                                        setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
+                                        dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value
                                     }} id="resource_groupby_costrange"  label="Cost Range" style="max-width:fit-content"></bim-button>
                                     <bim-button @click=${({target}:{target:BUI.Button}) => {
                                         onCreateResourceChart_Resource()
@@ -1333,10 +1358,15 @@ export function MainViewer () {
                                         dynamicResourceTable.groupedBy = ['ResourceName']
                                         dynamicResourceTable.columns = ['ResourceName']
                                         dynamicResourceTable.hiddenColumns = ['Model','ItemId','ResourceName','NormalizedValue','ResourceDescription','ResourceUnitCost','ResourceCostRange']
+                                        setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_ResourceGroup)
+                                        dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value
+                                        dynamicResourceTable.visibleColumns = visibleColumnsResourceDropdown_ResourceGroup.value.length > 0 ? visibleColumnsResourceDropdown_ResourceGroup.value : ['ResourceName', 'ElementIfcClass', 'ResourceCost', 'ElementQuantity']
                                     }} id="resource_groupby_resource"  label="Resource" style="max-width:fit-content"></bim-button>
                                     <bim-label>Sort by:</bim-label>
                                     ${sortbyResourceDropdown}
                                     ${sortbyDirectionResourceCost}
+                                    <bim-label>Columns:</bim-label>
+                                    ${currentVisibleColumnsResourceDropdown}
                                     <bim-label>Ghost mode:</bim-label>
                                     <bim-button 
                                         id='ghost-mode' 
@@ -1370,7 +1400,10 @@ export function MainViewer () {
                         return BUI.html`
                             <bim-panel style="background:none; height:100%; min-height:0;">
                                 <div style="display:grid; grid-template-columns:80% 20%; gap:10px; margin:5px 15px 5px 15px; background-color:transparent; flex:1; height:100%; min-height:0;">
-                                    ${dynamicResourceTable ? dynamicResourceTable : 'Any resource cost found for this cateogory.'}
+                                    <div style="display:grid; grid-template-rows:1fr 2rem; gap:2px; background-color:transparent; flex:1; height:100%; min-height:0;">
+                                        ${dynamicResourceTable ? dynamicResourceTable : 'Any resource cost found for this cateogory.'}
+                                        <bim-label style="font-size:var(--bim-ui_size-sm); border-top:1px solid var(--bim-ui_bg-contrast-20); padding-left:0.5rem">TOTAL: ${formatNumber_Cost(Math.round(totalResourceCost*100)/100)} ${totalResourceCurrency}</bim-label>
+                                    </div>
                                     <div style="background:none; height:90%; min-height:0;">
                                         ${chartPrimary}
                                         <bim-checkbox
@@ -1392,6 +1425,7 @@ export function MainViewer () {
                     panelDown.appendChild(resourceCostPanel)
     
                     document.getElementById('resource_groupby_costrange')!.click() //trigger the default grouping and coloring
+                    dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value.length > 0 ? currentVisibleColumnsResourceDropdown.value : ['ResourceName','ResourceDescription','ResourceCost','ResourceUnitCost','ElementQuantity']
 
                 } else if (btn == 'Select') { //if select button is clicked
                     highlighter.highlightByID("select", allSelectedItemsModelIdMap, false, false) //only select elements removing colors
@@ -2338,6 +2372,56 @@ export function MainViewer () {
                 <bim-option id="sortbyTotalCostDropdown-cost" label='Cost' style="padding:0 10px 0 10px" icon='solar:dollar-linear'></bim-option>
             </bim-dropdown>`,
         )
+        const visibleColumnsDropdown_classicGroups = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="visibleColumnsDropdown_classicGroups" style="max-width:fit-content" multiple>
+                <bim-option checked id="visibleColumnsDropdown_classicGroups-CostItemName" label='CostItemName' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_classicGroups-CostItemDescription" label='CostItemDescription' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_classicGroups-Cost" label='Cost' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_classicGroups-Quantity" label='Quantity' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_classicGroups-CostItemUnitCost" label='CostItemUnitCost' style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
+        const visibleColumnsDropdown_CostItemGroup = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="visibleColumnsDropdown_CostItemGroup" style="max-width:fit-content" multiple>
+                <bim-option checked id="visibleColumnsDropdown_CostItemGroup-ElementName" label='ElementName' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_CostItemGroup-ElementIfcClass" label='ElementIfcClass' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_CostItemGroup-Cost" label='Cost' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_CostItemGroup-Quantity" label='Quantity' style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
+        let currentVisibleColumnsDropdown = visibleColumnsDropdown_classicGroups
+        const setVisibleColumnsDropdown = (nextDropdown: BUI.Dropdown) => {
+            if (currentVisibleColumnsDropdown === nextDropdown) return
+            currentVisibleColumnsDropdown.replaceWith(nextDropdown)
+            currentVisibleColumnsDropdown = nextDropdown
+        }
+        const visibleColumnsResourceDropdown_classicGroups = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="visibleColumnsResourceDropdown_classicGroups" style="max-width:fit-content" multiple>
+                <bim-option checked id="visibleColumnsResourceDropdown_classicGroups-ResourceName" label='ResourceName' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_classicGroups-ResourceDescription" label='ResourceDescription' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_classicGroups-ResourceCost" label='ResourceCost' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_classicGroups-ResourceUnitCost" label='ResourceUnitCost' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_classicGroups-ElementQuantity" label='ElementQuantity' style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
+        const visibleColumnsResourceDropdown_ResourceGroup = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="visibleColumnsResourceDropdown_ResourceGroup" style="max-width:fit-content" multiple>
+                <bim-option checked id="visibleColumnsResourceDropdown_ResourceGroup-ResourceName" label='ResourceName' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_ResourceGroup-ElementIfcClass" label='ElementIfcClass' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_ResourceGroup-ResourceCost" label='ResourceCost' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_ResourceGroup-ElementQuantity" label='ElementQuantity' style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
+        let currentVisibleColumnsResourceDropdown = visibleColumnsResourceDropdown_classicGroups
+        const setVisibleColumnsResourceDropdown = (nextDropdown: BUI.Dropdown) => {
+            if (currentVisibleColumnsResourceDropdown === nextDropdown) return
+            currentVisibleColumnsResourceDropdown.replaceWith(nextDropdown)
+            currentVisibleColumnsResourceDropdown = nextDropdown
+        }
         //resources dropdown menu
         const resources: string[] = [IfcFileLabel_TotalCost, IfcFileLabel_PriceAnalysis_Labor, IfcFileLabel_PriceAnalysis_Equipment, IfcFileLabel_PriceAnalysis_Material]
         resources.sort() //sort resources
@@ -2395,7 +2479,7 @@ export function MainViewer () {
                 limitToCostItemName.style.display = 'none'
                 limitToCostItemName.value = ''
             }
-        });
+        })
 
         const rangeInputMin = BUI.Component.create<BUI.NumberInput>(() => {
             return BUI.html`
@@ -2641,6 +2725,10 @@ export function MainViewer () {
                 }
                 return itemsMap
             }
+
+            let totalCost: number = 0
+            let totalCurrency: string = ''
+
             for (const [model,selectedItems] of Object.entries(selectionData)) { //loop over models of selected items
                 const assignedCostItemIds = new Set<number>()
                 for (const item of selectedItems) {
@@ -2757,6 +2845,8 @@ export function MainViewer () {
                             dynamicRow.data.CostRange = 'nd'
                             dynamicCostTable.data.push(dynamicRow)
                         }
+                        totalCost += itemTotalCost
+                        totalCurrency = itemTotalCurrency
                     } catch (error) {
                         console.warn(error)
                         continue //go to the next item of loop, do not interrupt the loop
@@ -2765,17 +2855,30 @@ export function MainViewer () {
             }
 
             sortbyTotalCostDropdown.addEventListener('change', (e) => {
-                if (!e.target) return
-                const field = (e.target as BUI.Dropdown).value[0]
+                if (!e.currentTarget) return
+                const field = (e.currentTarget as BUI.Dropdown).value[0]
                 const ascending = sortbyDirectionTotalCost.icon=='meteor-icons:arrow-up' ? false : true
                 onSortDynamicTable(dynamicCostTable, field, ascending, totalCostPerGroupedTable)}
             )
+            const onVisibleColumnsChange = (e: Event) => {
+                const dropdown = e.currentTarget as BUI.Dropdown
+                const checkedFields = [...dropdown.value]
+                dynamicCostTable.visibleColumns = checkedFields
+                dynamicCostTable.data = [...dynamicCostTable.data]
+                dynamicCostTable.requestUpdate()
+            }
+            visibleColumnsDropdown_CostItemGroup.addEventListener('change', (e) => {
+                onVisibleColumnsChange(e)
+            })
+            visibleColumnsDropdown_classicGroups.addEventListener('change', (e) => {
+                onVisibleColumnsChange(e)
+            })
             const sortbyDirectionTotalCost = BUI.Component.create<BUI.Dropdown>(
                 () => BUI.html`
                     <bim-button icon='meteor-icons:arrow-up' style="max-width:fit-content; z-index:100" tooltip-text='Ascending or descending order'
                         @click="${(e:Event) => {
-                            if (!e.target) return
-                            const button = e.target as BUI.Button
+                            if (!e.currentTarget) return
+                            const button = e.currentTarget as BUI.Button
                             button.icon = button.icon=='meteor-icons:arrow-up' ? 'meteor-icons:arrow-down' : 'meteor-icons:arrow-up'
                             const ascending = button.icon=='meteor-icons:arrow-up' ? false : true
                             onSortDynamicTable(dynamicCostTable, sortbyTotalCostDropdown.value[0], ascending,totalCostPerGroupedTable)
@@ -2946,6 +3049,7 @@ export function MainViewer () {
             normalization ? 
                 dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange'] :
                 dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','ItemVolume','NormalizedCost']
+            dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value.length > 0 ? currentVisibleColumnsDropdown.value : ['CostItemName','CostItemDescription','Cost','Quantity','CostItemUnitCost']
 
             const onCreateChart_IfcClass = () => {
                 const groupIfcClassLabels = [...groupIfcClasses]
@@ -3046,7 +3150,7 @@ export function MainViewer () {
                 return BUI.html`
                     <div style=${BUI.styleMap({display:'flex', flexDirection:'column', gap:'10px', margin:'10px 10px 5px 10px'})}>
                         <div style="display: flex; gap: 0.5rem;">
-                            <bim-button @click=${(e:Event) => onExpandTable(e,dynamicCostTable)} tooltip-title=${dynamicCostTable.expanded ? "Collapse" : "Expand"} icon=${dynamicCostTable.expanded ? "si:expand-less-fill" : "si:expand-more-fill"} style="max-width:fit-content"></bim-button>
+                            <bim-button @click=${(e:Event) => onExpandTable(e,dynamicCostTable)} tooltip-title=${dynamicCostTable.expanded ? "Collapse" : "Expand"} icon=${dynamicCostTable.expanded ? "si:expand-less-fill" : "si:expand-more-fill"} style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-label>Group by:</bim-label>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
                                 onCreateChart_IfcClass()
@@ -3061,6 +3165,8 @@ export function MainViewer () {
                                 normalization ?
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName','CostRange'] :
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName','ItemVolume','NormalizedCost','CostRange']
+                                setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
+                                dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value
                             }} id="groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
                                 onCreateChart_Element()
@@ -3075,6 +3181,8 @@ export function MainViewer () {
                                 normalization ? 
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange'] :
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','ItemVolume','NormalizedCost']
+                                setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
+                                dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value
                             }} id="groupby_element" label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
                                 onCreateChart_Element()
@@ -3089,6 +3197,8 @@ export function MainViewer () {
                                 normalization ? 
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange'] :
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','ItemVolume','NormalizedCost']
+                                setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
+                                dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value
                             }} id="groupby_costrange" ${BUI.ref((el) => {groupBy_CostRange_Btn = el as BUI.Button})} tooltip-text="Enabled only for cost analysis coloured panel" label="Cost Range" style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
                                 onCreateChart_CostItem()
@@ -3103,10 +3213,14 @@ export function MainViewer () {
                                 normalization ?
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','CostRange'] :
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','ItemVolume','NormalizedCost','CostRange']
+                                setVisibleColumnsDropdown(visibleColumnsDropdown_CostItemGroup)
+                                dynamicCostTable.visibleColumns = visibleColumnsDropdown_CostItemGroup.value.length > 0 ? visibleColumnsDropdown_CostItemGroup.value : ['ElementName', 'ElementIfcClass', 'Cost', 'Quantity']
                             }} id="groupby_costitem" label="Cost Item" style="max-width:fit-content"></bim-button>
                             <bim-label>Sort by:</bim-label>
                             ${sortbyTotalCostDropdown}
                             ${sortbyDirectionTotalCost}
+                            <bim-label>Columns:</bim-label>
+                            ${currentVisibleColumnsDropdown}
                             <bim-label>Ghost mode:</bim-label>
                             <bim-button 
                                 id='ghost-mode' 
@@ -3142,7 +3256,10 @@ export function MainViewer () {
                 return BUI.html`
                 <bim-panel style="background:none; height:100%; min-height:0;">
                     <div style="display:grid; grid-template-columns:80% 20%; gap:10px; margin:5px 15px 5px 15px; background-color:transparent; flex:1; height:100%; min-height:0;">
-                        ${dynamicCostTable}
+                        <div style="display:grid; grid-template-rows:1fr 2rem; gap:2px; background-color:transparent; flex:1; height:100%; min-height:0;">
+                            ${dynamicCostTable}
+                            <bim-label style="font-size:var(--bim-ui_size-sm); border-top:1px solid var(--bim-ui_bg-contrast-20); padding-left:0.5rem">TOTAL: ${formatNumber_Cost(Math.round(totalCost*100)/100)} ${totalCurrency}</bim-label>
+                        </div>
                         <div style="background:none; height:90%; min-height:0;">
                             ${chartPrimary}
                             <bim-checkbox
