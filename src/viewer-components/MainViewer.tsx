@@ -2295,44 +2295,65 @@ export function MainViewer () {
                     return [trimmed];
                 }
             }
-            //not used in the viewer because requires too many time to load properties
-            const onSelectAllElements = async () => {
-                const frMap: OBC.ModelIdMap = {}
-                for (const [entry,entryfr] of fragments.list.entries()){
-                    const localids = await entryfr.getLocalIds()
-                    const singleFrMap: OBC.ModelIdMap = {
-                        [entry] : new Set<number>([...localids])
-                    }
-                    Object.assign(frMap, singleFrMap)
-                }
-                //highlighter.highlightByID("select", frMap, true, true) //pay attention because too many elements to load their properties
-            }
             const onSelectElementByGuid = async () => {
                 const target = document.getElementById('search-by-guid') as BUI.TextInput
                 const guids = parseCommaSeparatedString(target.value)
+                if (guids.length === 0 || guids.every((guid) => guid === '')) {
+                    const frMap = await getAllItems()
+                    highlighter.highlightByID("select", frMap, true, true)
+                    return
+                }
                 const frMap = await fragments.guidsToModelIdMap(guids)
-                console.log(frMap)
+                highlighter.highlightByID("select", frMap, true, true)
+            }
+            const onSelectElementByClass = async () => {
+                const target = document.getElementById('search-by-class') as BUI.TextInput
+                const ifcClasses = parseCommaSeparatedString(target.value)
+                    .map((ifcClass) => ifcClass.toUpperCase())
+                    .filter(Boolean)
+                const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                if (ifcClasses.length === 0 || ifcClasses.every((ifcClass) => ifcClass === '')) {
+                    const frMap = await getAllItems()
+                    highlighter.highlightByID("select", frMap, true, true)
+                    return
+                }
+                finder.create('ELEMENTS_BY_CLASS', [
+                    {
+                        categories: ifcClasses.map((ifcClass) => new RegExp(`^${escapeRegExp(ifcClass)}$`)),
+                    },
+                ])
+                const frMap = await finder.list.get('ELEMENTS_BY_CLASS')?.test()
+                if (!frMap) return
                 highlighter.highlightByID("select", frMap, true, true)
             }
             return BUI.html`
             <bim-panel-section
-                label="Select elements by IfcGlobalId",
-                icon="material-symbols:highlight-mouse-cursor-rounded"
-                >
-                <bim-label>
-                    Separate GUIDs with a comma ( , ) to select multiple elements
-                </bim-label>
+                label="Advanced Elements Selection",
+                icon="material-symbols:highlight-mouse-cursor-rounded">
+                <bim-label style="color:var(--bim-ui_bg-contrast-60)">Separate values with a comma ( , ) to select multiple elements at once</bim-label>
+                <bim-label>Select by:</bim-label>
                 <div style="display:flex; flex-direction:row; gap:0.5rem">
+                    <bim-label style="min-width:3rem">GlobalId </bim-label>
                     <bim-text-input
                         id="search-by-guid",
-                        placeholder="Type elements IfcGlobalId..."
-                    >
+                        placeholder="Type elements GlobalId...">
                     </bim-text-input>
                     <bim-button
                         label="Select",
                         @click=${onSelectElementByGuid}
-                        style="max-width:fit-content"
-                    >
+                        style="max-width:fit-content">
+                    </bim-button>
+                </div>
+                <div style="display:flex; flex-direction:row; gap:0.5rem">
+                    <bim-label style="min-width:3rem">IfcClass </bim-label>
+                    <bim-text-input
+                        id="search-by-class",
+                        placeholder="Type elements IfcClass...">
+                    </bim-text-input>
+                    <bim-button
+                        label="Select",
+                        @click=${onSelectElementByClass}
+                        style="max-width:fit-content">
                     </bim-button>
                 </div>
             </bim-panel-section>`;
