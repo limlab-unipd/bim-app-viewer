@@ -132,8 +132,13 @@ export function formatNumber(n: number): string {
     }
 }
 export function formatNumber_Cost(n: number|string): string {
+    let s = n.toString();
+    const decimalPartToRound = s.split('.')[1];
+    if (decimalPartToRound && decimalPartToRound.length > 2 && Number.isFinite(Number(s))) {
+        s = Number(s).toFixed(2);
+    }
     // rimuove zeri finali dopo la virgola
-    let s = n.toString().replace(/(\.\d*?[1-9])0+$/g, '$1');
+    s = s.replace(/(\.\d*?[1-9])0+$/g, '$1');
     // se tutto dopo la virgola sono zeri, rimuove anche il punto
     s = s.replace(/\.0+$/, '');
     const [integerPart, decimalPart] = s.split('.');

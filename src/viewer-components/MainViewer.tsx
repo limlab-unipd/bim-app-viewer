@@ -472,7 +472,7 @@ export function MainViewer () {
             table:BUI.Table<any>,
             field:string,
             ascending:boolean=true,
-            totalOrResourceCostPerGroupedTable: {[group: string]: {cost?: number, resourceCost?: number}},
+            totalOrResourceCostPerGroupedTable: {[group: string]: {cost?: number, resourceCost?: number, normalizedCost?: number}},
             totalOrResource:string='total'
         ) => {
             function parseValue(value: string | number): number | string {
@@ -485,10 +485,10 @@ export function MainViewer () {
             }
 
             function getSortSourceValue(row: BUI.TableGroupData<any>) {
-                const sortField = field === 'Cost' // se field = Cost sceglie tra total or resource altrimenti ritorna direttamente field
+                const sortField = ['Cost', 'NormalizedCost'].includes(field) // se field = Cost or NormalizedCost sceglie tra total or resource altrimenti ritorna direttamente field
                     ? totalOrResource === 'total' ? 'Cost' : 'ResourceCost'
                     : field
-                if (field === 'Cost' && row.children?.length) {
+                if ((field === 'Cost' || field === 'NormalizedCost') && row.children?.length) {
                     const groupKey =
                         row.data.ElementName ||
                         row.data.ResourceName ||
@@ -496,6 +496,9 @@ export function MainViewer () {
                         row.data.ElementIfcClass
                     if (groupKey && totalOrResourceCostPerGroupedTable[groupKey]) {
                         const groupedCost = totalOrResourceCostPerGroupedTable[groupKey]
+                        if (field === 'NormalizedCost') {
+                            return groupedCost.normalizedCost ?? ''
+                        }
                         return groupedCost.cost ?? groupedCost.resourceCost ?? ''
                     }
                 }
@@ -591,8 +594,13 @@ export function MainViewer () {
             const startTime_tot = performance.now(); // Start timer
             const btn = typeof target === 'string' ? target : target.label //read if the clicked button is "color" or "select"
             let [resource] = resourcesDropdown.value //read the value of the resource dropdown menu (single choice)
-            let category = categoriesDropdown.value.includes('ALL IFC CLASSES') ? importedCategories : categoriesDropdown.value //read the value of category dropdown menu, list is kept because multiple choices are accepted
-            const [normalization] = unitMeasureDropdown.value //read the value of normalization by button (single choice)
+            const availableIfcClasses = importedCategories.filter(category => category != 'ALL IFC CLASSES')
+            const selectedIfcClasses = categoriesDropdown.value.includes('ALL IFC CLASSES') ? availableIfcClasses : categoriesDropdown.value //read the value of category dropdown menu, list is kept because multiple choices are accepted
+            const excludeIfcClasses = includeExcludeIfcClasses.label == 'Exclude'
+            let category = excludeIfcClasses
+                ? availableIfcClasses.filter(category => !selectedIfcClasses.includes(category))
+                : selectedIfcClasses
+            const [normalization] = normalizationDropdown.value //read the value of normalization by button (single choice)
             const [colorscale] = colorScaleDropdown.value ? colorScaleDropdown.value : 'gnylrd'
             const rangeMin = rangeInputMin.value
             const rangeMax = rangeInputMax.value
@@ -602,7 +610,7 @@ export function MainViewer () {
             const limitToCostItemNameList = limitToCostItemName.value ? limitToCostItemName.value.split(',').map(s => s.trim()) : []
 
             resource = resource == undefined ? IfcFileLabel_TotalCost : resource //if any resource selected use TotalCost as default
-            category = category.length == 0 ? importedCategories : category  //if any category selected use al categories as default
+            category = category.length == 0 && !excludeIfcClasses ? availableIfcClasses : category  //if any category selected use all categories as default
             
             if (!resource || !category) {
                 updateCountLabel({countItems:0, countCostItems:0, countResources:0})
@@ -1340,7 +1348,7 @@ export function MainViewer () {
                                         document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
                                         document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
                                         sortbyResourceDropdown_optionOne.label = 'ResourceCostRange'
-                                        sortbyTotalCostDropdown.value = []
+                                        currentSortbyTotalCostDropdown.value = []
                                         dynamicResourceTable.groupedBy = ['ResourceCostRange','ElementName']
                                         dynamicResourceTable.columns = ['ElementName']
                                         dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange']
@@ -1449,9 +1457,22 @@ export function MainViewer () {
                     }
                     return itemsMap
                 }
+                const getPsetPropertyValue = (itemData: FRAGS.ItemData, pSetName: string, propertyName: string): number | undefined => {
+                    const definitions = (itemData as any).IsDefinedBy
+                    if (!Array.isArray(definitions)) return
+                    for (const definition of definitions) {
+                        if (!definition.HasProperties) continue
+                        if ((definition.Name as FRAGS.ItemAttribute)?.value !== pSetName) continue
+                        for (const propertyData of Object.values(definition.HasProperties) as any[]) {
+                            if ((propertyData.Name as FRAGS.ItemAttribute)?.value !== propertyName) continue
+                            const value = (propertyData.NominalValue as FRAGS.ItemAttribute | undefined)?.value
+                            return typeof value === 'number' ? value : Number(value)
+                        }
+                    }
+                }
                 for (const [model,costItems] of Object.entries(filteredCostItems)){
                     const item_totalCost_map: {[key:number]:number} = {}
-                    const item_volume_map: {[key:number]:number|undefined} = {}
+                    //const item_volume_map: {[key:number]:number|undefined} = {}
                     model_costCount_map[model] = {}
                     const costItemMeta = costItems.map((ci) => {
                         const itemId = (((ci.Controls as any)[0] as FRAGS.ItemData)._localId as FRAGS.ItemAttribute).value as number //localId of filtered elements
@@ -1471,24 +1492,60 @@ export function MainViewer () {
                         }
                     })
                     const costValuesById = mapItemsByLocalId(costValueRecord?.[model] as any[] ?? [])
-
-                    const modelItemIds = [...new Set(costItemMeta.map(({ itemId }) => itemId))]
-                    //console.log(modelItemIds)
-                    if (normalization == 'Volume' && modelItemIds.length > 0){
-                        const itemVolumes: number[] = []
-                        for (const i of modelItemIds) {
-                            const vol = await fragments.list.get(model)?.getItemsVolume([i])
-                            itemVolumes.push(vol ? vol : 1)
-                        }
-                        //console.log('itemVolumes',itemVolumes)
-                        if (Array.isArray(itemVolumes)) {
-                            modelItemIds.forEach((itemId, index) => {
-                                item_volume_map[itemId] = itemVolumes[index]
-                            })
-                        } else if (typeof itemVolumes === 'number' && modelItemIds.length === 1) {
-                            item_volume_map[modelItemIds[0]] = itemVolumes
+                    const propertyNormalizationByItemId = new Map<number, number>()
+                    const attributeNormalizationByItemId = new Map<number, number>()
+                    if (normalization == 'Property') {
+                        const pSetName = normalizationPSetName.value as string
+                        const propertyName = normalizationPropertyName.value as string
+                        const itemIds = new Set<number>(costItemMeta.map(({ itemId }) => itemId))
+                        const itemsData = itemIds.size === 0 ? null : await fragments.getData({[model]: itemIds}, {
+                            attributesDefault: true,
+                            relations: {
+                                IsDefinedBy: {
+                                    attributes: true,
+                                    relations: true,
+                                },
+                            },
+                        })
+                        for (const itemData of itemsData?.[model] ?? []) {
+                            const localId = getLocalId(itemData)
+                            if (typeof localId !== 'number') continue
+                            const value = getPsetPropertyValue(itemData, pSetName, propertyName)
+                            if (Number.isFinite(value)) propertyNormalizationByItemId.set(localId, value!)
                         }
                     }
+                    if (normalization == 'Attribute') {
+                        const attributeName = normalizationAttributeName.value as string
+                        const itemIds = new Set<number>(costItemMeta.map(({ itemId }) => itemId))
+                        const itemsData = itemIds.size === 0 ? null : await fragments.getData({[model]: itemIds}, {
+                            attributesDefault: true,
+                            relationsDefault: { attributes: false, relations: false }
+                        })
+                        for (const itemData of itemsData?.[model] ?? []) {
+                            const localId = getLocalId(itemData)
+                            if (typeof localId !== 'number') continue
+                            const value = (itemData[attributeName] as FRAGS.ItemAttribute)?.value
+                            if (Number.isFinite(value)) attributeNormalizationByItemId.set(localId, value!)
+                        }
+                    }
+
+                    //const modelItemIds = [...new Set(costItemMeta.map(({ itemId }) => itemId))]
+                    //console.log(modelItemIds)
+                    // if (normalization == 'Volume' && modelItemIds.length > 0){
+                    //     const itemVolumes: number[] = []
+                    //     for (const i of modelItemIds) {
+                    //         const vol = await fragments.list.get(model)?.getItemsVolume([i])
+                    //         itemVolumes.push(vol ? vol : 1)
+                    //     }
+                    //     //console.log('itemVolumes',itemVolumes)
+                    //     if (Array.isArray(itemVolumes)) {
+                    //         modelItemIds.forEach((itemId, index) => {
+                    //             item_volume_map[itemId] = itemVolumes[index]
+                    //         })
+                    //     } else if (typeof itemVolumes === 'number' && modelItemIds.length === 1) {
+                    //         item_volume_map[modelItemIds[0]] = itemVolumes
+                    //     }
+                    // }
 
                     for (const { itemId, costItemObjectType, cvId } of costItemMeta){
 
@@ -1500,16 +1557,22 @@ export function MainViewer () {
                         let costItemCost = ((costValue.AppliedValue as any)[0].ValueComponent as FRAGS.ItemAttribute).value
 
                         if (normalization == 'Volume'){
-                            const itemVolume = item_volume_map[itemId]
-                            costItemCost = itemVolume ? costItemCost/itemVolume : costItemCost
+                            const m = fragments.list.get(model)
+                            const normalizationValue = await m?.getItemsVolume([itemId])
+                            costItemCost = normalizationValue ? costItemCost/normalizationValue : 0 //I can directly do this because in the panel the values will be created again, here is only for calculation purposes
+                        } else if (normalization == 'Property'){
+                            const normalizationValue = propertyNormalizationByItemId.get(itemId)
+                            costItemCost = normalizationValue ? costItemCost/normalizationValue : 0 //I can directly do this because in the panel the values will be created again, here is only for calculation purposes
+                        } else if (normalization == 'Attribute'){
+                            const normalizationValue = attributeNormalizationByItemId.get(itemId)
+                            costItemCost = normalizationValue ? costItemCost/normalizationValue : 0 //I can directly do this because in the panel the values will be created again, here is only for calculation purposes
                         }
                         
                         if (costItemObjectType != IfcFileLabel_CostAssignment) continue //ATTENTION!!! this value is USERDEFINED so it could be different in projects
                         item_totalCost_map[itemId] ? item_totalCost_map[itemId] += costItemCost : item_totalCost_map[itemId] = costItemCost
                     }
                     model_cost_map[model] = item_totalCost_map
-                    model_volume_map[model] = item_volume_map
-
+                    //model_volume_map[model] = item_volume_map
                 }
 
                 const endTime_4 = performance.now(); // End timer
@@ -1518,22 +1581,10 @@ export function MainViewer () {
 
                 //normalize cost to get colors and filter according to chosen range
                 const normalized_cost: {[key:string]:{[key:string]:number}} = {}
-                let modelTo_localIdToColor_map: {[key:string]: Record<string, string>} = {}
-                let modelTo_localIdToNormalizedValue_map: {[key:string]: Record<string, number>} = {}
+                let modelTo_localIdToColor_map: Record<string, Record<string, string>>
+                let modelTo_localIdToNormalizedValue_map: Record<string, Record<string, number>>
 
-                if (normalization=='Volume'){
-                    for (const [model, cost_map] of Object.entries(model_cost_map)) {
-                        normalized_cost[model] = {}
-                        for (const [itemId,cost] of Object.entries(cost_map)){
-                            const volume = model_volume_map[model][itemId]
-                            if (volume == 0) continue //very important to not consider non geometrical items, otherwise the normalization of cost is infinite, coloring all elements in green
-                            normalized_cost[model][itemId] = cost / volume
-                        }
-                    }
-                    [modelTo_localIdToColor_map,modelTo_localIdToNormalizedValue_map] = normalizeAndMapToColor(normalized_cost,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost)
-                } else {
-                    [modelTo_localIdToColor_map,modelTo_localIdToNormalizedValue_map] = normalizeAndMapToColor(model_cost_map,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost)
-                }
+                [modelTo_localIdToColor_map,modelTo_localIdToNormalizedValue_map] = normalizeAndMapToColor(model_cost_map,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost)
 
                 //filter all the found elements according to the range
                 const allSelectedItemsModelIdMap = Object.fromEntries(
@@ -1585,34 +1636,11 @@ export function MainViewer () {
                     console.log(`TIME ${loadTime_8} s: color elements using ranges color map (> 100 items)`)
                     
                     const startTime_5 = performance.now(); // Start timer
-                    const norm = normalization == 'Volume' ? true : false
-                    const dynamicCostTable = await onOpenElementXCostPanel(allSelectedItemsModelIdMap,norm,modelTo_localIdToColor_map,limitToCostItemNameList)
+                    const norm = ['Volume','Property','Attribute'].includes(normalization) ? true : false
+                    await onOpenElementXCostPanel(allSelectedItemsModelIdMap,norm,normalization,modelTo_localIdToColor_map,limitToCostItemNameList)
                     const endTime_5 = performance.now(); // End timer
                     const loadTime_5 = ((endTime_5 - startTime_5) / 1000).toFixed(2); // seconds
                     console.log(`TIME ${loadTime_5} s: total time to create and render cost table`);
-
-                    if (normalization == 'Volume' && dynamicCostTable) {
-                        dynamicCostTable.dataTransform.ItemVolume = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-                            //if (!value) return ''
-                            const { ItemId, Model } = rowData
-                            if (!ItemId || !Model) return '' //if ItemId or Model is not defined, return the original value
-                            const volume = model_volume_map[Model][Number(ItemId)]
-                            if(!volume) return ''
-                            return BUI.html`
-                                <bim-label>${Math.round(volume*1000)/1000} m³</bim-label>
-                            `
-                        }
-                        dynamicCostTable.dataTransform.NormalizedCost = (value, rowData) => { //color also the total resource cost in the table with the same color of related element
-                            const { ItemId, Currency, Model } = rowData
-                            if (!ItemId || !Model) return '' //if ItemId or Model is not defined, return the original value
-                            const normCost = normalized_cost[Model]?.[Number(ItemId)]
-                            const normValue = modelTo_localIdToNormalizedValue_map[Model]?.[Number(ItemId)]
-                            if(normCost==null || normValue==null) return ''
-                            return BUI.html`
-                                <bim-label>${Math.round(normCost*100)/100} ${Currency}/m³ (${Math.round(normValue*100)/100})</bim-label>
-                            `
-                        }
-                    }
                     //}
                     //document.getElementById('groupby_costrange')!.click() //trigger the click on the cost range grouping button to show colors in the table
                     groupBy_CostRange_Btn.disabled = false
@@ -2386,6 +2414,9 @@ export function MainViewer () {
         const sortbyTotalCostDropdown_optionOne = BUI.Component.create<BUI.Option>(
             () => BUI.html`<bim-option label='ElementName' style="padding:0 10px 0 10px" icon='qlementine-icons:rename-16'></bim-option>`
         )
+        const sortbyTotalCostDropdownWithNormalization_optionOne = BUI.Component.create<BUI.Option>(
+            () => BUI.html`<bim-option label='ElementName' style="padding:0 10px 0 10px" icon='qlementine-icons:rename-16'></bim-option>`
+        )
         const sortbyTotalCostDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
             <bim-dropdown name="sortbyTotalCost" style="max-width:fit-content">
@@ -2393,6 +2424,27 @@ export function MainViewer () {
                 <bim-option id="sortbyTotalCostDropdown-cost" label='Cost' style="padding:0 10px 0 10px" icon='solar:dollar-linear'></bim-option>
             </bim-dropdown>`,
         )
+        const sortbyTotalCostDropdown_withNormalization = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="sortbyTotalCost" style="max-width:fit-content">
+                ${sortbyTotalCostDropdownWithNormalization_optionOne}
+                <bim-option id="sortbyTotalCostDropdown-cost-normalized" label='Cost' style="padding:0 10px 0 10px" icon='solar:dollar-linear'></bim-option>
+                <bim-option id="sortbyTotalCostDropdown-normalizedCost" label='NormalizedCost' style="padding:0 10px 0 10px" icon='stash:hand-holding-dollar-light'></bim-option>
+            </bim-dropdown>`,
+        )
+        let currentSortbyTotalCostDropdown = sortbyTotalCostDropdown
+        const setSortbyTotalCostDropdownGroupLabel = (label: string) => {
+            sortbyTotalCostDropdown_optionOne.label = label
+            sortbyTotalCostDropdownWithNormalization_optionOne.label = label
+        }
+        const setSortbyTotalCostNormalizedOption = (visible: boolean) => {
+            const nextDropdown = visible ? sortbyTotalCostDropdown_withNormalization : sortbyTotalCostDropdown
+            if (currentSortbyTotalCostDropdown !== nextDropdown) {
+                currentSortbyTotalCostDropdown.replaceWith(nextDropdown)
+                currentSortbyTotalCostDropdown = nextDropdown
+            }
+            currentSortbyTotalCostDropdown.value = []
+        }
         const visibleColumnsDropdown_classicGroups = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
             <bim-dropdown name="visibleColumnsDropdown_classicGroups" style="max-width:fit-content" multiple>
@@ -2403,6 +2455,18 @@ export function MainViewer () {
                 <bim-option checked id="visibleColumnsDropdown_classicGroups-CostItemUnitCost" label='CostItemUnitCost' style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
         )
+        const visibleColumnsDropdown_classicGroups_withNormalization = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="visibleColumnsDropdown_classicGroups" style="max-width:fit-content" multiple>
+                <bim-option checked id="visibleColumnsDropdown_classicGroups-CostItemName" label='CostItemName' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_classicGroups-CostItemDescription" label='CostItemDescription' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_classicGroups-Cost" label='Cost' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_classicGroups-Quantity" label='Quantity' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_classicGroups-CostItemUnitCost" label='CostItemUnitCost' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_classicGroups-NormalizationQuantity" label='NormalizationQuantity' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_classicGroups-NormalizedCost" label='NormalizedCost' style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
         const visibleColumnsDropdown_CostItemGroup = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
             <bim-dropdown name="visibleColumnsDropdown_CostItemGroup" style="max-width:fit-content" multiple>
@@ -2410,6 +2474,17 @@ export function MainViewer () {
                 <bim-option checked id="visibleColumnsDropdown_CostItemGroup-ElementIfcClass" label='ElementIfcClass' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option checked id="visibleColumnsDropdown_CostItemGroup-Cost" label='Cost' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option checked id="visibleColumnsDropdown_CostItemGroup-Quantity" label='Quantity' style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
+        const visibleColumnsDropdown_CostItemGroup_withNormalization = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="visibleColumnsDropdown_CostItemGroup" style="max-width:fit-content" multiple>
+                <bim-option checked id="visibleColumnsDropdown_CostItemGroup-ElementName" label='ElementName' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_CostItemGroup-ElementIfcClass" label='ElementIfcClass' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_CostItemGroup-Cost" label='Cost' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_CostItemGroup-Quantity" label='Quantity' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_CostItemGroup-NormalizationQuantity" label='NormalizationQuantity' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsDropdown_CostItemGroup-NormalizedCost" label='NormalizedCost' style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
         )
         let currentVisibleColumnsDropdown = visibleColumnsDropdown_classicGroups
@@ -2467,7 +2542,7 @@ export function MainViewer () {
         }
         const [categoriesDropdown, updateCategoriesDropdown] = BUI.Component.create<BUI.Dropdown, categoriesUI>((state: categoriesUI) => {
             const { listCategories } = state
-            return BUI.html`<bim-dropdown name="categories" label='IFC Class' icon='material-symbols:category-rounded' multiple>
+            return BUI.html`<bim-dropdown name="categories" multiple style="max-width:fit-content">
                 ${listCategories.map((x) => {
                     if (x == 'ALL IFC CLASSES') {
                         return BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px; border-bottom: 1px solid dimgray; border-radius: 0px"></bim-option>`
@@ -2480,25 +2555,61 @@ export function MainViewer () {
             { listCategories: importedCategories}
         )
         categoriesDropdown.searchBox = true
-        //measure units dropdown menu
-        const unitMeasure = ['None','Volume']
-        const unitMeasureDropdown = BUI.Component.create<BUI.Dropdown>(
-            () => BUI.html`<bim-dropdown name="unitMeasure" label='Normalize Cost By' icon='gravity-ui:chart-area-stacked-normalized'>
-                ${unitMeasure.map(
-                    (x) => BUI.html`<bim-option label=${x} style="padding:0 10px 0 10px"></bim-option>`,
-                )}
+        //normalization dropdown menu
+        const normalizationPSetName = BUI.Component.create<BUI.TextInput>(() => {
+            return BUI.html`
+                <bim-text-input placeholder='Pset Name'></bim-text-input>
+            `
+        })
+        const normalizationPropertyName = BUI.Component.create<BUI.TextInput>(() => {
+            return BUI.html`
+                <bim-text-input placeholder='Property Name'></bim-text-input>
+            `
+        })
+        const normalizationAttributeName = BUI.Component.create<BUI.TextInput>(() => {
+            return BUI.html`
+                <bim-text-input placeholder='Attribute Name'></bim-text-input>
+            `
+        })
+        normalizationPSetName.style.display = 'none'
+        normalizationPropertyName.style.display = 'none'
+        normalizationAttributeName.style.display = 'none'
+        const normalizationDropdown = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="normalizationOptions" label='Normalize Cost By' icon='gravity-ui:chart-area-stacked-normalized' style="min-width:fit-content">
+                <bim-option label='None' icon='mdi:denied' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Volume' icon='proicons:cube' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Attribute' icon='material-symbols:user-attributes-rounded' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Property' icon='ic:round-list' style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`,
         )
-        unitMeasureDropdown.style.display = 'none'
+        normalizationDropdown.style.display = ''
         resourcesDropdown.addEventListener('change', (event) => {
             if (!event.target) return
             if ((event.target as any).value[0] == IfcFileLabel_TotalCost){
-                //unitMeasureDropdown.style.display = ''
+                normalizationDropdown.style.display = ''
                 limitToCostItemName.style.display = ''
             } else {
-                //unitMeasureDropdown.style.display = 'none'
+                normalizationDropdown.style.display = 'none'
                 limitToCostItemName.style.display = 'none'
                 limitToCostItemName.value = ''
+                normalizationDropdown.value = ['None']
+            }
+        })
+        normalizationDropdown.addEventListener('change', (event) => {
+            if (!event.target) return
+            if ((event.target as any).value[0] == 'Property'){
+                normalizationPSetName.style.display = ''
+                normalizationPropertyName.style.display = ''
+                normalizationAttributeName.style.display = 'none'
+            } else if ((event.target as any).value[0] == 'Attribute'){
+                normalizationPSetName.style.display = 'none'
+                normalizationPropertyName.style.display = 'none'
+                normalizationAttributeName.style.display = ''
+            } else {
+                normalizationPSetName.style.display = 'none'
+                normalizationPropertyName.style.display = 'none'
+                normalizationAttributeName.style.display = 'none'
             }
         })
 
@@ -2537,6 +2648,21 @@ export function MainViewer () {
                     tooltip-text='Click to filter elements inside or outside the chosen range'
                     style='width:8.12rem'
                     icon='iconoir:arrow-separate'
+                >
+                </bim-button>
+            `
+        })
+        const includeExcludeIfcClasses = BUI.Component.create<BUI.Button>(() => {
+            return BUI.html`
+                <bim-button 
+                    @click=${(e:Event) => {
+                        (e.target as BUI.Button).label = (e.target as BUI.Button).label=='Include'?'Exclude':'Include';
+                        (e.target as BUI.Button).icon = (e.target as BUI.Button).label=='Include'?'uil:check':'charm:cross'
+                    }}
+                    label='Include'
+                    tooltip-text='Click to include or exclude the selected IFC classes from the analysis'
+                    style='max-width:fit-content'
+                    icon='uil:check'
                 >
                 </bim-button>
             `
@@ -2619,8 +2745,19 @@ export function MainViewer () {
                     ${resourcesDropdown}
                     ${limitToSelection}
                     ${limitToCostItemName}
-                    ${categoriesDropdown}
-                    ${unitMeasureDropdown}
+                    <div style="display:flex; justify-content:space-between">
+                        <bim-label icon='material-symbols:category-rounded'>IFC Classes</bim-label>
+                        <div style="display:flex; gap: 0.5rem; align-items:center">
+                            ${includeExcludeIfcClasses}
+                            ${categoriesDropdown}
+                        </div>
+                    </div>
+                    <div style="display:flex; gap: 0.5rem; align-items:center">
+                        ${normalizationDropdown}
+                        ${normalizationPSetName}
+                        ${normalizationPropertyName}
+                        ${normalizationAttributeName}
+                    </div>
                     <div style="display:flex; gap: 1rem; align-items:center">
                         <bim-label icon='mdi:slider'>Range</bim-label>
                         <bim-button tooltip-text="Info: this range filters the items resulting from the above choices" icon='material-symbols-light:info-outline-rounded' style="max-width:fit-content; height:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
@@ -2657,11 +2794,15 @@ export function MainViewer () {
         panelLeft.appendChild(colorResourcesPanelSection)
 
         //advanced costs functions and components
-        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined,normalization:boolean=false,modelTo_localIdToColor_map?:{[key: string]: Record<string, string>},limitToCostItemNameList:string[]=[]) => {
+        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined,normalization:boolean=false,normalizationMode:string='None',modelTo_localIdToColor_map?:{[key: string]: Record<string, string>},limitToCostItemNameList:string[]=[]) => {
             //clean panel
             panelDown.innerHTML=''
             panelDown.appendChild(loadingLabel)
             panelDown.label = 'Element X Costs Panel'
+
+            currentVisibleColumnsDropdown = normalization ? visibleColumnsDropdown_classicGroups_withNormalization : visibleColumnsDropdown_classicGroups
+            setSortbyTotalCostNormalizedOption(normalization)
+            currentSortbyTotalCostDropdown.value = []
 
             //get selected elements
             //const selection = highlighter.selection.select ? highlighter.selection.select : await getAllItems() //selection = selected items or all items
@@ -2709,8 +2850,8 @@ export function MainViewer () {
                 ComponentsCostValues: any,
                 Model: string,
                 ItemId?: number,
-                ItemVolume?: number,
-                NormalizedCost?: number,
+                NormalizationQuantity?: string,
+                NormalizedCost: string,
             }
             //tables
             const dynamicCostTable = document.createElement("bim-table") as BUI.Table<dynamicCostTableData>
@@ -2721,8 +2862,8 @@ export function MainViewer () {
                         ElementName: '',
                         ElementIfcClass: '',
                         Cost: '',
-                        NormalizedCost: 0,
-                        ItemVolume: 0,
+                        NormalizedCost: '',
+                        NormalizationQuantity: '',
                         Quantity: '',
                         Currency: '',
                         CostItemName: '',
@@ -2745,6 +2886,19 @@ export function MainViewer () {
                     if (typeof localId === 'number') itemsMap[localId] = item
                 }
                 return itemsMap
+            }
+            const getPsetPropertyValue = (itemData: FRAGS.ItemData, pSetName: string, propertyName: string): number | undefined => {
+                const definitions = (itemData as any).IsDefinedBy
+                if (!Array.isArray(definitions)) return
+                for (const definition of definitions) {
+                    if (!definition.HasProperties) continue
+                    if ((definition.Name as FRAGS.ItemAttribute)?.value !== pSetName) continue
+                    for (const propertyData of Object.values(definition.HasProperties) as any[]) {
+                        if ((propertyData.Name as FRAGS.ItemAttribute)?.value !== propertyName) continue
+                        const value = (propertyData.NominalValue as FRAGS.ItemAttribute | undefined)?.value
+                        return typeof value === 'number' ? value : Number(value)
+                    }
+                }
             }
 
             let totalCost: number = 0
@@ -2791,6 +2945,49 @@ export function MainViewer () {
                     }
                 })
                 const costValuesById = mapItemsByLocalId(costValuesRecord?.[model] as any[] ?? [])
+                const propertyNormalizationByItemId = new Map<number, number>()
+                const attributeNormalizationByItemId = new Map<number, number>()
+                if (normalization && normalizationMode == 'Property') {
+                    const pSetName = normalizationPSetName.value as string
+                    const propertyName = normalizationPropertyName.value as string
+                    const selectedItemIds = new Set<number>()
+                    for (const item of selectedItems) {
+                        const selectedItemId = getLocalId(item)
+                        if (typeof selectedItemId === 'number') selectedItemIds.add(selectedItemId)
+                    }
+                    const propertyItemsData = selectedItemIds.size === 0 ? null : await fragments.getData({[model]: selectedItemIds}, {
+                        attributesDefault: true,
+                        relations: {
+                            IsDefinedBy: {
+                                attributes: true,
+                                relations: true,
+                            },
+                        },
+                    })
+                    for (const itemData of propertyItemsData?.[model] ?? []) {
+                        const localId = getLocalId(itemData)
+                        if (typeof localId !== 'number') continue
+                        const value = getPsetPropertyValue(itemData, pSetName, propertyName)
+                        if (value !== undefined && Number.isFinite(value)) propertyNormalizationByItemId.set(localId, value)
+                    }
+                } else if (normalization && normalizationMode == 'Attribute') {
+                        const attributeName = normalizationAttributeName.value as string
+                        const selectedItemIds = new Set<number>()
+                        for (const item of selectedItems) {
+                            const selectedItemId = getLocalId(item)
+                            if (typeof selectedItemId === 'number') selectedItemIds.add(selectedItemId)
+                        }
+                        const attributeItemsData = selectedItemIds.size === 0 ? null : await fragments.getData({[model]: selectedItemIds}, {
+                            attributesDefault: true,
+                            relationsDefault: { attributes: false, relations: false }
+                        })
+                        for (const itemData of attributeItemsData?.[model] ?? []) {
+                            const localId = getLocalId(itemData)
+                            if (typeof localId !== 'number') continue
+                            const value = (itemData[attributeName] as FRAGS.ItemAttribute)?.value
+                            if (value !== undefined && Number.isFinite(value)) attributeNormalizationByItemId.set(localId, value!)
+                        }
+                    }
 
                 for (const item of selectedItems) { //loop over selected items
                     try { //needed to skip potential errors and do not interrupt the loop over items
@@ -2858,12 +3055,24 @@ export function MainViewer () {
                                     dynamicRow.data.CostItemUnitCost = 'nd'
                                     dynamicRow.data.ComponentsCostValues = dynamicRow.data.ComponentsCostValues = 'nd'
                                 }
+
+                                let normalizationValue: number | undefined
+                                if (normalizationMode == 'Volume') {
+                                    normalizationValue = await fragments.list.get(model)?.getItemsVolume([itemId])
+                                    dynamicRow.data.NormalizationQuantity = normalization ? `${normalizationValue?formatNumber(normalizationValue):'nd'} m³` : 'nd'
+                                } else if (normalizationMode == 'Property') {
+                                    normalizationValue = propertyNormalizationByItemId.get(Number(itemId))
+                                    dynamicRow.data.NormalizationQuantity = normalization ? `${normalizationValue?formatNumber(normalizationValue):'nd'}` : 'nd'
+                                } else if (normalizationMode == 'Attribute') {
+                                    normalizationValue = attributeNormalizationByItemId.get(Number(itemId))
+                                    dynamicRow.data.NormalizationQuantity = normalization ? `${normalizationValue?formatNumber(normalizationValue):'nd'}` : 'nd'
+                                }
+                                dynamicRow.data.NormalizedCost = normalization ? `${normalizationValue?formatNumber_Cost(costValueAppliedValue/normalizationValue):'nd'} ${currency}` : 'nd'
+                                dynamicRow.data.CostRange = 'nd'
+                                
                                 itemTotalCost += costValueAppliedValue //element total cost: sum of all cost item related
                                 itemTotalCurrency = currency
                             }
-                            dynamicRow.data.NormalizedCost = 0
-                            dynamicRow.data.ItemVolume = 0
-                            dynamicRow.data.CostRange = 'nd'
                             dynamicCostTable.data.push(dynamicRow)
                         }
                         totalCost += itemTotalCost
@@ -2875,12 +3084,14 @@ export function MainViewer () {
                 }
             }
 
-            sortbyTotalCostDropdown.addEventListener('change', (e) => {
+            const onSortbyTotalCostDropdownChange = (e: Event) => {
                 if (!e.currentTarget) return
                 const field = (e.currentTarget as BUI.Dropdown).value[0]
                 const ascending = sortbyDirectionTotalCost.icon=='meteor-icons:arrow-up' ? false : true
-                onSortDynamicTable(dynamicCostTable, field, ascending, totalCostPerGroupedTable)}
-            )
+                onSortDynamicTable(dynamicCostTable, field, ascending, totalCostPerGroupedTable)
+            }
+            sortbyTotalCostDropdown.addEventListener('change', onSortbyTotalCostDropdownChange)
+            sortbyTotalCostDropdown_withNormalization.addEventListener('change', onSortbyTotalCostDropdownChange)
             const onVisibleColumnsChange = (e: Event) => {
                 const dropdown = e.currentTarget as BUI.Dropdown
                 const checkedFields = [...dropdown.value]
@@ -2891,7 +3102,7 @@ export function MainViewer () {
             visibleColumnsDropdown_CostItemGroup.addEventListener('change', (e) => {
                 onVisibleColumnsChange(e)
             })
-            visibleColumnsDropdown_classicGroups.addEventListener('change', (e) => {
+            visibleColumnsDropdown_classicGroups_withNormalization.addEventListener('change', (e) => {
                 onVisibleColumnsChange(e)
             })
             const sortbyDirectionTotalCost = BUI.Component.create<BUI.Dropdown>(
@@ -2902,12 +3113,12 @@ export function MainViewer () {
                             const button = e.currentTarget as BUI.Button
                             button.icon = button.icon=='meteor-icons:arrow-up' ? 'meteor-icons:arrow-down' : 'meteor-icons:arrow-up'
                             const ascending = button.icon=='meteor-icons:arrow-up' ? false : true
-                            onSortDynamicTable(dynamicCostTable, sortbyTotalCostDropdown.value[0], ascending,totalCostPerGroupedTable)
+                            onSortDynamicTable(dynamicCostTable, currentSortbyTotalCostDropdown.value[0], ascending,totalCostPerGroupedTable)
                         }}">
                     </bim-button>`,
             )
 
-            const totalCostPerGroupedTable: {[group: string]: {cost: number, quantity: number, currency: string, um: string, model:string, itemId?: number, costItemUnitCost?: string|number, costItemDescription?: string, ComponentsValue?: any}} = {}
+            const totalCostPerGroupedTable: {[group: string]: {cost: number, normalizedCost: number, quantity: number, currency: string, um: string, model:string, itemId?: number, costItemUnitCost?: string|number, costItemDescription?: string, ComponentsValue?: any}} = {}
             const groupIfcClasses = new Set<string>()
             const groupElements = new Set<string>()
             const groupCostItems = new Set<string>()
@@ -2919,6 +3130,7 @@ export function MainViewer () {
                 const cost = Number((row.data.Cost as string).split(' ')[0])
                 const quantity = Number((row.data.Quantity as string).split(' ')[0])
                 const currency = (row.data.Cost as string).split(' ')[1]
+                const normalizedCost = Number((row.data.NormalizedCost as string).replace(currency, '').replace(' ', ''))
                 const um = (row.data.Quantity as string).split(' ')[1] //unit of measure
                 const itemId = row.data.ItemId
                 const model = row.data.Model
@@ -2930,21 +3142,24 @@ export function MainViewer () {
 
                 if (!model) continue
                 if (!totalCostPerGroupedTable[groupIfcClass]) {
-                    totalCostPerGroupedTable[groupIfcClass] = { cost: 0, quantity: 0, currency, um, model }
+                    totalCostPerGroupedTable[groupIfcClass] = { cost: 0, normalizedCost: 0, quantity: 0, currency, um, model }
                 }
                 totalCostPerGroupedTable[groupIfcClass].cost += cost
+                totalCostPerGroupedTable[groupIfcClass].normalizedCost += normalizedCost
                 groupIfcClasses.add(groupIfcClass)
 
                 if (!totalCostPerGroupedTable[groupElement]) {
-                    totalCostPerGroupedTable[groupElement] = { cost: 0, quantity: 0, currency, um, model, itemId}
+                    totalCostPerGroupedTable[groupElement] = { cost: 0, normalizedCost: 0, quantity: 0, currency, um, model, itemId}
                 }
                 totalCostPerGroupedTable[groupElement].cost += cost
+                totalCostPerGroupedTable[groupElement].normalizedCost +=normalizedCost
                 groupElements.add(groupElement)
 
                 if (!totalCostPerGroupedTable[groupCostItem]) {
-                    totalCostPerGroupedTable[groupCostItem] = { cost: 0, quantity: 0, currency, um, model, costItemUnitCost: row.data.CostItemUnitCost, costItemDescription: row.data.CostItemDescription, ComponentsValue: row.data.ComponentsCostValues }
+                    totalCostPerGroupedTable[groupCostItem] = { cost: 0, normalizedCost: 0, quantity: 0, currency, um, model, costItemUnitCost: row.data.CostItemUnitCost, costItemDescription: row.data.CostItemDescription, ComponentsValue: row.data.ComponentsCostValues }
                 }
                 totalCostPerGroupedTable[groupCostItem].cost += cost
+                totalCostPerGroupedTable[groupCostItem].normalizedCost += normalizedCost
                 totalCostPerGroupedTable[groupCostItem].quantity += quantity
                 groupCostItems.add(groupCostItem)
             }
@@ -2961,7 +3176,7 @@ export function MainViewer () {
                     } else if (ElementName && !CostItemName && !ElementIfcClass) {
                         if (value!='') return value
                         const m = totalCostPerGroupedTable[ElementName]?.model // this is needed only here because the Element grouping is the only one with colors
-                        if (modelTo_localIdToColor_map) {
+                        if (modelTo_localIdToColor_map && !normalization) {
                             return BUI.html`
                                 <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
                                     <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; 
@@ -2975,6 +3190,34 @@ export function MainViewer () {
                         }
                     } else {
                         return formatNumber_Cost(value)
+                    }
+                },
+                NormalizedCost: (value, rowData) => {
+                    const { ElementName, ElementIfcClass, CostItemName } = rowData
+                    if (!ElementName && !CostItemName && ElementIfcClass) {
+                        if (value!='') return value
+                        return formatNumber_Cost(Math.round(totalCostPerGroupedTable[ElementIfcClass]?.normalizedCost*100)/100)+' '+totalCostPerGroupedTable[ElementIfcClass]?.currency
+                    } else if (!ElementName && CostItemName && !ElementIfcClass) {
+                        if (value!='') return value
+                        return formatNumber_Cost(Math.round(totalCostPerGroupedTable[CostItemName]?.normalizedCost*100)/100)+' '+totalCostPerGroupedTable[CostItemName]?.currency
+                    } else if (ElementName && !CostItemName && !ElementIfcClass) {
+                        if (value!='') return value
+                        if (!totalCostPerGroupedTable[ElementName]?.normalizedCost) return value
+                        const m = totalCostPerGroupedTable[ElementName]?.model // this is needed only here because the Element grouping is the only one with colors
+                        if (modelTo_localIdToColor_map && normalization) {
+                            return BUI.html`
+                                <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
+                                    <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; 
+                                        background-color:${modelTo_localIdToColor_map[m!]?.[Number(totalCostPerGroupedTable[ElementName]?.itemId)]};
+                                        color:${modelTo_localIdToColor_map[m!]?.[Number(totalCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
+                                    <bim-label>${formatNumber_Cost(Math.round(totalCostPerGroupedTable[ElementName]?.normalizedCost*100)/100)+' '+totalCostPerGroupedTable[ElementName]?.currency}</bim-label>
+                                </div>
+                            `
+                        } else {
+                            return formatNumber_Cost(Math.round(totalCostPerGroupedTable[ElementName]?.normalizedCost*100)/100)+' '+totalCostPerGroupedTable[ElementName]?.currency
+                        }
+                    } else {
+                        return value
                     }
                 },
                 Quantity: (value, rowData) => {
@@ -3069,8 +3312,10 @@ export function MainViewer () {
             dynamicCostTable.columns = ['ElementName']
             normalization ? 
                 dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange'] :
-                dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','ItemVolume','NormalizedCost']
-            dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value.length > 0 ? currentVisibleColumnsDropdown.value : ['CostItemName','CostItemDescription','Cost','Quantity','CostItemUnitCost']
+                dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','NormalizationQuantity','NormalizedCost']
+            normalization ? 
+                dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value.length > 0 ? currentVisibleColumnsDropdown.value : ['CostItemName','CostItemDescription','Cost','Quantity','CostItemUnitCost','NormalizationQuantity','NormalizedCost'] :
+                dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value.length > 0 ? currentVisibleColumnsDropdown.value : ['CostItemName','CostItemDescription','Cost','Quantity','CostItemUnitCost']
 
             const onCreateChart_IfcClass = () => {
                 const groupIfcClassLabels = [...groupIfcClasses]
@@ -3179,14 +3424,15 @@ export function MainViewer () {
                                 document.getElementById('groupby_element')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costrange')!.style.removeProperty('background-color');
-                                sortbyTotalCostDropdown_optionOne.label = 'ElementIfcClass'
-                                sortbyTotalCostDropdown.value = []
+                                setSortbyTotalCostDropdownGroupLabel('ElementIfcClass')
+                                setSortbyTotalCostNormalizedOption(normalization)
+                                currentSortbyTotalCostDropdown.value = []
                                 dynamicCostTable.groupedBy = ['ElementIfcClass','ElementName']
                                 dynamicCostTable.columns = ['ElementIfcClass','ElementName']
                                 normalization ?
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName','CostRange'] :
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName','ItemVolume','NormalizedCost','CostRange']
-                                setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName','NormalizationQuantity','NormalizedCost','CostRange']
+                                normalization ? setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups_withNormalization) : setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
                                 dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value
                             }} id="groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
@@ -3195,14 +3441,15 @@ export function MainViewer () {
                                 document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costrange')!.style.removeProperty('background-color');
-                                sortbyTotalCostDropdown_optionOne.label = 'ElementName'
-                                sortbyTotalCostDropdown.value = []
+                                setSortbyTotalCostDropdownGroupLabel('ElementName')
+                                setSortbyTotalCostNormalizedOption(normalization)
+                                currentSortbyTotalCostDropdown.value = []
                                 dynamicCostTable.groupedBy = ['ElementName']
                                 dynamicCostTable.columns = ['ElementName']
                                 normalization ? 
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange'] :
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','ItemVolume','NormalizedCost']
-                                setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','NormalizationQuantity','NormalizedCost']
+                                normalization ? setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups_withNormalization) : setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
                                 dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value
                             }} id="groupby_element" label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
@@ -3211,14 +3458,15 @@ export function MainViewer () {
                                 document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_element')!.style.removeProperty('background-color');
-                                sortbyTotalCostDropdown_optionOne.label = 'CostRange'
-                                sortbyTotalCostDropdown.value = []
+                                setSortbyTotalCostDropdownGroupLabel('CostRange')
+                                setSortbyTotalCostNormalizedOption(normalization)
+                                currentSortbyTotalCostDropdown.value = []
                                 dynamicCostTable.groupedBy = ['CostRange','ElementName']
                                 dynamicCostTable.columns = ['ElementName']
                                 normalization ? 
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange'] :
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','ItemVolume','NormalizedCost']
-                                setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','NormalizationQuantity','NormalizedCost']
+                                normalization ? setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups_withNormalization) : setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
                                 dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value
                             }} id="groupby_costrange" ${BUI.ref((el) => {groupBy_CostRange_Btn = el as BUI.Button})} tooltip-text="Enabled only for cost analysis coloured panel" label="Cost Range" style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
@@ -3227,18 +3475,19 @@ export function MainViewer () {
                                 document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_element')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costrange')!.style.removeProperty('background-color');
-                                sortbyTotalCostDropdown_optionOne.label = 'CostItemName'
-                                sortbyTotalCostDropdown.value = []
+                                setSortbyTotalCostDropdownGroupLabel('CostItemName')
+                                setSortbyTotalCostNormalizedOption(normalization)
+                                currentSortbyTotalCostDropdown.value = []
                                 dynamicCostTable.groupedBy = ['CostItemName']
                                 dynamicCostTable.columns = ['CostItemName']
                                 normalization ?
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','CostRange'] :
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','ItemVolume','NormalizedCost','CostRange']
-                                setVisibleColumnsDropdown(visibleColumnsDropdown_CostItemGroup)
-                                dynamicCostTable.visibleColumns = visibleColumnsDropdown_CostItemGroup.value.length > 0 ? visibleColumnsDropdown_CostItemGroup.value : ['ElementName', 'ElementIfcClass', 'Cost', 'Quantity']
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','NormalizationQuantity','NormalizedCost','CostRange']
+                                normalization ? setVisibleColumnsDropdown(visibleColumnsDropdown_CostItemGroup_withNormalization) : setVisibleColumnsDropdown(visibleColumnsDropdown_CostItemGroup)
+                                dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value
                             }} id="groupby_costitem" label="Cost Item" style="max-width:fit-content"></bim-button>
                             <bim-label>Sort by:</bim-label>
-                            ${sortbyTotalCostDropdown}
+                            ${currentSortbyTotalCostDropdown}
                             ${sortbyDirectionTotalCost}
                             <bim-label>Columns:</bim-label>
                             ${currentVisibleColumnsDropdown}
