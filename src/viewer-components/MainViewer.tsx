@@ -3264,10 +3264,16 @@ export function MainViewer () {
                 dynamicCostTable.data = [...dynamicCostTable.data]
                 dynamicCostTable.requestUpdate()
             }
-            visibleColumnsDropdown_CostItemGroup.addEventListener('change', (e) => {
+            visibleColumnsDropdown_classicGroups.addEventListener('change', (e) => {
                 onVisibleColumnsChange(e)
             })
             visibleColumnsDropdown_classicGroups_withNormalization.addEventListener('change', (e) => {
+                onVisibleColumnsChange(e)
+            })
+            visibleColumnsDropdown_CostItemGroup.addEventListener('change', (e) => {
+                onVisibleColumnsChange(e)
+            })
+            visibleColumnsDropdown_CostItemGroup_withNormalization.addEventListener('change', (e) => {
                 onVisibleColumnsChange(e)
             })
             const sortbyDirectionTotalCost = BUI.Component.create<BUI.Dropdown>(
@@ -3430,6 +3436,11 @@ export function MainViewer () {
                     const { ElementIfcClass, ElementName } = rowData
                     if (!ElementName && !ElementIfcClass) {
                         return BUI.html`
+                            <bim-button icon='famicons:open-outline' tooltip-text='Open Price Analysis' style='max-width:fit-content; margin-right:0.2rem; z-index:100'
+                                @click=${() => {
+                                    onOpenPriceAnalysis(totalCostPerGroupedTable[value]?.ComponentsValue, value, totalCostPerGroupedTable[value]?.costItemDescription, totalCostPerGroupedTable[value]?.costItemUnitCost)
+                                }}
+                            ></bim-button>
                             <bim-label
                                 @mouseover=${({currentTarget}: {currentTarget: BUI.Label}) => {
                                     const label = currentTarget
@@ -3649,7 +3660,13 @@ export function MainViewer () {
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','CostRange'] :
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','NormalizationQuantity','NormalizedCost','CostRange']
                                 normalization ? setVisibleColumnsDropdown(visibleColumnsDropdown_CostItemGroup_withNormalization) : setVisibleColumnsDropdown(visibleColumnsDropdown_CostItemGroup)
-                                dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value
+                                dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value.length > 0 ?
+                                    currentVisibleColumnsDropdown.value :
+                                    normalization ?
+                                        ['ElementName','ElementIfcClass','Cost','Quantity','NormalizationQuantity','NormalizedCost'] :
+                                        ['ElementName','ElementIfcClass','Cost','Quantity']
+                                dynamicCostTable.data = [...dynamicCostTable.data]
+                                dynamicCostTable.requestUpdate()
                             }} id="groupby_costitem" label="Cost Item" style="max-width:fit-content"></bim-button>
                             <bim-label>Sort by:</bim-label>
                             ${currentSortbyTotalCostDropdown}
