@@ -13,6 +13,7 @@
     --areatext: rgb(40, 40, 71);
     --header_height: 120px;
     --sidebar_width: 250px;
+    --page-zoom: 1; /*crea problemi sul puntatore del mouse e sui menu a comparsa*/
 
     --bim-icon--fz: 20px;
     --bim-label--c: rgb(240, 240, 240);
@@ -84,8 +85,19 @@ html.bim-ui-light {
     background-color: transparent; /* Set the color of the scrollbar track */
 }
 
+html,
+body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: black;
+}
+
 #app {
-    height: 100vh;
+    width: calc(100vw / var(--page-zoom));
+    height: calc(100vh / var(--page-zoom));
+    transform: scale(var(--page-zoom));
+    transform-origin: top left;
     color: var(--text);
     background-color: black;
 }
@@ -93,7 +105,7 @@ html.bim-ui-light {
 .home-shell {
     display: grid;
     grid-template-columns: 3.5rem 1fr;
-    height: 100vh;
+    height: calc(100vh / var(--page-zoom));
 }
 .home-shell {
     background-image: linear-gradient(rgba(20, 20, 20, 0.1), rgba(20, 20, 20, 0.1)), url('/PNG/home-image-3.png');

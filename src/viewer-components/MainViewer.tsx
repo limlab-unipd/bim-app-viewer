@@ -485,7 +485,7 @@ export function MainViewer () {
             }
 
             function getSortSourceValue(row: BUI.TableGroupData<any>) {
-                const sortField = ['Cost', 'NormalizedCost'].includes(field) // se field = Cost or NormalizedCost sceglie tra total or resource altrimenti ritorna direttamente field
+                const sortField = field === 'Cost' // se field = Cost sceglie tra total or resource; NormalizedCost resta la sua colonna
                     ? totalOrResource === 'total' ? 'Cost' : 'ResourceCost'
                     : field
                 if ((field === 'Cost' || field === 'NormalizedCost') && row.children?.length) {
@@ -592,7 +592,12 @@ export function MainViewer () {
 
         const onColorByCost = async ({target}: {target: BUI.Button | string}) => {
             const startTime_tot = performance.now(); // Start timer
-            const btn = typeof target === 'string' ? target : target.label //read if the clicked button is "color" or "select"
+            let btn = typeof target === 'string' ? target : target.label //read if the clicked button is "color" or "select"
+            if (btn && ['COLOR','Color', 'color'].includes(btn)) {
+                btn = 'Color'
+            } else if (btn && ['SELECT','Select', 'select'].includes(btn)) {
+                btn = 'Select'
+            }
             let [resource] = resourcesDropdown.value //read the value of the resource dropdown menu (single choice)
             const availableIfcClasses = importedCategories.filter(category => category != 'ALL IFC CLASSES')
             const selectedIfcClasses = categoriesDropdown.value.includes('ALL IFC CLASSES') ? availableIfcClasses : categoriesDropdown.value //read the value of category dropdown menu, list is kept because multiple choices are accepted
@@ -732,6 +737,7 @@ export function MainViewer () {
             console.log(`TIME ${loadTime_2} s: get data of previous cost items localIds`)
 
             if (resource != IfcFileLabel_TotalCost){ //this means that a resource is selected
+                const normalizeResourceCost = ['Volume','Property','Attribute'].includes(normalization)
                 type elemDataType = {
                     elemModel: string,
                     elemId: number,
@@ -742,6 +748,8 @@ export function MainViewer () {
                 }
                 //initialize some maps needed for the process
                 const model_resources_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
+                const model_resourcesColor_Map: {[key:string]:{[key:number]:number}} = {} //resource costs used for coloring and filtering
+                const model_normalizationQuantity_Map: {[key:string]:{[key:number]:{value?:number, label:string}}} = {}
                 const model_costCount_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
                 const elementsData_Array: elemDataType[] = [] //array to stock data of each element to be shown in the table
                 const elem_resourcesDetails_Map: {[key:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string, resourceName:string}[]} = {} //resource details object
@@ -754,11 +762,26 @@ export function MainViewer () {
                     }
                     return itemsMap
                 }
+                const getPsetPropertyValue = (itemData: FRAGS.ItemData, pSetName: string, propertyName: string): number | undefined => {
+                    const definitions = (itemData as any).IsDefinedBy
+                    if (!Array.isArray(definitions)) return
+                    for (const definition of definitions) {
+                        if (!definition.HasProperties) continue
+                        if ((definition.Name as FRAGS.ItemAttribute)?.value !== pSetName) continue
+                        for (const propertyData of Object.values(definition.HasProperties) as any[]) {
+                            if ((propertyData.Name as FRAGS.ItemAttribute)?.value !== propertyName) continue
+                            const value = (propertyData.NominalValue as FRAGS.ItemAttribute | undefined)?.value
+                            return typeof value === 'number' ? value : Number(value)
+                        }
+                    }
+                }
 
                 const startTime_resourceCostData = performance.now(); // Start timer
                 for (const [model,costItems] of Object.entries(filteredCostItems)){ //loop over each model
                     let resourceCurrency = 'nd' //default value, here because is supposed that is used always the same currency in the same project
                     const elem_resources_Map: {[key:number]:number} = {} //map to associate to each element id the related sum of ALL costs of the chosen resource category
+                    const elem_resourcesColor_Map: {[key:number]:number} = {}
+                    const elem_normalizationQuantity_Map: {[key:number]:{value?:number, label:string}} = {}
                     const elem_costCount_Map: {[key:number]:number} = {} //map to associate to each element id the number of related cost items
                     const costItemMeta = costItems.map((ci) => {
                         // --> pay attention: multiple cost items could be related to the same object and moreover each cost item could have more than one unit cost of the same category
@@ -831,6 +854,40 @@ export function MainViewer () {
                         ? []
                         : await fragments.list.get(model)?.getItemsData([...elementIds]) ?? []
                     const modelItemsById = mapItemsByLocalId(modelItems as any[])
+                    const propertyNormalizationByItemId = new Map<number, number>()
+                    const attributeNormalizationByItemId = new Map<number, number>()
+                    if (normalization == 'Property') {
+                        const pSetName = normalizationPSetName.value as string
+                        const propertyName = normalizationPropertyName.value as string
+                        const itemsData = elementIds.size === 0 ? null : await fragments.getData({[model]: elementIds}, {
+                            attributesDefault: true,
+                            relations: {
+                                IsDefinedBy: {
+                                    attributes: true,
+                                    relations: true,
+                                },
+                            },
+                        })
+                        for (const itemData of itemsData?.[model] ?? []) {
+                            const localId = getLocalId(itemData)
+                            if (typeof localId !== 'number') continue
+                            const value = getPsetPropertyValue(itemData, pSetName, propertyName)
+                            if (Number.isFinite(value)) propertyNormalizationByItemId.set(localId, value!)
+                        }
+                    }
+                    if (normalization == 'Attribute') {
+                        const attributeName = normalizationAttributeName.value as string
+                        const itemsData = elementIds.size === 0 ? null : await fragments.getData({[model]: elementIds}, {
+                            attributesDefault: true,
+                            relationsDefault: { attributes: false, relations: false }
+                        })
+                        for (const itemData of itemsData?.[model] ?? []) {
+                            const localId = getLocalId(itemData)
+                            if (typeof localId !== 'number') continue
+                            const value = (itemData[attributeName] as FRAGS.ItemAttribute)?.value
+                            if (Number.isFinite(value)) attributeNormalizationByItemId.set(localId, value!)
+                        }
+                    }
 
                     for (const { elemId, cvId } of costItemMeta) { //loop over each filtered cost item (cost items are not ordered)
                         const costValue = costValuesById[cvId]
@@ -903,6 +960,25 @@ export function MainViewer () {
                     for (const [elemId,resourceCost] of Object.entries(elem_resources_Map)){ //loop over each element id and its total resource cost
                         const item = [modelItemsById[Number(elemId)]]
                         if (!item[0]) continue //checks if the item exists
+                        let normalizationValue: number | undefined
+                        let normalizationQuantityLabel = 'nd'
+                        if (normalization == 'Volume'){
+                            normalizationValue = await fragments.list.get(model)?.getItemsVolume([Number(elemId)])
+                            normalizationQuantityLabel = normalizationValue ? `${formatNumber(normalizationValue)} m³` : 'nd'
+                        } else if (normalization == 'Property'){
+                            normalizationValue = propertyNormalizationByItemId.get(Number(elemId))
+                            normalizationQuantityLabel = normalizationValue ? `${formatNumber(normalizationValue)}` : 'nd'
+                        } else if (normalization == 'Attribute'){
+                            normalizationValue = attributeNormalizationByItemId.get(Number(elemId))
+                            normalizationQuantityLabel = normalizationValue ? `${formatNumber(normalizationValue)}` : 'nd'
+                        }
+                        elem_normalizationQuantity_Map[Number(elemId)] = {
+                            value: normalizationValue,
+                            label: normalizeResourceCost ? normalizationQuantityLabel : 'nd'
+                        }
+                        elem_resourcesColor_Map[Number(elemId)] = normalizeResourceCost
+                            ? normalizationValue ? resourceCost / normalizationValue : 0
+                            : resourceCost
                         const elemData : elemDataType = {
                             elemModel: model,
                             elemId: Number(elemId),
@@ -919,6 +995,8 @@ export function MainViewer () {
                     //step 4: associate to each model the map of element id and total resource cost
                     //category map is not needed here, because this one is used for selecting and color elements
                     model_resources_Map[model] = elem_resources_Map
+                    model_resourcesColor_Map[model] = elem_resourcesColor_Map
+                    model_normalizationQuantity_Map[model] = elem_normalizationQuantity_Map
                     model_costCount_Map[model] = elem_costCount_Map
                 }
                 const endTime_resourceCostData = performance.now(); // End timer
@@ -935,7 +1013,7 @@ export function MainViewer () {
                 if (btn == 'Color'){
                     //this step is moved here to handle with ranges, in this way the localIdToColor_map contains only item within the range
                     //step 5.0.1: normalize total resource cost to color across models
-                    const [modelTo_localIdToColor_map, modelTo_localIdToNormalizedValue_map] = normalizeAndMapToColor(model_resources_Map,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost) //use this function to normalize values between 0 and 1 and return color and normalized value
+                    const [modelTo_localIdToColor_map, modelTo_localIdToNormalizedValue_map] = normalizeAndMapToColor(model_resourcesColor_Map,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost) //use this function to normalize values between 0 and 1 and return color and normalized value
 
                     //step 5: RESOURCE TABLE CREATION
                     //table type for resource table
@@ -950,6 +1028,8 @@ export function MainViewer () {
                         ResourceCostRange?: string,
                         ResourceUnitCost: string,
                         ElementQuantity: string,
+                        NormalizationQuantity: string,
+                        NormalizedCost: string,
                         NormalizedValue: string,
                     }
                     //resource table
@@ -964,12 +1044,16 @@ export function MainViewer () {
                             NormalizedValue: '',
                             ResourceUnitCost: '',
                             ElementQuantity: '',
+                            NormalizationQuantity: '',
+                            NormalizedCost: '',
                         }
                     }]
                     dynamicResourceTable.data = [] //initialize the table and some settings
                     dynamicResourceTable.preserveStructureOnFilter = true
                     dynamicResourceTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
-                    dynamicResourceTable.hiddenColumns = ['Model','ItemId']
+                    const resourceNormalizationHiddenColumns: (keyof dynamicResourceTableData)[] = normalizeResourceCost ? [] : ['NormalizationQuantity','NormalizedCost']
+                    dynamicResourceTable.hiddenColumns = ['Model','ItemId', ...resourceNormalizationHiddenColumns]
+                    currentVisibleColumnsResourceDropdown = normalizeResourceCost ? visibleColumnsResourceDropdown_classicGroups_withNormalization : visibleColumnsResourceDropdown_classicGroups
                     //create the table:
                     //initialize also NormalizedValue column which will be populated after
 
@@ -983,7 +1067,13 @@ export function MainViewer () {
                     visibleColumnsResourceDropdown_ResourceGroup.addEventListener('change', (e) => {
                         onVisibleColumnsResourceChange(e)
                     })
+                    visibleColumnsResourceDropdown_ResourceGroup_withNormalization.addEventListener('change', (e) => {
+                        onVisibleColumnsResourceChange(e)
+                    })
                     visibleColumnsResourceDropdown_classicGroups.addEventListener('change', (e) => {
+                        onVisibleColumnsResourceChange(e)
+                    })
+                    visibleColumnsResourceDropdown_classicGroups_withNormalization.addEventListener('change', (e) => {
                         onVisibleColumnsResourceChange(e)
                     })
                     
@@ -1002,6 +1092,8 @@ export function MainViewer () {
                         for (const resourceDetails of elem_resourcesDetails_Map[elem.elemId]){
                             countResources += 1
                             const resourceRowCost = Math.round((Number(resourceDetails.resourceUnitCost.split(' ')[0])*Number(resourceDetails.elemQuantity.split(' ')[0]))*100)/100
+                            const normalizationValue = model_normalizationQuantity_Map[elem.elemModel]?.[elem.elemId]?.value
+                            const normalizationQuantity = model_normalizationQuantity_Map[elem.elemModel]?.[elem.elemId]?.label ?? 'nd'
                             totalResourceCost += resourceRowCost
                             totalResourceCurrency = elem.currency
                             dynamicResourceTable.data.push({
@@ -1016,6 +1108,8 @@ export function MainViewer () {
                                     ResourceCostRange: getColorRangeKeyByColorValue(elemColor), //this is the range key to which the resource cost belongs based on its color
                                     ResourceUnitCost: resourceDetails.resourceUnitCost,
                                     ElementQuantity: resourceDetails.elemQuantity,
+                                    NormalizationQuantity: normalizeResourceCost ? normalizationQuantity : 'nd',
+                                    NormalizedCost: normalizeResourceCost ? `${normalizationValue?formatNumber_Cost(resourceRowCost/normalizationValue):'nd'} ${elem.currency}` : 'nd',
                                     NormalizedValue: '',
                                 }
                             })
@@ -1028,7 +1122,7 @@ export function MainViewer () {
                     //removed homogeneous coloring because in does not make sense to use too many color shades, they will be not recognizable each other
                     //here things comes different because to highlight and color elements the model is needed
                     //so, the highlighting is by model but the color and the normal value is kept from the map calculated outside of this loop
-                    const groupedColors = groupIdsByNormalizedValuePerModel(components, modelTo_localIdToNormalizedValue_map, model_resources_Map, colorscale)
+                    const groupedColors = groupIdsByNormalizedValuePerModel(components, modelTo_localIdToNormalizedValue_map, model_resourcesColor_Map, colorscale)
                     for (const [model,modelTo_localIdToColor_map] of Object.entries(groupedColors)) {
                         const geomItems = await fragments.list.get(model)?.getItemsIdsWithGeometry()
                         onSetTransparency({[model]:new Set(geomItems)})
@@ -1068,7 +1162,7 @@ export function MainViewer () {
                     const groupResourceElements = new Set<string>()
                     const groupResourceNames = new Set<string>()
     
-                    const resourceCostPerGroupedTable: {[group: string]: {resourceCost: number, currency: string, resourceDescription?: string, resourceUnitCost?: string, model?:string, itemId?: number}} = {}
+                    const resourceCostPerGroupedTable: {[group: string]: {resourceCost: number, normalizedCost: number, currency: string, resourceDescription?: string, resourceUnitCost?: string, model?:string, itemId?: number}} = {}
                     
                     for (const row of dynamicResourceTable.data){
                         const groupIfcClass = row.data.ElementIfcClass
@@ -1077,6 +1171,8 @@ export function MainViewer () {
                         if (!groupIfcClass || !groupElement || !groupResourceName) continue
                         const cost = Number((row.data.ResourceCost as string).split(' ')[0])
                         const currency = (row.data.ResourceCost as string).split(' ')[1]
+                        const normalizedCostValue = Number((row.data.NormalizedCost as string).replace(currency, '').replace(' ', ''))
+                        const normalizedCost = Number.isFinite(normalizedCostValue) ? normalizedCostValue : 0
                         const itemId = row.data.ItemId
                         const model = row.data.Model
     
@@ -1086,21 +1182,24 @@ export function MainViewer () {
                         // }
     
                         if (!resourceCostPerGroupedTable[groupIfcClass]) {
-                            resourceCostPerGroupedTable[groupIfcClass] = { resourceCost: 0, currency, model }
+                            resourceCostPerGroupedTable[groupIfcClass] = { resourceCost: 0, normalizedCost: 0, currency, model }
                         }
                         resourceCostPerGroupedTable[groupIfcClass].resourceCost += cost
+                        resourceCostPerGroupedTable[groupIfcClass].normalizedCost += normalizedCost
                         groupResourceIfcClasses.add(groupIfcClass)
     
                         if (!resourceCostPerGroupedTable[groupElement]) {
-                            resourceCostPerGroupedTable[groupElement] = { resourceCost: 0, currency, model, itemId}
+                            resourceCostPerGroupedTable[groupElement] = { resourceCost: 0, normalizedCost: 0, currency, model, itemId}
                         }
                         resourceCostPerGroupedTable[groupElement].resourceCost += cost
+                        resourceCostPerGroupedTable[groupElement].normalizedCost += normalizedCost
                         groupResourceElements.add(groupElement)
     
                         if (!resourceCostPerGroupedTable[groupResourceName]) {
-                            resourceCostPerGroupedTable[groupResourceName] = { resourceCost: 0, currency, model, resourceDescription: row.data.ResourceDescription, resourceUnitCost: row.data.ResourceUnitCost}
+                            resourceCostPerGroupedTable[groupResourceName] = { resourceCost: 0, normalizedCost: 0, currency, model, resourceDescription: row.data.ResourceDescription, resourceUnitCost: row.data.ResourceUnitCost}
                         }
                         resourceCostPerGroupedTable[groupResourceName].resourceCost += cost
+                        resourceCostPerGroupedTable[groupResourceName].normalizedCost += normalizedCost
                         groupResourceNames.add(groupResourceName)
                     }
                     dynamicResourceTable.dataTransform = {
@@ -1114,12 +1213,13 @@ export function MainViewer () {
                                 return formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ResourceName]?.resourceCost*100)/100)+' '+resourceCostPerGroupedTable[ResourceName]?.currency
                             } else if (ElementName && !ResourceName && !ElementIfcClass) {
                                 if (value!='') return value
-                                if (modelTo_localIdToColor_map) {
+                                const m = resourceCostPerGroupedTable[ElementName]?.model
+                                if (modelTo_localIdToColor_map && !normalizeResourceCost) {
                                     return BUI.html`
                                         <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
                                             <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; 
-                                                background-color:${modelTo_localIdToColor_map[resourceCostPerGroupedTable[ElementName]?.model ?? '']?.[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};
-                                                color:${modelTo_localIdToColor_map[resourceCostPerGroupedTable[ElementName]?.model ?? '']?.[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
+                                                background-color:${modelTo_localIdToColor_map[m!]?.[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};
+                                                color:${modelTo_localIdToColor_map[m!]?.[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
                                             <bim-label>${formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ElementName]?.resourceCost*100)/100)+' '+resourceCostPerGroupedTable[ElementName]?.currency}</bim-label>
                                         </div>
                                     `
@@ -1129,6 +1229,40 @@ export function MainViewer () {
                             } else {
                                 return formatNumber_Cost(value)
                             }
+                        },
+                        NormalizedCost: (value, rowData) => {
+                            const { ElementName, ElementIfcClass, ResourceName } = rowData
+                            if (!normalizeResourceCost) return value
+                            if (!ElementName && !ResourceName && ElementIfcClass) {
+                                if (value!='') return value
+                                return formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ElementIfcClass]?.normalizedCost*100)/100)+' '+resourceCostPerGroupedTable[ElementIfcClass]?.currency
+                            } else if (!ElementName && ResourceName && !ElementIfcClass) {
+                                if (value!='') return value
+                                return formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ResourceName]?.normalizedCost*100)/100)+' '+resourceCostPerGroupedTable[ResourceName]?.currency
+                            } else if (ElementName && !ResourceName && !ElementIfcClass) {
+                                if (value!='') return value
+                                if (!resourceCostPerGroupedTable[ElementName]?.normalizedCost) return value
+                                const m = resourceCostPerGroupedTable[ElementName]?.model
+                                if (modelTo_localIdToColor_map && normalizeResourceCost) {
+                                    return BUI.html`
+                                        <div style="display: flex; flex-direction:row; gap:1rem; min-width:100%">
+                                            <div style="height:1rem; width: 1rem; margin-left: 2rem; border-radius:5px; 
+                                                background-color:${modelTo_localIdToColor_map[m!]?.[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};
+                                                color:${modelTo_localIdToColor_map[m!]?.[Number(resourceCostPerGroupedTable[ElementName]?.itemId)]};">.</div>
+                                            <bim-label>${formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ElementName]?.normalizedCost*100)/100)+' '+resourceCostPerGroupedTable[ElementName]?.currency}</bim-label>
+                                        </div>
+                                    `
+                                } else {
+                                    return formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ElementName]?.normalizedCost*100)/100)+' '+resourceCostPerGroupedTable[ElementName]?.currency
+                                }
+                            } else {
+                                return value
+                            }
+                        },
+                        NormalizedValue: (value, rowData) => {
+                            const { Model, ItemId } = rowData
+                            if (!Model || !ItemId) return value
+                            return Math.round(modelTo_localIdToNormalizedValue_map[Model]?.[ItemId]*1000)/1000
                         },
                         ResourceDescription: (value, rowData) => {
                             const { ElementName, ElementIfcClass, ResourceName } = rowData
@@ -1206,7 +1340,7 @@ export function MainViewer () {
     
                     dynamicResourceTable.groupedBy = ['ElementName']
                     dynamicResourceTable.columns = ['ElementName']
-                    dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue']
+                    dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue', ...resourceNormalizationHiddenColumns]
                     
                     const onCreateResourceChart_IfcClass = () => {
                         const groupIfcClassLabels = [...groupResourceIfcClasses]
@@ -1323,8 +1457,10 @@ export function MainViewer () {
                                         sortbyResourceDropdown.value = []
                                         dynamicResourceTable.groupedBy = ['ElementIfcClass','ElementName']
                                         dynamicResourceTable.columns = ['ElementIfcClass','ElementName']
-                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange']
-                                        setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
+                                        normalizeResourceCost ?
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange'] :
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange','NormalizationQuantity','NormalizedCost']
+                                        normalizeResourceCost ? setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups_withNormalization) : setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
                                         dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value
                                     }} id="resource_groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
                                     <bim-button @click=${({target}:{target:BUI.Button}) => {
@@ -1337,8 +1473,10 @@ export function MainViewer () {
                                         sortbyResourceDropdown.value = []
                                         dynamicResourceTable.groupedBy = ['ElementName']
                                         dynamicResourceTable.columns = ['ElementName']
-                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange']
-                                        setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
+                                        normalizeResourceCost ?
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange'] :
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange','NormalizationQuantity','NormalizedCost']
+                                        normalizeResourceCost ? setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups_withNormalization) : setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
                                         dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value
                                     }} id="resource_groupby_element"  label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
                                     <bim-button @click=${({target}:{target:BUI.Button}) => {
@@ -1351,8 +1489,10 @@ export function MainViewer () {
                                         currentSortbyTotalCostDropdown.value = []
                                         dynamicResourceTable.groupedBy = ['ResourceCostRange','ElementName']
                                         dynamicResourceTable.columns = ['ElementName']
-                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange']
-                                        setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
+                                        normalizeResourceCost ?
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange'] :
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange','NormalizationQuantity','NormalizedCost']
+                                        normalizeResourceCost ? setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups_withNormalization) : setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
                                         dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value
                                     }} id="resource_groupby_costrange"  label="Cost Range" style="max-width:fit-content"></bim-button>
                                     <bim-button @click=${({target}:{target:BUI.Button}) => {
@@ -1365,10 +1505,11 @@ export function MainViewer () {
                                         sortbyResourceDropdown.value = []
                                         dynamicResourceTable.groupedBy = ['ResourceName']
                                         dynamicResourceTable.columns = ['ResourceName']
-                                        dynamicResourceTable.hiddenColumns = ['Model','ItemId','ResourceName','NormalizedValue','ResourceDescription','ResourceUnitCost','ResourceCostRange']
-                                        setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_ResourceGroup)
-                                        dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value
-                                        dynamicResourceTable.visibleColumns = visibleColumnsResourceDropdown_ResourceGroup.value.length > 0 ? visibleColumnsResourceDropdown_ResourceGroup.value : ['ResourceName', 'ElementIfcClass', 'ResourceCost', 'ElementQuantity']
+                                        normalizeResourceCost ?
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ResourceName','NormalizedValue','ResourceDescription','ResourceUnitCost','ResourceCostRange'] :
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ResourceName','NormalizedValue','ResourceDescription','ResourceUnitCost','ResourceCostRange','NormalizationQuantity','NormalizedCost']
+                                        normalizeResourceCost ? setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_ResourceGroup_withNormalization) : setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_ResourceGroup)
+                                        dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value.length > 0 ? currentVisibleColumnsResourceDropdown.value : normalizeResourceCost ? ['ResourceName', 'ElementIfcClass', 'ResourceCost', 'ElementQuantity', 'NormalizationQuantity', 'NormalizedCost'] : ['ResourceName', 'ElementIfcClass', 'ResourceCost', 'ElementQuantity']
                                     }} id="resource_groupby_resource"  label="Resource" style="max-width:fit-content"></bim-button>
                                     <bim-label>Sort by:</bim-label>
                                     ${sortbyResourceDropdown}
@@ -1661,7 +1802,6 @@ export function MainViewer () {
         const panelLeft = BUI.Component.create<BUI.Panel>(() => {
             return BUI.html`
             <bim-panel
-                label="BIM PANEL"
                 class="blur-background-container">
             </bim-panel>
             `;
@@ -2408,6 +2548,7 @@ export function MainViewer () {
             () => BUI.html`<bim-dropdown name="sortbyResources" style="max-width:fit-content">
                 ${sortbyResourceDropdown_optionOne}
                 <bim-option id="sortbyResourceCostDropdown-cost" label='Cost' style="padding:0 10px 0 10px" icon='solar:dollar-linear'></bim-option>
+                <bim-option id="sortbyResourceCostDropdown-normalizedCost" label='NormalizedCost' style="padding:0 10px 0 10px" icon='stash:hand-holding-dollar-light'></bim-option>
             </bim-dropdown>`,
         )
         //sort by total cost dropdown menu
@@ -2503,6 +2644,18 @@ export function MainViewer () {
                 <bim-option checked id="visibleColumnsResourceDropdown_classicGroups-ElementQuantity" label='ElementQuantity' style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
         )
+        const visibleColumnsResourceDropdown_classicGroups_withNormalization = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="visibleColumnsResourceDropdown_classicGroups" style="max-width:fit-content" multiple>
+                <bim-option checked id="visibleColumnsResourceDropdown_classicGroups-ResourceName-normalized" label='ResourceName' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_classicGroups-ResourceDescription-normalized" label='ResourceDescription' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_classicGroups-ResourceCost-normalized" label='ResourceCost' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_classicGroups-ResourceUnitCost-normalized" label='ResourceUnitCost' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_classicGroups-ElementQuantity-normalized" label='ElementQuantity' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_classicGroups-NormalizationQuantity" label='NormalizationQuantity' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_classicGroups-NormalizedCost" label='NormalizedCost' style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
         const visibleColumnsResourceDropdown_ResourceGroup = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
             <bim-dropdown name="visibleColumnsResourceDropdown_ResourceGroup" style="max-width:fit-content" multiple>
@@ -2510,6 +2663,17 @@ export function MainViewer () {
                 <bim-option checked id="visibleColumnsResourceDropdown_ResourceGroup-ElementIfcClass" label='ElementIfcClass' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option checked id="visibleColumnsResourceDropdown_ResourceGroup-ResourceCost" label='ResourceCost' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option checked id="visibleColumnsResourceDropdown_ResourceGroup-ElementQuantity" label='ElementQuantity' style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`
+        )
+        const visibleColumnsResourceDropdown_ResourceGroup_withNormalization = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="visibleColumnsResourceDropdown_ResourceGroup" style="max-width:fit-content" multiple>
+                <bim-option checked id="visibleColumnsResourceDropdown_ResourceGroup-ResourceName-normalized" label='ResourceName' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_ResourceGroup-ElementIfcClass-normalized" label='ElementIfcClass' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_ResourceGroup-ResourceCost-normalized" label='ResourceCost' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_ResourceGroup-ElementQuantity-normalized" label='ElementQuantity' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_ResourceGroup-NormalizationQuantity" label='NormalizationQuantity' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option checked id="visibleColumnsResourceDropdown_ResourceGroup-NormalizedCost" label='NormalizedCost' style="padding:0 10px 0 10px"></bim-option>
             </bim-dropdown>`
         )
         let currentVisibleColumnsResourceDropdown = visibleColumnsResourceDropdown_classicGroups
@@ -2590,10 +2754,9 @@ export function MainViewer () {
                 normalizationDropdown.style.display = ''
                 limitToCostItemName.style.display = ''
             } else {
-                normalizationDropdown.style.display = 'none'
+                normalizationDropdown.style.display = ''
                 limitToCostItemName.style.display = 'none'
                 limitToCostItemName.value = ''
-                normalizationDropdown.value = ['None']
             }
         })
         normalizationDropdown.addEventListener('change', (event) => {
@@ -2646,7 +2809,6 @@ export function MainViewer () {
                     }} 
                     label='Inside'
                     tooltip-text='Click to filter elements inside or outside the chosen range'
-                    style='width:8.12rem'
                     icon='iconoir:arrow-separate'
                 >
                 </bim-button>
@@ -2729,7 +2891,6 @@ export function MainViewer () {
                     }} 
                     label='Percentile'
                     tooltip-text='Click to filter elements using range between 0 and 1 or the cost itself'
-                    style='width:8.12rem'
                     icon='ant-design:field-binary-outlined'
                 >
                 </bim-button>
@@ -2758,28 +2919,32 @@ export function MainViewer () {
                         ${normalizationPropertyName}
                         ${normalizationAttributeName}
                     </div>
-                    <div style="display:flex; gap: 1rem; align-items:center">
-                        <bim-label icon='mdi:slider'>Range</bim-label>
-                        <bim-button tooltip-text="Info: this range filters the items resulting from the above choices" icon='material-symbols-light:info-outline-rounded' style="max-width:fit-content; height:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
-                        <div style="display:flex; flex-direction:column; gap:0.75rem; flex-grow:1; align-items:center">
-                            ${rangeInterval}
-                            ${rangeCost}
+                    <div style="display:flex; flex-direction:row; gap: 1rem; align-items:center; justify-content:space-between">
+                        <div style="display:flex; gap: 0.5rem; align-items:center">
+                            <bim-label icon='mdi:slider'>Range</bim-label>
+                            <bim-button tooltip-text="Info: this range filters the items resulting from the above choices" icon='material-symbols-light:info-outline-rounded' style="max-width:fit-content; height:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
                         </div>
-                        <div style="display:flex; flex-direction:column; gap:0.75rem; flex-grow:1">
-                            <div style="display: flex; justify-content:end">
-                                <bim-label icon='material-symbols:line-start-circle-outline-rounded'>Min</bim-label>
-                                ${rangeInputMin}
+                        <div style="display:flex; gap: 1rem; align-items:center">
+                            <div style="display:flex; flex-direction:row; gap:0.5rem; flex-grow:1; align-items:center">
+                                ${rangeInterval}
+                                ${rangeCost}
                             </div>
-                            <div style="display: flex; justify-content:end">
-                                <bim-label icon='material-symbols:line-end-circle-outline-rounded'>Max</bim-label>
-                                ${rangeInputMax}
+                            <div style="display:flex; flex-direction:column; gap:0.5rem; flex-grow:1">
+                                <div style="display: flex; justify-content:end">
+                                    <bim-label icon='material-symbols:line-start-circle-outline-rounded'>Min</bim-label>
+                                    ${rangeInputMin}
+                                </div>
+                                <div style="display: flex; justify-content:end">
+                                    <bim-label icon='material-symbols:line-end-circle-outline-rounded'>Max</bim-label>
+                                    ${rangeInputMax}
+                                </div>
                             </div>
                         </div>
                     </div>
                     ${countLabel}
                     <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                        <bim-button label='Color' @click=${onColorByCost}></bim-button>
-                        <bim-button label='Select' @click=${onColorByCost}></bim-button>
+                        <bim-button icon='ri:brush-ai-fill' label='COLOR' @click=${onColorByCost}></bim-button>
+                        <bim-button icon='material-symbols:check-circle' label='SELECT' @click=${onColorByCost}></bim-button>
                     </div>
                 </bim-panel-section>
             `
@@ -3888,7 +4053,7 @@ export function MainViewer () {
         })
 
         const panelDownHeight = '50%'
-        const panelLeftWidth = '25.5%'
+        const panelLeftWidth = '30%'
         const panelRightWidth = '25%'
         const left_right = {
                 template: `
