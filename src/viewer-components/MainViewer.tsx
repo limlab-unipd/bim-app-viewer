@@ -2778,7 +2778,7 @@ export function MainViewer () {
 
         const rangeInputMin = BUI.Component.create<BUI.NumberInput>(() => {
             return BUI.html`
-                <bim-number-input slider min='0' max='0.99' value='0' sensitivity='0.3' step='0.01' style='max-width:8.12rem;margin-left:0.75rem'/>
+                <bim-number-input slider min='0' max='0.99' value='0' sensitivity='0.3' step='0.01' style='min-width:5rem; max-width:8.12rem;margin-left:0.75rem'/>
             `
         })
         rangeInputMin.addEventListener('change', (event) => {
@@ -2790,7 +2790,7 @@ export function MainViewer () {
         });
         const rangeInputMax = BUI.Component.create<BUI.NumberInput>(() => {
             return BUI.html`
-                <bim-number-input slider min='0.01' max='1' value='1' sensitivity='0.3' step='0.01' style='max-width:8.12rem;margin-left:0.75rem'/>
+                <bim-number-input slider min='0.01' max='1' value='1' sensitivity='0.3' step='0.01' style='min-width:5rem; max-width:8.12rem;margin-left:0.75rem'/>
             `
         })
         rangeInputMax.addEventListener('change', (event) => {
@@ -2864,10 +2864,10 @@ export function MainViewer () {
                         if ((e.target as BUI.Button).label=='Percentile'){
                             (e.target as BUI.Button).label = 'Cost';
                             (e.target as BUI.Button).icon = 'mynaui:dollar-square'
-                            rangeInputMax.max = 100000
-                            rangeInputMin.max = 99999
+                            rangeInputMax.max = 1000000
+                            rangeInputMin.max = 999999
                             rangeInputMax.min = 1
-                            rangeInputMax.value = 100000
+                            rangeInputMax.value = 1000000
                             rangeInputMax.step = 10
                             rangeInputMin.step = 10
                             rangeInputMax.suffix = '$'
