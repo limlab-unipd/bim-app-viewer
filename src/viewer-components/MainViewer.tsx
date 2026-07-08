@@ -8,7 +8,7 @@ import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
 import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-converter'
 import { convertCurrency, convertUnits, formatNumber, formatNumber_Cost } from '../custom-components/conversion'
-import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel, getColorRangeKeyByColorValue, getNormalizedValueFromColor } from '../custom-components/colors'
+import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel, getColorRangeKeyByColorValue, getNormalizedValueFromColor, getColorByColorRangeAndColorScale } from '../custom-components/colors'
 import Stats, { Panel } from 'stats.js'
 
 // These constants: 
@@ -821,6 +821,7 @@ export function MainViewer () {
                     elemId: number,
                     elemGlobalId: string,
                     elemName: string,
+                    elemObjectType: string,
                     totalResourceCost: number,
                     currency: string,
                     category: string,
@@ -1063,6 +1064,7 @@ export function MainViewer () {
                             elemId: Number(elemId),
                             elemGlobalId: (item as any)[0]['_guid'].value,
                             elemName: (item as any)[0]['Name'].value,
+                            elemObjectType: (item as any)[0]['ObjectType'].value,
                             totalResourceCost: resourceCost,
                             currency: resourceCurrency,
                             category: (item as any)[0]['_category'].value
@@ -1102,6 +1104,7 @@ export function MainViewer () {
                         ItemId?: number, //optional because it is not needed in the first row
                         GlobalId?: string, //optional because it is not needed in the first row
                         ElementName: string,
+                        ElementObjectType: string,
                         ElementIfcClass: string,
                         ResourceName: string,
                         ResourceDescription: string,
@@ -1119,6 +1122,7 @@ export function MainViewer () {
                         data: {
                             GlobalId: '',
                             ElementName: '',
+                            ElementObjectType: '',
                             ElementIfcClass: '',
                             ResourceName: '',
                             ResourceDescription: '',
@@ -1184,6 +1188,7 @@ export function MainViewer () {
                                     ItemId: elem.elemId,
                                     GlobalId: elem.elemGlobalId,
                                     ElementName: elem.elemName,
+                                    ElementObjectType: elem.elemObjectType,
                                     ElementIfcClass: elem.category,
                                     ResourceName: resourceDetails.resourceName,
                                     ResourceDescription: resourceDetails.resourceDescription,
@@ -1312,6 +1317,18 @@ export function MainViewer () {
                             } else {
                                 return formatNumber_Cost(value)
                             }
+                        },
+                        ResourceCostRange: (value) => {
+                            const colorScale = colorScaleDropdown.value[0]
+                            const color = getColorByColorRangeAndColorScale(value!, colorScale)
+                            return BUI.html`
+                                <div style="display: flex; flex-direction:row; gap:0.5rem; min-width:100%">
+                                    <div style="height:1rem; width: 1rem; border-radius:5px; 
+                                        background-color:${color};
+                                        color:${color}">.</div>
+                                    <bim-label>${value}</bim-label>
+                                </div>
+                            `
                         },
                         NormalizedCost: (value, rowData) => {
                             const { ElementName, ElementIfcClass, ResourceName } = rowData
@@ -1533,7 +1550,8 @@ export function MainViewer () {
                                     <bim-button @click=${({target}:{target:BUI.Button}) => {
                                         onCreateResourceChart_IfcClass()
                                         target.style.backgroundColor = 'var(--background-200)';
-                                        document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_elementName')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_elementObjectType')!.style.removeProperty('background-color');
                                         document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
                                         document.getElementById('resource_groupby_costrange')!.style.removeProperty('background-color');
                                         sortbyResourceDropdown_optionOne.label = 'ElementIfcClass'
@@ -1552,6 +1570,7 @@ export function MainViewer () {
                                         document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
                                         document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
                                         document.getElementById('resource_groupby_costrange')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_elementObjectType')!.style.removeProperty('background-color');
                                         sortbyResourceDropdown_optionOne.label = 'ElementName'
                                         sortbyResourceDropdown.value = []
                                         dynamicResourceTable.groupedBy = ['ElementName']
@@ -1561,12 +1580,30 @@ export function MainViewer () {
                                             dynamicResourceTable.hiddenColumns = ['Model','ItemId','GlobalId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange','NormalizationQuantity','NormalizedCost']
                                         normalizeResourceCost ? setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups_withNormalization) : setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
                                         dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value
-                                    }} id="resource_groupby_element"  label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
+                                    }} id="resource_groupby_elementName"  label="ElementName" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
                                     <bim-button @click=${({target}:{target:BUI.Button}) => {
                                         onCreateResourceChart_Element()
                                         target.style.backgroundColor = 'var(--background-200)';
                                         document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
-                                        document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_costrange')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_elementName')!.style.removeProperty('background-color');
+                                        sortbyResourceDropdown_optionOne.label = 'ElementName'
+                                        sortbyResourceDropdown.value = []
+                                        dynamicResourceTable.groupedBy = ['ElementObjectType','ElementName']
+                                        dynamicResourceTable.columns = ['ElementName']
+                                        normalizeResourceCost ?
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','GlobalId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange'] :
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','GlobalId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange','NormalizationQuantity','NormalizedCost']
+                                        normalizeResourceCost ? setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups_withNormalization) : setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
+                                        dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value
+                                    }} id="resource_groupby_elementObjectType"  label="ElementObjectType" style="max-width:fit-content"></bim-button>
+                                    <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                        onCreateResourceChart_Element()
+                                        target.style.backgroundColor = 'var(--background-200)';
+                                        document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_elementName')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_elementObjectType')!.style.removeProperty('background-color');
                                         document.getElementById('resource_groupby_resource')!.style.removeProperty('background-color');
                                         sortbyResourceDropdown_optionOne.label = 'ResourceCostRange'
                                         currentSortbyTotalCostDropdown.value = []
@@ -1582,7 +1619,8 @@ export function MainViewer () {
                                         onCreateResourceChart_Resource()
                                         target.style.backgroundColor = 'var(--background-200)';
                                         document.getElementById('resource_groupby_ifcclass')!.style.removeProperty('background-color');
-                                        document.getElementById('resource_groupby_element')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_elementName')!.style.removeProperty('background-color');
+                                        document.getElementById('resource_groupby_elementObjectType')!.style.removeProperty('background-color');
                                         document.getElementById('resource_groupby_costrange')!.style.removeProperty('background-color');
                                         sortbyResourceDropdown_optionOne.label = 'ResourceName'
                                         sortbyResourceDropdown.value = []
@@ -3086,6 +3124,7 @@ export function MainViewer () {
             //tables types
             type dynamicCostTableData = {
                 ElementName: string,
+                ElementObjectType: string,
                 ElementIfcClass: string,
                 Cost: number|string,
                 CostRange?: string,
@@ -3108,6 +3147,7 @@ export function MainViewer () {
                     data: {
                         Model: '',
                         ElementName: '',
+                        ElementObjectType: '',
                         ElementIfcClass: '',
                         Cost: '',
                         NormalizedCost: '',
@@ -3126,7 +3166,7 @@ export function MainViewer () {
             // #endregion
 
             //get cost data
-            let itemId, itemGlobalId, itemName, itemIfcClass, costItemName, costItemId, costItemDescription, costItemObjectType, costItemTotalCost, costItemUnitBasis, costItemUnitCost //initialize variables
+            let itemId, itemGlobalId, itemName, itemObjectType, itemIfcClass, costItemName, costItemId, costItemDescription, costItemObjectType, costItemTotalCost, costItemUnitBasis, costItemUnitCost //initialize variables
             const getLocalId = (item: any) => item?._localId?.value as number | undefined
             const mapItemsByLocalId = (items: any[] = []) => {
                 const itemsMap: {[key:number]:any} = {}
@@ -3245,6 +3285,7 @@ export function MainViewer () {
                         itemId = (item['_localId'] as FRAGS.ItemAttribute).value ? (item['_localId'] as FRAGS.ItemAttribute).value : 'nd'
                         itemGlobalId = (item['_guid'] as FRAGS.ItemAttribute).value ? (item['_guid'] as FRAGS.ItemAttribute).value : 'nd'
                         itemName = (item['Name'] as FRAGS.ItemAttribute).value ? (item['Name'] as FRAGS.ItemAttribute).value : 'nd'
+                        itemObjectType = (item['ObjectType'] as FRAGS.ItemAttribute).value ? (item['ObjectType'] as FRAGS.ItemAttribute).value : 'nd'
                         itemIfcClass = (item['_category'] as FRAGS.ItemAttribute).value ? (item['_category'] as FRAGS.ItemAttribute).value : 'nd'
                         let itemTotalCost: number = 0
                         let itemTotalCurrency: string = ''
@@ -3254,6 +3295,7 @@ export function MainViewer () {
                             }
                             dynamicRow.data.Model = model
                             dynamicRow.data.ElementName = itemName
+                            dynamicRow.data.ElementObjectType = itemObjectType
                             dynamicRow.data.ElementIfcClass = itemIfcClass
                             dynamicRow.data.Model = model
                             dynamicRow.data.ItemId = itemId
@@ -3448,6 +3490,18 @@ export function MainViewer () {
                     } else {
                         return formatNumber_Cost(value)
                     }
+                },
+                CostRange: (value) => {
+                    const colorScale = colorScaleDropdown.value[0]
+                    const color = getColorByColorRangeAndColorScale(value!, colorScale)
+                    return BUI.html`
+                        <div style="display: flex; flex-direction:row; gap:0.5rem; min-width:100%">
+                            <div style="height:1rem; width: 1rem; border-radius:5px; 
+                                background-color:${color};
+                                color:${color}">.</div>
+                            <bim-label>${value}</bim-label>
+                        </div>
+                    `
                 },
                 NormalizedCost: (value, rowData) => {
                     const { ElementName, ElementIfcClass, CostItemName } = rowData
@@ -3683,7 +3737,8 @@ export function MainViewer () {
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
                                 onCreateChart_IfcClass()
                                 target.style.backgroundColor = 'var(--background-200)';
-                                document.getElementById('groupby_element')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_elementName')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_elementObjectType')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costrange')!.style.removeProperty('background-color');
                                 setSortbyTotalCostDropdownGroupLabel('ElementIfcClass')
@@ -3701,6 +3756,7 @@ export function MainViewer () {
                                 onCreateChart_Element()
                                 target.style.backgroundColor = 'var(--background-200)';
                                 document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_elementObjectType')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costrange')!.style.removeProperty('background-color');
                                 setSortbyTotalCostDropdownGroupLabel('ElementName')
@@ -3713,13 +3769,32 @@ export function MainViewer () {
                                     dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','GlobalId','ElementName','ElementIfcClass','Currency','CostRange','NormalizationQuantity','NormalizedCost']
                                 normalization ? setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups_withNormalization) : setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
                                 dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value
-                            }} id="groupby_element" label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
+                            }} id="groupby_elementName" label="ElementName" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
                             <bim-button @click=${({target}:{target:BUI.Button}) => {
                                 onCreateChart_Element()
                                 target.style.backgroundColor = 'var(--background-200)';
                                 document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
-                                document.getElementById('groupby_element')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_costrange')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_elementName')!.style.removeProperty('background-color');
+                                setSortbyTotalCostDropdownGroupLabel('ElementName')
+                                setSortbyTotalCostNormalizedOption(normalization)
+                                currentSortbyTotalCostDropdown.value = []
+                                dynamicCostTable.groupedBy = ['ElementObjectType','ElementName']
+                                dynamicCostTable.columns = ['ElementName']
+                                normalization ? 
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','GlobalId','ElementName','ElementIfcClass','Currency','CostRange'] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','GlobalId','ElementName','ElementIfcClass','Currency','CostRange','NormalizationQuantity','NormalizedCost']
+                                normalization ? setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups_withNormalization) : setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
+                                dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value
+                            }} id="groupby_elementObjectType" label="ElementObjectType" style="max-width:fit-content"></bim-button>
+                            <bim-button @click=${({target}:{target:BUI.Button}) => {
+                                onCreateChart_Element()
+                                target.style.backgroundColor = 'var(--background-200)';
+                                document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_costitem')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_elementObjectType')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_elementName')!.style.removeProperty('background-color');
                                 setSortbyTotalCostDropdownGroupLabel('CostRange')
                                 setSortbyTotalCostNormalizedOption(normalization)
                                 currentSortbyTotalCostDropdown.value = []
@@ -3735,7 +3810,8 @@ export function MainViewer () {
                                 onCreateChart_CostItem()
                                 target.style.backgroundColor = 'var(--background-200)';
                                 document.getElementById('groupby_ifcclass')!.style.removeProperty('background-color');
-                                document.getElementById('groupby_element')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_elementName')!.style.removeProperty('background-color');
+                                document.getElementById('groupby_elementObjectType')!.style.removeProperty('background-color');
                                 document.getElementById('groupby_costrange')!.style.removeProperty('background-color');
                                 setSortbyTotalCostDropdownGroupLabel('CostItemName')
                                 setSortbyTotalCostNormalizedOption(normalization)

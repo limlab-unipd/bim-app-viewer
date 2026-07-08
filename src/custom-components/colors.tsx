@@ -114,6 +114,16 @@ export const getColorRangeKeyByColorValue = (colorValue: string): string | undef
     return Object.keys(colorRangeKeys).find((rangeKey) => colorRangeKeys[rangeKey].includes(colorValue));
 };
 
+export const getColorByColorRangeAndColorScale = (colorRange: string, colorScale: string = 'gnylrd'): string | undefined => {
+    const colorRangePosition = colorRangePositions[colorRange];
+    if (colorRangePosition === undefined) return undefined;
+    const scale = colorScaleList[colorScale];
+    if (!scale) return undefined;
+    const colorEntry = scale.find(([position]) => position === colorRangePosition);
+    console.log(colorEntry)
+    return colorEntry ? colorEntry[1] : undefined;
+}
+
 export const getNormalizedValueFromColor = (color: string, colorscale: string = 'gnylrd'): number | undefined => {
     const scale = colorScaleList[colorscale];
     if (!scale) return undefined;
