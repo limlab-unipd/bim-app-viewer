@@ -547,6 +547,84 @@ export function MainViewer () {
             const input = e.target as BUI.TextInput;
             table.queryString = input.value !== "" ? input.value : null
         }
+        const multipleValuesSearchOriginalData = new WeakMap<BUI.Table<any>, BUI.TableGroupData<any>[]>()
+        const multipleValuesSearchFilteredTables = new WeakSet<BUI.Table<any>>()
+        const onMultipleValuesSearch = (e: Event, table:BUI.Table<any>) => {
+            const input = e.target as BUI.TextInput
+            const searchString = input.value.trim()
+            const restoreOriginalData = () => {
+                if (!multipleValuesSearchFilteredTables.has(table)) return
+                const originalData = multipleValuesSearchOriginalData.get(table)
+                if (!originalData) return
+                table.queryString = null
+                table.data = originalData
+                multipleValuesSearchFilteredTables.delete(table)
+            }
+
+            if (!multipleValuesSearchFilteredTables.has(table)) {
+                multipleValuesSearchOriginalData.set(table, table.data)
+            }
+
+            if (searchString === "" || !searchString.includes(",")) {
+                restoreOriginalData()
+                table.queryString = searchString !== "" ? searchString : null
+                return
+            }
+
+            const searchConditions = searchString
+                .split("&")
+                .map((conditionString) => {
+                    const trimmedCondition = conditionString.trim()
+                    const columnSeparatorIndex = trimmedCondition.indexOf("?")
+                    const hasColumnFilter = columnSeparatorIndex > 0
+                    const columnName = hasColumnFilter ? trimmedCondition.slice(0, columnSeparatorIndex).trim() : null
+                    const valuesString = hasColumnFilter ? trimmedCondition.slice(columnSeparatorIndex + 1) : trimmedCondition
+                    const values = valuesString
+                        .split(",")
+                        .map((value) => value.trim())
+                        .filter((value) => value !== "")
+                    return { columnName, values }
+                })
+                .filter(({ values }) => values.length > 0)
+
+            if (searchConditions.length === 0 || searchConditions.every(({ values }) => values.length <= 1)) {
+                restoreOriginalData()
+                table.queryString = searchString !== "" ? searchString : null
+                return
+            }
+
+            const rowMatchesSearch = (row: BUI.TableGroupData<any>) => {
+                return searchConditions.every(({ columnName, values }) => {
+                    if (columnName) {
+                        const columnValue = String(row.data[columnName] ?? "")
+                        return values.some((value) => columnValue.includes(value))
+                    }
+                    return Object.values(row.data).some((dataValue) => {
+                        const normalizedValue = String(dataValue ?? "")
+                        return values.some((value) => normalizedValue.includes(value))
+                    })
+                })
+            }
+
+            const filterRows = (rows: BUI.TableGroupData<any>[]): BUI.TableGroupData<any>[] => {
+                const filteredRows: BUI.TableGroupData<any>[] = []
+                for (const row of rows) {
+                    const filteredChildren = row.children ? filterRows(row.children) : []
+                    if (rowMatchesSearch(row) || filteredChildren.length > 0) {
+                        filteredRows.push({
+                            data: row.data,
+                            ...(filteredChildren.length > 0 ? { children: filteredChildren } : {}),
+                        })
+                    }
+                }
+                return filteredRows
+            }
+
+            const originalData = multipleValuesSearchOriginalData.get(table) ?? table.data
+            table.queryString = null
+            table.data = filterRows(originalData)
+            multipleValuesSearchFilteredTables.add(table)
+        }
         const onClearPanel = (panel: BUI.Panel, title:string='Void Panel') => {
             panel.innerHTML = ''
             panel.label = title
@@ -741,6 +819,7 @@ export function MainViewer () {
                 type elemDataType = {
                     elemModel: string,
                     elemId: number,
+                    elemGlobalId: string,
                     elemName: string,
                     totalResourceCost: number,
                     currency: string,
@@ -982,6 +1061,7 @@ export function MainViewer () {
                         const elemData : elemDataType = {
                             elemModel: model,
                             elemId: Number(elemId),
+                            elemGlobalId: (item as any)[0]['_guid'].value,
                             elemName: (item as any)[0]['Name'].value,
                             totalResourceCost: resourceCost,
                             currency: resourceCurrency,
@@ -1020,6 +1100,7 @@ export function MainViewer () {
                     type dynamicResourceTableData = {
                         Model: string,
                         ItemId?: number, //optional because it is not needed in the first row
+                        GlobalId?: string, //optional because it is not needed in the first row
                         ElementName: string,
                         ElementIfcClass: string,
                         ResourceName: string,
@@ -1036,6 +1117,7 @@ export function MainViewer () {
                     const dynamicResourceTable = document.createElement("bim-table") as BUI.Table<dynamicResourceTableData>
                     dynamicResourceTable.data = [{
                         data: {
+                            GlobalId: '',
                             ElementName: '',
                             ElementIfcClass: '',
                             ResourceName: '',
@@ -1052,7 +1134,7 @@ export function MainViewer () {
                     dynamicResourceTable.preserveStructureOnFilter = true
                     dynamicResourceTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
                     const resourceNormalizationHiddenColumns: (keyof dynamicResourceTableData)[] = normalizeResourceCost ? [] : ['NormalizationQuantity','NormalizedCost']
-                    dynamicResourceTable.hiddenColumns = ['Model','ItemId', ...resourceNormalizationHiddenColumns]
+                    dynamicResourceTable.hiddenColumns = ['Model','ItemId', 'GlobalId', ...resourceNormalizationHiddenColumns]
                     currentVisibleColumnsResourceDropdown = normalizeResourceCost ? visibleColumnsResourceDropdown_classicGroups_withNormalization : visibleColumnsResourceDropdown_classicGroups
                     //create the table:
                     //initialize also NormalizedValue column which will be populated after
@@ -1100,6 +1182,7 @@ export function MainViewer () {
                                 data: {
                                     Model: elem.elemModel,
                                     ItemId: elem.elemId,
+                                    GlobalId: elem.elemGlobalId,
                                     ElementName: elem.elemName,
                                     ElementIfcClass: elem.category,
                                     ResourceName: resourceDetails.resourceName,
@@ -1340,7 +1423,7 @@ export function MainViewer () {
     
                     dynamicResourceTable.groupedBy = ['ElementName']
                     dynamicResourceTable.columns = ['ElementName']
-                    dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue', ...resourceNormalizationHiddenColumns]
+                    dynamicResourceTable.hiddenColumns = ['Model','ItemId','GlobalId','ElementIfcClass','ElementName','NormalizedValue', ...resourceNormalizationHiddenColumns]
                     
                     const onCreateResourceChart_IfcClass = () => {
                         const groupIfcClassLabels = [...groupResourceIfcClasses]
@@ -1458,8 +1541,8 @@ export function MainViewer () {
                                         dynamicResourceTable.groupedBy = ['ElementIfcClass','ElementName']
                                         dynamicResourceTable.columns = ['ElementIfcClass','ElementName']
                                         normalizeResourceCost ?
-                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange'] :
-                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange','NormalizationQuantity','NormalizedCost']
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','GlobalId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange'] :
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','GlobalId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange','NormalizationQuantity','NormalizedCost']
                                         normalizeResourceCost ? setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups_withNormalization) : setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
                                         dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value
                                     }} id="resource_groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
@@ -1474,8 +1557,8 @@ export function MainViewer () {
                                         dynamicResourceTable.groupedBy = ['ElementName']
                                         dynamicResourceTable.columns = ['ElementName']
                                         normalizeResourceCost ?
-                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange'] :
-                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange','NormalizationQuantity','NormalizedCost']
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','GlobalId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange'] :
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','GlobalId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange','NormalizationQuantity','NormalizedCost']
                                         normalizeResourceCost ? setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups_withNormalization) : setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
                                         dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value
                                     }} id="resource_groupby_element"  label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
@@ -1490,8 +1573,8 @@ export function MainViewer () {
                                         dynamicResourceTable.groupedBy = ['ResourceCostRange','ElementName']
                                         dynamicResourceTable.columns = ['ElementName']
                                         normalizeResourceCost ?
-                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange'] :
-                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange','NormalizationQuantity','NormalizedCost']
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','GlobalId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange'] :
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','GlobalId','ElementIfcClass','ElementName','NormalizedValue','ResourceCostRange','NormalizationQuantity','NormalizedCost']
                                         normalizeResourceCost ? setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups_withNormalization) : setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_classicGroups)
                                         dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value
                                     }} id="resource_groupby_costrange"  label="Cost Range" style="max-width:fit-content"></bim-button>
@@ -1506,8 +1589,8 @@ export function MainViewer () {
                                         dynamicResourceTable.groupedBy = ['ResourceName']
                                         dynamicResourceTable.columns = ['ResourceName']
                                         normalizeResourceCost ?
-                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ResourceName','NormalizedValue','ResourceDescription','ResourceUnitCost','ResourceCostRange'] :
-                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','ResourceName','NormalizedValue','ResourceDescription','ResourceUnitCost','ResourceCostRange','NormalizationQuantity','NormalizedCost']
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','GlobalId','ResourceName','NormalizedValue','ResourceDescription','ResourceUnitCost','ResourceCostRange'] :
+                                            dynamicResourceTable.hiddenColumns = ['Model','ItemId','GlobalId','ResourceName','NormalizedValue','ResourceDescription','ResourceUnitCost','ResourceCostRange','NormalizationQuantity','NormalizedCost']
                                         normalizeResourceCost ? setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_ResourceGroup_withNormalization) : setVisibleColumnsResourceDropdown(visibleColumnsResourceDropdown_ResourceGroup)
                                         dynamicResourceTable.visibleColumns = currentVisibleColumnsResourceDropdown.value.length > 0 ? currentVisibleColumnsResourceDropdown.value : normalizeResourceCost ? ['ResourceName', 'ElementIfcClass', 'ResourceCost', 'ElementQuantity', 'NormalizationQuantity', 'NormalizedCost'] : ['ResourceName', 'ElementIfcClass', 'ResourceCost', 'ElementQuantity']
                                     }} id="resource_groupby_resource"  label="Resource" style="max-width:fit-content"></bim-button>
@@ -1539,7 +1622,7 @@ export function MainViewer () {
                                             await highlighter.updateColors()
                                         }}">
                                     </bim-number-input>
-                                    <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,dynamicResourceTable)}} debounce="300"></bim-text-input>
+                                    <bim-text-input placeholder="Search... (example: value1,value2 || ColumnName1?value1,value2&ColumnName2?value3,value4)" @input=${(e:Event)=>{onMultipleValuesSearch(e,dynamicResourceTable)}} debounce="300"></bim-text-input>
                                     <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                                 </div>
                             </div>`
@@ -2048,7 +2131,7 @@ export function MainViewer () {
             spatialTree.preserveStructureOnFilter = true
             return BUI.html`
                 <bim-panel-section label='Spatial Structure' icon="ri:node-tree">
-                    <bim-text-input @input=${(e:Event)=>{onSearch(e,spatialTree)}} placeholder="Search..." debounce="300"></bim-text-input>
+                    <bim-text-input @input=${(e:Event)=>{onMultipleValuesSearch(e,spatialTree)}} placeholder="Search... (example: value1,value2 || ColumnName1?value1,value2&ColumnName2?value3,value4)" debounce="300"></bim-text-input>
                     ${spatialTree}
                 </bim-panel-section>
             `
@@ -2172,7 +2255,6 @@ export function MainViewer () {
             dynamicPropertiesTable.data = []
             const selection = highlighter.selection.select
             const itemsData = await fragments.getData(selection, {attributesDefault: true, relations: {'HasAssociations': { attributes: true, relations: false }}}) //mettendo false su relations è molto più veloce ma poi bisogna riusare getData per ottenere quelle relations
-            console.log(itemsData)
             for (const [modelId, itemIdSet] of Object.entries(selection)){
                 for (const itemId of itemIdSet){
                     const itemData = itemsData[modelId]?.find((item: FRAGS.ItemData) => (item._localId as FRAGS.ItemAttribute).value == itemId)
@@ -2443,7 +2525,7 @@ export function MainViewer () {
                                 await navigator.clipboard.writeText(guid.join(','))
                             }
                         }} icon='uil:copy' tooltip-text="Copy IfcGlobalIds of selected elements to clipboard" style="max-width:fit-content; z-index:100"></bim-button>
-                        <bim-text-input @input=${(e:Event)=>{onSearch(e,dynamicPropertiesTable)}} placeholder="Search..." debounce="300"></bim-text-input>
+                        <bim-text-input @input=${(e:Event)=>{onMultipleValuesSearch(e,dynamicPropertiesTable)}} placeholder="Search... (example: value1,value2 || ColumnName1?value1,value2&ColumnName2?value3,value4)" debounce="300"></bim-text-input>
                     </div>\
                     <bim-label ${BUI.ref((el) => {loadingLabelProps = el as BUI.Label})} style="display:none; padding:20px">Loading...</bim-label>
                     ${dynamicPropertiesTable}
@@ -3015,6 +3097,7 @@ export function MainViewer () {
                 ComponentsCostValues: any,
                 Model: string,
                 ItemId?: number,
+                GlobalId?: string,
                 NormalizationQuantity?: string,
                 NormalizedCost: string,
             }
@@ -3035,6 +3118,7 @@ export function MainViewer () {
                         CostItemDescription: '',
                         CostItemUnitCost: '',
                         ComponentsCostValues: '',
+                        GlobalId: '',
                     }}]
             dynamicCostTable.data = []
             dynamicCostTable.preserveStructureOnFilter = true
@@ -3042,7 +3126,7 @@ export function MainViewer () {
             // #endregion
 
             //get cost data
-            let itemId, itemName, itemIfcClass, costItemName, costItemId, costItemDescription, costItemObjectType, costItemTotalCost, costItemUnitBasis, costItemUnitCost //initialize variables
+            let itemId, itemGlobalId, itemName, itemIfcClass, costItemName, costItemId, costItemDescription, costItemObjectType, costItemTotalCost, costItemUnitBasis, costItemUnitCost //initialize variables
             const getLocalId = (item: any) => item?._localId?.value as number | undefined
             const mapItemsByLocalId = (items: any[] = []) => {
                 const itemsMap: {[key:number]:any} = {}
@@ -3159,6 +3243,7 @@ export function MainViewer () {
                         if (!item['HasAssignments']) continue //checks if item has assignments --> it could have also different assignments
                         //item identity data
                         itemId = (item['_localId'] as FRAGS.ItemAttribute).value ? (item['_localId'] as FRAGS.ItemAttribute).value : 'nd'
+                        itemGlobalId = (item['_guid'] as FRAGS.ItemAttribute).value ? (item['_guid'] as FRAGS.ItemAttribute).value : 'nd'
                         itemName = (item['Name'] as FRAGS.ItemAttribute).value ? (item['Name'] as FRAGS.ItemAttribute).value : 'nd'
                         itemIfcClass = (item['_category'] as FRAGS.ItemAttribute).value ? (item['_category'] as FRAGS.ItemAttribute).value : 'nd'
                         let itemTotalCost: number = 0
@@ -3172,6 +3257,7 @@ export function MainViewer () {
                             dynamicRow.data.ElementIfcClass = itemIfcClass
                             dynamicRow.data.Model = model
                             dynamicRow.data.ItemId = itemId
+                            dynamicRow.data.GlobalId = itemGlobalId
                             if (costItem['_category'].value != 'IFCCOSTITEM') continue //checks if the assignment is of IfcCostItem else go to the next one
 
                             //cost item identity data
@@ -3487,8 +3573,8 @@ export function MainViewer () {
             dynamicCostTable.groupedBy = ['ElementName']
             dynamicCostTable.columns = ['ElementName']
             normalization ? 
-                dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange'] :
-                dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','NormalizationQuantity','NormalizedCost']
+                dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','GlobalId','ElementName','ElementIfcClass','Currency','CostRange'] :
+                dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','GlobalId','ElementName','ElementIfcClass','Currency','CostRange','NormalizationQuantity','NormalizedCost']
             normalization ? 
                 dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value.length > 0 ? currentVisibleColumnsDropdown.value : ['CostItemName','CostItemDescription','Cost','Quantity','CostItemUnitCost','NormalizationQuantity','NormalizedCost'] :
                 dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value.length > 0 ? currentVisibleColumnsDropdown.value : ['CostItemName','CostItemDescription','Cost','Quantity','CostItemUnitCost']
@@ -3606,8 +3692,8 @@ export function MainViewer () {
                                 dynamicCostTable.groupedBy = ['ElementIfcClass','ElementName']
                                 dynamicCostTable.columns = ['ElementIfcClass','ElementName']
                                 normalization ?
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName','CostRange'] :
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementIfcClass','Currency','ElementName','NormalizationQuantity','NormalizedCost','CostRange']
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','GlobalId','ElementIfcClass','Currency','ElementName','CostRange'] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','GlobalId','ElementIfcClass','Currency','ElementName','NormalizationQuantity','NormalizedCost','CostRange']
                                 normalization ? setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups_withNormalization) : setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
                                 dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value
                             }} id="groupby_ifcclass" label="IFC Class" style="max-width:fit-content"></bim-button>
@@ -3623,8 +3709,8 @@ export function MainViewer () {
                                 dynamicCostTable.groupedBy = ['ElementName']
                                 dynamicCostTable.columns = ['ElementName']
                                 normalization ? 
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange'] :
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','NormalizationQuantity','NormalizedCost']
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','GlobalId','ElementName','ElementIfcClass','Currency','CostRange'] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','GlobalId','ElementName','ElementIfcClass','Currency','CostRange','NormalizationQuantity','NormalizedCost']
                                 normalization ? setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups_withNormalization) : setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
                                 dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value
                             }} id="groupby_element" label="Element" style="max-width:fit-content; background-color:var(--background-200)"></bim-button>
@@ -3640,8 +3726,8 @@ export function MainViewer () {
                                 dynamicCostTable.groupedBy = ['CostRange','ElementName']
                                 dynamicCostTable.columns = ['ElementName']
                                 normalization ? 
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange'] :
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','ElementName','ElementIfcClass','Currency','CostRange','NormalizationQuantity','NormalizedCost']
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','GlobalId','ElementName','ElementIfcClass','Currency','CostRange'] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','GlobalId','ElementName','ElementIfcClass','Currency','CostRange','NormalizationQuantity','NormalizedCost']
                                 normalization ? setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups_withNormalization) : setVisibleColumnsDropdown(visibleColumnsDropdown_classicGroups)
                                 dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value
                             }} id="groupby_costrange" ${BUI.ref((el) => {groupBy_CostRange_Btn = el as BUI.Button})} tooltip-text="Enabled only for cost analysis coloured panel" label="Cost Range" style="max-width:fit-content; z-index:100"></bim-button>
@@ -3657,8 +3743,8 @@ export function MainViewer () {
                                 dynamicCostTable.groupedBy = ['CostItemName']
                                 dynamicCostTable.columns = ['CostItemName']
                                 normalization ?
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','CostRange'] :
-                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','NormalizationQuantity','NormalizedCost','CostRange']
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','GlobalId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','CostRange'] :
+                                    dynamicCostTable.hiddenColumns = ['ComponentsCostValues','Model','ItemId','GlobalId','CostItemDescription','CostItemUnitCost','CostItemName','Currency','NormalizationQuantity','NormalizedCost','CostRange']
                                 normalization ? setVisibleColumnsDropdown(visibleColumnsDropdown_CostItemGroup_withNormalization) : setVisibleColumnsDropdown(visibleColumnsDropdown_CostItemGroup)
                                 dynamicCostTable.visibleColumns = currentVisibleColumnsDropdown.value.length > 0 ?
                                     currentVisibleColumnsDropdown.value :
@@ -3696,7 +3782,7 @@ export function MainViewer () {
                                     await highlighter.updateColors()
                                 }}">
                             </bim-number-input>
-                            <bim-text-input placeholder="Search..." @input=${(e:Event)=>{onSearch(e,dynamicCostTable)}} debounce="300"></bim-text-input>
+                            <bim-text-input placeholder="Search... (example: value1,value2 || ColumnName1?value1,value2&ColumnName2?value3,value4)" @input=${(e:Event)=>{onMultipleValuesSearch(e,dynamicCostTable)}} debounce="300"></bim-text-input>
                             <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-button tooltip-text="Click on item's name to add it to the selection" icon='majesticons:lightbulb-shine' style="max-width:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
                         </div>
