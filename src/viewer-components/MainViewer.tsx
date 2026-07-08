@@ -815,7 +815,7 @@ export function MainViewer () {
             console.log(`TIME ${loadTime_2} s: get data of previous cost items localIds`)
 
             if (resource != IfcFileLabel_TotalCost){ //this means that a resource is selected
-                const normalizeResourceCost = ['Volume','Property','Attribute'].includes(normalization)
+                const normalizeResourceCost = ['Volume','Property','Attribute','Number'].includes(normalization)
                 type elemDataType = {
                     elemModel: string,
                     elemId: number,
@@ -1050,6 +1050,9 @@ export function MainViewer () {
                             normalizationQuantityLabel = normalizationValue ? `${formatNumber(normalizationValue)}` : 'nd'
                         } else if (normalization == 'Attribute'){
                             normalizationValue = attributeNormalizationByItemId.get(Number(elemId))
+                            normalizationQuantityLabel = normalizationValue ? `${formatNumber(normalizationValue)}` : 'nd'
+                        } else if (normalization == 'Number'){
+                            normalizationValue = Number(normalizationNumber.value as string) ? Number(normalizationNumber.value as string) : 1
                             normalizationQuantityLabel = normalizationValue ? `${formatNumber(normalizationValue)}` : 'nd'
                         }
                         elem_normalizationQuantity_Map[Number(elemId)] = {
@@ -1660,7 +1663,7 @@ export function MainViewer () {
                                             await highlighter.updateColors()
                                         }}">
                                     </bim-number-input>
-                                    <bim-text-input placeholder="Search... (example: value1,value2 || ColumnName1?value1,value2&ColumnName2?value3,value4)" @input=${(e:Event)=>{onMultipleValuesSearch(e,dynamicResourceTable)}} debounce="300"></bim-text-input>
+                                    <bim-text-input placeholder="Search... (e.g.: value1,value2 || ColumnName1?value1,value2&ColumnName2?value3,value4)" @input=${(e:Event)=>{onMultipleValuesSearch(e,dynamicResourceTable)}} debounce="300"></bim-text-input>
                                     <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                                 </div>
                             </div>`
@@ -1828,6 +1831,9 @@ export function MainViewer () {
                         } else if (normalization == 'Attribute'){
                             const normalizationValue = attributeNormalizationByItemId.get(itemId)
                             costItemCost = normalizationValue ? costItemCost/normalizationValue : 0 //I can directly do this because in the panel the values will be created again, here is only for calculation purposes
+                        } else if (normalization == 'Number'){
+                            const normalizationValue = Number(normalizationNumber.value as string) ? Number(normalizationNumber.value as string) : 1
+                            costItemCost = normalizationValue ? costItemCost/normalizationValue : 0
                         }
                         
                         if (costItemObjectType != IfcFileLabel_CostAssignment) continue //ATTENTION!!! this value is USERDEFINED so it could be different in projects
@@ -1898,7 +1904,7 @@ export function MainViewer () {
                     console.log(`TIME ${loadTime_8} s: color elements using ranges color map (> 100 items)`)
                     
                     const startTime_5 = performance.now(); // Start timer
-                    const norm = ['Volume','Property','Attribute'].includes(normalization) ? true : false
+                    const norm = ['Volume','Property','Attribute','Number'].includes(normalization) ? true : false
                     await onOpenElementXCostPanel(allSelectedItemsModelIdMap,norm,normalization,modelTo_localIdToColor_map,limitToCostItemNameList)
                     const endTime_5 = performance.now(); // End timer
                     const loadTime_5 = ((endTime_5 - startTime_5) / 1000).toFixed(2); // seconds
@@ -2169,7 +2175,7 @@ export function MainViewer () {
             spatialTree.preserveStructureOnFilter = true
             return BUI.html`
                 <bim-panel-section label='Spatial Structure' icon="ri:node-tree">
-                    <bim-text-input @input=${(e:Event)=>{onMultipleValuesSearch(e,spatialTree)}} placeholder="Search... (example: value1,value2 || ColumnName1?value1,value2&ColumnName2?value3,value4)" debounce="300"></bim-text-input>
+                    <bim-text-input @input=${(e:Event)=>{onMultipleValuesSearch(e,spatialTree)}} placeholder="Search... (e.g.: value1,value2 || ColumnName1?value1,value2&ColumnName2?value3,value4)" debounce="300"></bim-text-input>
                     ${spatialTree}
                 </bim-panel-section>
             `
@@ -2563,7 +2569,7 @@ export function MainViewer () {
                                 await navigator.clipboard.writeText(guid.join(','))
                             }
                         }} icon='uil:copy' tooltip-text="Copy IfcGlobalIds of selected elements to clipboard" style="max-width:fit-content; z-index:100"></bim-button>
-                        <bim-text-input @input=${(e:Event)=>{onMultipleValuesSearch(e,dynamicPropertiesTable)}} placeholder="Search... (example: value1,value2 || ColumnName1?value1,value2&ColumnName2?value3,value4)" debounce="300"></bim-text-input>
+                        <bim-text-input @input=${(e:Event)=>{onMultipleValuesSearch(e,dynamicPropertiesTable)}} placeholder="Search... (e.g.: value1,value2 || ColumnName1?value1,value2&ColumnName2?value3,value4)" debounce="300"></bim-text-input>
                     </div>\
                     <bim-label ${BUI.ref((el) => {loadingLabelProps = el as BUI.Label})} style="display:none; padding:20px">Loading...</bim-label>
                     ${dynamicPropertiesTable}
@@ -2855,13 +2861,20 @@ export function MainViewer () {
                 <bim-text-input placeholder='Attribute Name'></bim-text-input>
             `
         })
+        const normalizationNumber = BUI.Component.create<BUI.TextInput>(() => {
+            return BUI.html`
+                <bim-text-input placeholder='e.g.: 123.456'></bim-text-input>
+            `
+        })
         normalizationPSetName.style.display = 'none'
         normalizationPropertyName.style.display = 'none'
         normalizationAttributeName.style.display = 'none'
+        normalizationNumber.style.display = 'none'
         const normalizationDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
             <bim-dropdown name="normalizationOptions" label='Normalize Cost By' icon='gravity-ui:chart-area-stacked-normalized' style="min-width:fit-content">
                 <bim-option label='None' icon='mdi:denied' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Number' icon='cuida:number-outline' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Volume' icon='proicons:cube' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Attribute' icon='material-symbols:user-attributes-rounded' style="padding:0 10px 0 10px"></bim-option>
                 <bim-option label='Property' icon='ic:round-list' style="padding:0 10px 0 10px"></bim-option>
@@ -2885,14 +2898,22 @@ export function MainViewer () {
                 normalizationPSetName.style.display = ''
                 normalizationPropertyName.style.display = ''
                 normalizationAttributeName.style.display = 'none'
+                normalizationNumber.style.display = 'none'
             } else if ((event.target as any).value[0] == 'Attribute'){
                 normalizationPSetName.style.display = 'none'
                 normalizationPropertyName.style.display = 'none'
                 normalizationAttributeName.style.display = ''
+                normalizationNumber.style.display = 'none'
+            } else if ((event.target as any).value[0] == 'Number'){
+                normalizationPSetName.style.display = 'none'
+                normalizationPropertyName.style.display = 'none'
+                normalizationAttributeName.style.display = 'none'
+                normalizationNumber.style.display = ''
             } else {
                 normalizationPSetName.style.display = 'none'
                 normalizationPropertyName.style.display = 'none'
                 normalizationAttributeName.style.display = 'none'
+                normalizationNumber.style.display = 'none'
             }
         })
 
@@ -3038,6 +3059,7 @@ export function MainViewer () {
                         ${normalizationPSetName}
                         ${normalizationPropertyName}
                         ${normalizationAttributeName}
+                        ${normalizationNumber}
                     </div>
                     <div style="display:flex; flex-direction:row; gap: 1rem; align-items:center; justify-content:space-between">
                         <div style="display:flex; gap: 0.5rem; align-items:center">
@@ -3358,6 +3380,9 @@ export function MainViewer () {
                                     dynamicRow.data.NormalizationQuantity = normalization ? `${normalizationValue?formatNumber(normalizationValue):'nd'}` : 'nd'
                                 } else if (normalizationMode == 'Attribute') {
                                     normalizationValue = attributeNormalizationByItemId.get(Number(itemId))
+                                    dynamicRow.data.NormalizationQuantity = normalization ? `${normalizationValue?formatNumber(normalizationValue):'nd'}` : 'nd'
+                                } else if (normalizationMode == 'Number') {
+                                    normalizationValue = Number(normalizationNumber.value as string) ? Number(normalizationNumber.value as string) : 1
                                     dynamicRow.data.NormalizationQuantity = normalization ? `${normalizationValue?formatNumber(normalizationValue):'nd'}` : 'nd'
                                 }
                                 dynamicRow.data.NormalizedCost = normalization ? `${normalizationValue?formatNumber_Cost(costValueAppliedValue/normalizationValue):'nd'} ${currency}` : 'nd'
@@ -3858,7 +3883,7 @@ export function MainViewer () {
                                     await highlighter.updateColors()
                                 }}">
                             </bim-number-input>
-                            <bim-text-input placeholder="Search... (example: value1,value2 || ColumnName1?value1,value2&ColumnName2?value3,value4)" @input=${(e:Event)=>{onMultipleValuesSearch(e,dynamicCostTable)}} debounce="300"></bim-text-input>
+                            <bim-text-input placeholder="Search... (e.g.: value1,value2 || ColumnName1?value1,value2&ColumnName2?value3,value4)" @input=${(e:Event)=>{onMultipleValuesSearch(e,dynamicCostTable)}} debounce="300"></bim-text-input>
                             <bim-button @click=${() => {onClearPanel(panelDown),onClearPanel(panelRight)}} tooltip-title='Clear Panel' icon='carbon:clean' style="max-width:fit-content; z-index:100"></bim-button>
                             <bim-button tooltip-text="Click on item's name to add it to the selection" icon='majesticons:lightbulb-shine' style="max-width:fit-content; z-index:100; background:none; background-color:transparent !important"></bim-button>
                         </div>
