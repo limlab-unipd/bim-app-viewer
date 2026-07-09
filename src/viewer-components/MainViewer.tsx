@@ -664,6 +664,39 @@ export function MainViewer () {
                 }, 4000); // Nasconde dopo 4 secondi
             }
         }
+        const getPsetPropertyValue = (itemData: FRAGS.ItemData, pSetName: string, propertyName: string): number | undefined => {
+            //in this way it checks two cases: if the pset name is "BaseQuantities" or if it is any of the IFC "Qto_"IfcClass"BaseQuantities"
+            if ((pSetName.toLowerCase().includes('qto_') && pSetName.toLowerCase().includes('basequantities')) || pSetName.toLowerCase().includes('basequantities')) {
+                return getQtoPropertyValue(itemData, 'BaseQuantities', propertyName)
+            }
+            const definitions = (itemData as any).IsDefinedBy
+            if (!Array.isArray(definitions)) return
+            for (const definition of definitions) {
+                if (!definition.HasProperties) continue
+                if ((definition.Name as FRAGS.ItemAttribute)?.value !== pSetName) continue
+                for (const propertyData of Object.values(definition.HasProperties) as any[]) {
+                    if ((propertyData.Name as FRAGS.ItemAttribute)?.value !== propertyName) continue
+                    const value = (propertyData.NominalValue as FRAGS.ItemAttribute | undefined)?.value
+                    return typeof value === 'number' ? value : Number(value)
+                }
+            }
+        }
+        const getQtoPropertyValue = (itemData: FRAGS.ItemData, qtoName: string, propertyName: string): number | undefined => {
+            const definitions = (itemData as any).IsDefinedBy
+            if (!Array.isArray(definitions)) return
+            for (const definition of definitions) {
+                if (!definition.Quantities) continue
+                if ((definition.Name as FRAGS.ItemAttribute)?.value !== qtoName) continue
+                for (const propertyData of Object.values(definition.Quantities) as any[]) {
+                    if ((propertyData.Name as FRAGS.ItemAttribute)?.value !== propertyName) continue
+                    const category = propertyData._category.value as string
+                    const property = category.replace('IFCQUANTITY','').toLocaleLowerCase()
+                    const attributeName = property.charAt(0).toUpperCase() + property.slice(1) + 'Value'
+                    const value = (propertyData[attributeName] as FRAGS.ItemAttribute | undefined)?.value
+                    return typeof value === 'number' ? value : Number(value)
+                }
+            }
+        }
         // #endregion
 
         let groupBy_CostRange_Btn: BUI.Button
@@ -841,19 +874,6 @@ export function MainViewer () {
                         if (typeof localId === 'number') itemsMap[localId] = item
                     }
                     return itemsMap
-                }
-                const getPsetPropertyValue = (itemData: FRAGS.ItemData, pSetName: string, propertyName: string): number | undefined => {
-                    const definitions = (itemData as any).IsDefinedBy
-                    if (!Array.isArray(definitions)) return
-                    for (const definition of definitions) {
-                        if (!definition.HasProperties) continue
-                        if ((definition.Name as FRAGS.ItemAttribute)?.value !== pSetName) continue
-                        for (const propertyData of Object.values(definition.HasProperties) as any[]) {
-                            if ((propertyData.Name as FRAGS.ItemAttribute)?.value !== propertyName) continue
-                            const value = (propertyData.NominalValue as FRAGS.ItemAttribute | undefined)?.value
-                            return typeof value === 'number' ? value : Number(value)
-                        }
-                    }
                 }
 
                 const startTime_resourceCostData = performance.now(); // Start timer
@@ -1721,19 +1741,6 @@ export function MainViewer () {
                         if (typeof localId === 'number') itemsMap[localId] = item
                     }
                     return itemsMap
-                }
-                const getPsetPropertyValue = (itemData: FRAGS.ItemData, pSetName: string, propertyName: string): number | undefined => {
-                    const definitions = (itemData as any).IsDefinedBy
-                    if (!Array.isArray(definitions)) return
-                    for (const definition of definitions) {
-                        if (!definition.HasProperties) continue
-                        if ((definition.Name as FRAGS.ItemAttribute)?.value !== pSetName) continue
-                        for (const propertyData of Object.values(definition.HasProperties) as any[]) {
-                            if ((propertyData.Name as FRAGS.ItemAttribute)?.value !== propertyName) continue
-                            const value = (propertyData.NominalValue as FRAGS.ItemAttribute | undefined)?.value
-                            return typeof value === 'number' ? value : Number(value)
-                        }
-                    }
                 }
                 for (const [model,costItems] of Object.entries(filteredCostItems)){
                     const item_totalCost_map: {[key:number]:number} = {}
@@ -2848,7 +2855,7 @@ export function MainViewer () {
         //normalization dropdown menu
         const normalizationPSetName = BUI.Component.create<BUI.TextInput>(() => {
             return BUI.html`
-                <bim-text-input placeholder='Pset Name'></bim-text-input>
+                <bim-text-input placeholder='Pset Name || "BaseQuantities"'></bim-text-input>
             `
         })
         const normalizationPropertyName = BUI.Component.create<BUI.TextInput>(() => {
@@ -2976,12 +2983,8 @@ export function MainViewer () {
                     label='Limit to selected elements'
                     tooltip-text='Click to limit the filter to the currently selected elements'
                     icon='hugeicons:cursor-circle-selection-01'
-                    @change=${(e:Event) => {
-                        if ((e.target as BUI.Checkbox).checked){
-                            categoriesDropdown.style.display = 'none'
-                        } else {
-                            categoriesDropdown.style.display = ''
-                        }
+                    @change=${({ target }: { target: BUI.Checkbox }) => {
+                        ifcClassesDiv.style.display = target.value ? "none" : "flex"
                     }}
                 >
                 </bim-checkbox>
@@ -2996,6 +2999,17 @@ export function MainViewer () {
                     placeholder='Use comma to separate'
                 >
                 </bim-text-input>
+            `
+        })
+        const ifcClassesDiv = BUI.Component.create<HTMLDivElement>(() => {
+            return BUI.html`
+                <div style="display:flex; justify-content:space-between">
+                    <bim-label icon='material-symbols:category-rounded'>IFC Classes</bim-label>
+                    <div style="display:flex; gap: 0.5rem; align-items:center">
+                        ${includeExcludeIfcClasses}
+                        ${categoriesDropdown}
+                    </div>
+                </div>
             `
         })
         const rangeCost = BUI.Component.create<BUI.Button>(() => {
@@ -3047,13 +3061,7 @@ export function MainViewer () {
                     ${resourcesDropdown}
                     ${limitToSelection}
                     ${limitToCostItemName}
-                    <div style="display:flex; justify-content:space-between">
-                        <bim-label icon='material-symbols:category-rounded'>IFC Classes</bim-label>
-                        <div style="display:flex; gap: 0.5rem; align-items:center">
-                            ${includeExcludeIfcClasses}
-                            ${categoriesDropdown}
-                        </div>
-                    </div>
+                    ${ifcClassesDiv}
                     <div style="display:flex; gap: 0.5rem; align-items:center">
                         ${normalizationDropdown}
                         ${normalizationPSetName}
@@ -3197,19 +3205,6 @@ export function MainViewer () {
                     if (typeof localId === 'number') itemsMap[localId] = item
                 }
                 return itemsMap
-            }
-            const getPsetPropertyValue = (itemData: FRAGS.ItemData, pSetName: string, propertyName: string): number | undefined => {
-                const definitions = (itemData as any).IsDefinedBy
-                if (!Array.isArray(definitions)) return
-                for (const definition of definitions) {
-                    if (!definition.HasProperties) continue
-                    if ((definition.Name as FRAGS.ItemAttribute)?.value !== pSetName) continue
-                    for (const propertyData of Object.values(definition.HasProperties) as any[]) {
-                        if ((propertyData.Name as FRAGS.ItemAttribute)?.value !== propertyName) continue
-                        const value = (propertyData.NominalValue as FRAGS.ItemAttribute | undefined)?.value
-                        return typeof value === 'number' ? value : Number(value)
-                    }
-                }
             }
 
             let totalCost: number = 0

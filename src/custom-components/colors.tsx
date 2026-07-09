@@ -120,7 +120,6 @@ export const getColorByColorRangeAndColorScale = (colorRange: string, colorScale
     const scale = colorScaleList[colorScale];
     if (!scale) return undefined;
     const colorEntry = scale.find(([position]) => position === colorRangePosition);
-    console.log(colorEntry)
     return colorEntry ? colorEntry[1] : undefined;
 }
 
