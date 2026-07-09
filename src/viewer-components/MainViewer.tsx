@@ -347,7 +347,13 @@ export function MainViewer () {
             //it doesn't work with non geometric elements (IfcCostItem)
             const selection = highlighter.selection.select //modelIdMap -> association to exp id
             console.log("ModelIdMap: ", selection)
-            const itemdata = await fragments.getData(selection) //frags.itemdata -> attributes, guid and expid (localId)
+            const itemdata = await fragments.getData(selection,{
+                    attributesDefault: true,
+                    relationsDefault: {
+                        attributes: true,
+                        relations: true
+                    }
+                })
             console.log("ItemData: ", itemdata)
         }
         fragments.list.onItemSet.add(({value:model}) => {
@@ -664,11 +670,17 @@ export function MainViewer () {
                 }, 4000); // Nasconde dopo 4 secondi
             }
         }
-        const getPsetPropertyValue = (itemData: FRAGS.ItemData, pSetName: string, propertyName: string): number | undefined => {
-            //in this way it checks two cases: if the pset name is "BaseQuantities" or if it is any of the IFC "Qto_"IfcClass"BaseQuantities"
-            if ((pSetName.toLowerCase().includes('qto_') && pSetName.toLowerCase().includes('basequantities')) || pSetName.toLowerCase().includes('basequantities')) {
-                return getQtoPropertyValue(itemData, 'BaseQuantities', propertyName)
+        const getPropertyValueForNormalization = async (itemData: FRAGS.ItemData, pSetName: string, propertyName: string, model:string): Promise<number | undefined> => {
+            const propertyChoice = normalizationPropertyChoiceButton.label
+            if (propertyChoice == 'Instance') {
+                return getPsetPropertyValueInstance(itemData, pSetName, propertyName)
+            } else if (propertyChoice == 'Type') {
+                return await getPsetPropertyValueType(itemData, pSetName, propertyName, model)
+            } else if (propertyChoice == 'Quantity') {
+                return getQtoPropertyValueInstance(itemData, 'BaseQuantities', propertyName)
             }
+        }
+        const getPsetPropertyValueInstance = (itemData: FRAGS.ItemData, pSetName: string, propertyName: string): number | undefined => {
             const definitions = (itemData as any).IsDefinedBy
             if (!Array.isArray(definitions)) return
             for (const definition of definitions) {
@@ -681,7 +693,25 @@ export function MainViewer () {
                 }
             }
         }
-        const getQtoPropertyValue = (itemData: FRAGS.ItemData, qtoName: string, propertyName: string): number | undefined => {
+        const getPsetPropertyValueType = async (itemData: FRAGS.ItemData, pSetName: string, propertyName: string, modelId: string): Promise<number | undefined> => {
+            const definitions = (itemData as any).IsTypedBy
+            if (!Array.isArray(definitions)) return
+            const itemDataEntryType = definitions[0] as FRAGS.ItemData
+            const itemDataEntryTypePsetList = itemDataEntryType.HasPropertySets as FRAGS.ItemData[]
+            if (!itemDataEntryTypePsetList) return
+            for (const relItemData of itemDataEntryTypePsetList) {
+                const pSetDataTemp = await fragments.getData({[modelId]:new Set<number>([(relItemData._localId as FRAGS.ItemAttribute).value])}, {attributesDefault:true, relations: {'HasProperties': { attributes: true, relations: false }}})
+                const definition = pSetDataTemp[modelId][0] as FRAGS.ItemData
+                if (!definition.HasProperties) continue
+                if ((definition.Name as FRAGS.ItemAttribute)?.value !== pSetName) continue
+                for (const propertyData of Object.values(definition.HasProperties) as any[]) {
+                    if ((propertyData.Name as FRAGS.ItemAttribute)?.value !== propertyName) continue
+                    const value = (propertyData.NominalValue as FRAGS.ItemAttribute | undefined)?.value
+                    return typeof value === 'number' ? value : Number(value)
+                }
+            }
+        }
+        const getQtoPropertyValueInstance = (itemData: FRAGS.ItemData, qtoName: string, propertyName: string): number | undefined => {
             const definitions = (itemData as any).IsDefinedBy
             if (!Array.isArray(definitions)) return
             for (const definition of definitions) {
@@ -776,7 +806,6 @@ export function MainViewer () {
                 },
             ])
 
-            // ora è possibile colorare solo gli elementi selezionati se la spunta per questo filtro è attiva
             const modelsList = Array.from(fragments.list.keys())
             let final_costitem_ids: OBC.ModelIdMap | undefined = {}
             modelsList.forEach((model) => {
@@ -784,7 +813,8 @@ export function MainViewer () {
                     final_costitem_ids[model] = new Set<number>()
                 }
             }) //initialize the map with empty sets for each model --> needed to transparency other models if do not have cost items
-
+            
+            // ora è possibile colorare solo gli elementi selezionati se la spunta per questo filtro è attiva
             if (limitSelection) {
                 const selection = highlighter.selection.select
                 const selectionData = await fragments.getData(selection, { relations: { 'HasAssignments': { attributes: true, relations: false } } })
@@ -966,12 +996,16 @@ export function MainViewer () {
                                     attributes: true,
                                     relations: true,
                                 },
+                                IsTypedBy: {
+                                    attributes: true,
+                                    relations: true,
+                                }
                             },
                         })
                         for (const itemData of itemsData?.[model] ?? []) {
                             const localId = getLocalId(itemData)
                             if (typeof localId !== 'number') continue
-                            const value = getPsetPropertyValue(itemData, pSetName, propertyName)
+                            const value = await getPropertyValueForNormalization(itemData, pSetName, propertyName, model)
                             if (Number.isFinite(value)) propertyNormalizationByItemId.set(localId, value!)
                         }
                     }
@@ -1777,12 +1811,16 @@ export function MainViewer () {
                                     attributes: true,
                                     relations: true,
                                 },
+                                IsTypedBy: {
+                                    attributes: true,
+                                    relations: true,
+                                }
                             },
                         })
                         for (const itemData of itemsData?.[model] ?? []) {
                             const localId = getLocalId(itemData)
                             if (typeof localId !== 'number') continue
-                            const value = getPsetPropertyValue(itemData, pSetName, propertyName)
+                            const value = await getPropertyValueForNormalization(itemData, pSetName, propertyName, model)
                             if (Number.isFinite(value)) propertyNormalizationByItemId.set(localId, value!)
                         }
                     }
@@ -2208,6 +2246,7 @@ export function MainViewer () {
             propertyType?: string,
             propertyName?: string,
             propertyValue?: string,
+            instanceOrType?: string,
         }
         //tables
         const dynamicPropertiesTable = document.createElement("bim-table") as BUI.Table<dynamicPropertiesTableData>
@@ -2220,8 +2259,8 @@ export function MainViewer () {
                     propertySetName: '',
                     propertyType: '',
                     propertyName: '',
-                    propertyValue: ''
-
+                    propertyValue: '',
+                    instanceOrType: ''
                 }}]
         dynamicPropertiesTable.data = []
         dynamicPropertiesTable.preserveStructureOnFilter = true
@@ -2416,36 +2455,66 @@ export function MainViewer () {
             loadingLabelProps.style.display = ''
             dynamicPropertiesTable.data = []
             const selection = highlighter.selection.select
-            const itemsData = await fragments.getData(selection, {attributesDefault: true, relations: {'IsDefinedBy': {attributes: true, relations: true}}})
+            const itemsData = await fragments.getData(selection, {attributesDefault: true, relations: {
+                'IsDefinedBy': {attributes: true, relations: true},
+                'IsTypedBy': {attributes: true, relations: true}
+            }})
             for (const [modelId, itemIdSet] of Object.entries(selection)){
                 for (const itemId of itemIdSet){
                     const itemData = itemsData[modelId]?.find((item: FRAGS.ItemData) => (item._localId as FRAGS.ItemAttribute).value == itemId)
                     if (!itemData) continue
                     for (const [itemDataEntryName,itemDataEntry] of Object.entries(itemData)){
-                        if (itemDataEntryName != 'IsDefinedBy') continue
-                        if (!Array.isArray(itemDataEntry)) continue
-                        for (const [,relItemData] of Object.entries(itemDataEntry)){
-                            if (!relItemData.HasProperties) continue
-                            for (const [, relPropertyData] of Object.entries(relItemData.HasProperties)){
-                                const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
-                                    data: {},
+                        if (itemDataEntryName == 'IsDefinedBy') {
+                            if (!Array.isArray(itemDataEntry)) continue
+                            for (const [,relItemData] of Object.entries(itemDataEntry)){
+                                if (!relItemData.HasProperties) continue
+                                for (const [, relPropertyData] of Object.entries(relItemData.HasProperties)){
+                                    const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
+                                        data: {},
+                                    }
+                                    rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
+                                    rowData.data.itemId = itemId
+                                    rowData.data.modelId = modelId
+                                    rowData.data.propertyType = 'Relation'
+                                    rowData.data.instanceOrType = 'Instance Properties'
+                                    rowData.data.propertySetName = (relItemData.Name as FRAGS.ItemAttribute).value
+                                    rowData.data.propertyName = (relPropertyData.Name as FRAGS.ItemAttribute).value
+                                    rowData.data.propertyValue = (relPropertyData.NominalValue as FRAGS.ItemAttribute).value
+                                    if (!rowData.data.propertyName) continue
+                                    dynamicPropertiesTable.data.push(rowData)
                                 }
-                                rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
-                                rowData.data.itemId = itemId
-                                rowData.data.modelId = modelId
-                                rowData.data.propertyType = 'Relation'
-                                rowData.data.propertySetName = (relItemData.Name as FRAGS.ItemAttribute).value
-                                rowData.data.propertyName = (relPropertyData.Name as FRAGS.ItemAttribute).value
-                                rowData.data.propertyValue = (relPropertyData.NominalValue as FRAGS.ItemAttribute).value
-                                if (!rowData.data.propertyName) continue
-                                dynamicPropertiesTable.data.push(rowData)
                             }
-                        }
+                        } else if (itemDataEntryName == 'IsTypedBy'){
+                            if (!Array.isArray(itemDataEntry)) continue //va bene lo stesso perchè anche se è un solo tipo è comunque dentro un array con un solo elemento
+                            const itemDataEntryType = itemDataEntry[0] as FRAGS.ItemData
+                            const itemDataEntryTypePsetList = itemDataEntryType.HasPropertySets as FRAGS.ItemData[]
+                            if (!itemDataEntryTypePsetList) continue
+                            for (const [,relItemData] of Object.entries(itemDataEntryTypePsetList)){
+                                const pSetDataTemp = await fragments.getData({[modelId]:new Set<number>([(relItemData._localId as FRAGS.ItemAttribute).value])}, {attributesDefault:true, relations: {'HasProperties': { attributes: true, relations: false }}})
+                                const pSetData = pSetDataTemp[modelId][0] as FRAGS.ItemData
+                                if (!pSetData.HasProperties) continue
+                                for (const [, relPropertyData] of Object.entries(pSetData.HasProperties)){
+                                    const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
+                                        data: {},
+                                    }
+                                    rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
+                                    rowData.data.itemId = itemId
+                                    rowData.data.modelId = modelId
+                                    rowData.data.propertyType = 'Relation'
+                                    rowData.data.instanceOrType = 'Type Properties'
+                                    rowData.data.propertySetName = (relItemData.Name as FRAGS.ItemAttribute).value
+                                    rowData.data.propertyName = (relPropertyData.Name as FRAGS.ItemAttribute).value
+                                    rowData.data.propertyValue = (relPropertyData.NominalValue as FRAGS.ItemAttribute).value
+                                    if (!rowData.data.propertyName) continue
+                                    dynamicPropertiesTable.data.push(rowData)
+                                }
+                            }
+                        } else continue
                     }
                 }
             }
-            dynamicPropertiesTable.groupedBy = ['itemName','propertySetName']
-            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType']
+            dynamicPropertiesTable.groupedBy = ['itemName','instanceOrType','propertySetName']
+            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType','instanceOrType']
             loadingLabelProps.style.display = 'none'
         }
         const onLoadQuantitiesTable = async () => {
@@ -2855,7 +2924,7 @@ export function MainViewer () {
         //normalization dropdown menu
         const normalizationPSetName = BUI.Component.create<BUI.TextInput>(() => {
             return BUI.html`
-                <bim-text-input placeholder='Pset Name || "BaseQuantities"'></bim-text-input>
+                <bim-text-input placeholder='Pset Name'></bim-text-input>
             `
         })
         const normalizationPropertyName = BUI.Component.create<BUI.TextInput>(() => {
@@ -2873,10 +2942,32 @@ export function MainViewer () {
                 <bim-text-input placeholder='e.g.: 123.456'></bim-text-input>
             `
         })
+        const normalizationPropertyChoiceButton = BUI.Component.create<BUI.Button>(() => {
+            return BUI.html`
+                <bim-button 
+                    label = 'Instance'
+                    @click=${(e:Event) => {
+                        const btn = e.target as BUI.Button;
+                        btn.label = btn.label=='Instance'?'Type':btn.label=='Type'?'Quantity':'Instance';
+                        if (btn.label=='Quantity'){
+                            normalizationPSetName.style.display = 'none'
+                            normalizationPropertyName.placeholder = 'Quantity Name'
+                        } else {
+                            normalizationPSetName.style.display = ''
+                            normalizationPropertyName.placeholder = 'Property Name'
+                        }
+                    }}
+                    tooltip-text='Click to choose a between Instance Property, Type Property, or Quantity for normalization'
+                    style='max-width:fit-content; min-width:fit-content'
+                >
+                </bim-button>
+            `
+        })
         normalizationPSetName.style.display = 'none'
         normalizationPropertyName.style.display = 'none'
         normalizationAttributeName.style.display = 'none'
         normalizationNumber.style.display = 'none'
+        normalizationPropertyChoiceButton.style.display = 'none'
         const normalizationDropdown = BUI.Component.create<BUI.Dropdown>(
             () => BUI.html`
             <bim-dropdown name="normalizationOptions" label='Normalize Cost By' icon='gravity-ui:chart-area-stacked-normalized' style="min-width:fit-content">
@@ -2904,21 +2995,25 @@ export function MainViewer () {
             if ((event.target as any).value[0] == 'Property'){
                 normalizationPSetName.style.display = ''
                 normalizationPropertyName.style.display = ''
+                normalizationPropertyChoiceButton.style.display = ''
                 normalizationAttributeName.style.display = 'none'
                 normalizationNumber.style.display = 'none'
             } else if ((event.target as any).value[0] == 'Attribute'){
                 normalizationPSetName.style.display = 'none'
                 normalizationPropertyName.style.display = 'none'
+                normalizationPropertyChoiceButton.style.display = 'none'
                 normalizationAttributeName.style.display = ''
                 normalizationNumber.style.display = 'none'
             } else if ((event.target as any).value[0] == 'Number'){
                 normalizationPSetName.style.display = 'none'
                 normalizationPropertyName.style.display = 'none'
+                normalizationPropertyChoiceButton.style.display = 'none'
                 normalizationAttributeName.style.display = 'none'
                 normalizationNumber.style.display = ''
             } else {
                 normalizationPSetName.style.display = 'none'
                 normalizationPropertyName.style.display = 'none'
+                normalizationPropertyChoiceButton.style.display = 'none'
                 normalizationAttributeName.style.display = 'none'
                 normalizationNumber.style.display = 'none'
             }
@@ -3064,6 +3159,7 @@ export function MainViewer () {
                     ${ifcClassesDiv}
                     <div style="display:flex; gap: 0.5rem; align-items:center">
                         ${normalizationDropdown}
+                        ${normalizationPropertyChoiceButton}
                         ${normalizationPSetName}
                         ${normalizationPropertyName}
                         ${normalizationAttributeName}
@@ -3268,12 +3364,16 @@ export function MainViewer () {
                                 attributes: true,
                                 relations: true,
                             },
+                            IsTypedBy: {
+                                attributes: true,
+                                relations: true,
+                            }
                         },
                     })
                     for (const itemData of propertyItemsData?.[model] ?? []) {
                         const localId = getLocalId(itemData)
                         if (typeof localId !== 'number') continue
-                        const value = getPsetPropertyValue(itemData, pSetName, propertyName)
+                        const value = await getPropertyValueForNormalization(itemData, pSetName, propertyName, model)
                         if (value !== undefined && Number.isFinite(value)) propertyNormalizationByItemId.set(localId, value)
                     }
                 } else if (normalization && normalizationMode == 'Attribute') {
@@ -4015,14 +4115,6 @@ export function MainViewer () {
             return BUI.html`
             <bim-toolbar style="justify-self:center; align-content:center; background: rgba(0,0,0,0.5); z-index:50" class="blur-background-container">
                 <bim-toolbar-section id="test-section" label="TEST" style="display:${devElementsVisibility}">
-                    <bim-button
-                        label="Sample"
-                        tooltip-title="Load sample IFC models. Only for developers."
-                        @click=${() => {
-                            loadIfcFile("/assets/Sample_with costs.ifc",'Sample_with costs')
-                            loadIfcFile("/assets/SFH_with costs.ifc",'SFH_with costs')
-                            }}>
-                    </bim-button>
                     <bim-button
                         label='Volume'
                         tooltip-title="Print volume of selected item"
