@@ -2352,7 +2352,8 @@ export function MainViewer () {
                     for (const [itemDataEntryName,itemDataEntry] of Object.entries(itemData)){
                         if (!Array.isArray(itemDataEntry)) continue
                         for (const [,relItemData] of Object.entries(itemDataEntry)){
-                            if ((relItemData._category as FRAGS.ItemAttribute).value == 'IFCMATERIALLAYERSETUSAGE'){
+                            const itemCategory = (relItemData._category as FRAGS.ItemAttribute).value
+                            if (itemCategory == 'IFCMATERIALLAYERSETUSAGE'){
                                 const localId = (relItemData._localId as FRAGS.ItemAttribute).value as number
                                 const associations = await fragments.getData({[modelId]:new Set<number>([localId])}, {attributesDefault:true, relations: {'ForLayerSet': { attributes: true, relations: true }}})
                                 const materialsLayers = (associations[modelId][0].ForLayerSet as FRAGS.ItemData[])[0].MaterialLayers as FRAGS.ItemData[]
@@ -2374,7 +2375,28 @@ export function MainViewer () {
                                     if (!rowData.data.propertyName) continue
                                     dynamicPropertiesTable.data.push(rowData)
                                 }
-                            } else if ((relItemData._category as FRAGS.ItemAttribute).value == 'IFCMATERIALLIST'){
+                            } else if (itemCategory == 'IFCMATERIALLAYERSET'){
+                                const localId = (relItemData._localId as FRAGS.ItemAttribute).value as number
+                                const associations = await fragments.getData({[modelId]:new Set<number>([localId])}, {attributesDefault:true, relations: {'MaterialLayers': { attributes: true, relations: false }}})
+                                for (const layer of ((associations[modelId] as FRAGS.ItemData[])[0].MaterialLayers as FRAGS.ItemData[])){
+                                    const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
+                                        data: {},
+                                    }
+                                    const materialId = (layer._localId as FRAGS.ItemAttribute).value
+                                    const material = await fragments.getData({[modelId]:new Set<number>([materialId])}, {attributesDefault:true, relationsDefault: { attributes: true, relations: true }})
+                                    const materialName = (((material[modelId] as FRAGS.ItemData[])[0].Material as FRAGS.ItemData[])[0].Name as FRAGS.ItemAttribute).value
+                                    const layerThickness = (layer.LayerThickness as FRAGS.ItemAttribute).value
+                                    rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
+                                    rowData.data.itemId = itemId
+                                    rowData.data.modelId = modelId
+                                    rowData.data.propertyType = 'Relation'
+                                    rowData.data.propertySetName = itemDataEntryName
+                                    rowData.data.propertyName = materialName
+                                    rowData.data.propertyValue = layerThickness
+                                    if (!rowData.data.propertyName) continue
+                                    dynamicPropertiesTable.data.push(rowData)
+                                }
+                            } else if (itemCategory == 'IFCMATERIALLIST'){
                                 const localId = (relItemData._localId as FRAGS.ItemAttribute).value as number
                                 const associations = await fragments.getData({[modelId]:new Set<number>([localId])}, {attributesDefault:true,relationsDefault:{ attributes: true, relations: false }})
                                 for (const material of ((associations[modelId] as FRAGS.ItemData[])[0].Materials as FRAGS.ItemData[])){
@@ -2390,9 +2412,9 @@ export function MainViewer () {
                                     rowData.data.propertyName = materialName
                                     rowData.data.propertyValue = ''
                                     if (!rowData.data.propertyName) continue
-                                    dynamicPropertiesTable.data.push(rowData)                                    
+                                    dynamicPropertiesTable.data.push(rowData)
                                 }
-                            } else if ((relItemData._category as FRAGS.ItemAttribute).value == 'IFCMATERIALCONSTITUENTSET'){
+                            } else if (itemCategory == 'IFCMATERIALCONSTITUENTSET'){
                                 const localId = (relItemData._localId as FRAGS.ItemAttribute).value as number
                                 const associations = await fragments.getData({[modelId]:new Set<number>([localId])}, {attributesDefault:true, relations: {'MaterialConstituents': { attributes: true, relations: false }}})
                                 for (const material of ((associations[modelId] as FRAGS.ItemData[])[0].MaterialConstituents as FRAGS.ItemData[])){
@@ -2410,7 +2432,7 @@ export function MainViewer () {
                                     if (!rowData.data.propertyName) continue
                                     dynamicPropertiesTable.data.push(rowData)                                    
                                 }
-                            } else if ((relItemData._category as FRAGS.ItemAttribute).value == 'IFCMATERIALPROFILESET'){
+                            } else if (itemCategory == 'IFCMATERIALPROFILESET'){
                                 const localId = (relItemData._localId as FRAGS.ItemAttribute).value as number
                                 const associations = await fragments.getData({[modelId]:new Set<number>([localId])}, {attributesDefault:true, relations: {'MaterialProfiles': { attributes: true, relations: false }}})
                                 for (const material of ((associations[modelId] as FRAGS.ItemData[])[0].MaterialProfiles as FRAGS.ItemData[])){
@@ -2428,7 +2450,7 @@ export function MainViewer () {
                                     if (!rowData.data.propertyName) continue
                                     dynamicPropertiesTable.data.push(rowData)                                    
                                 }
-                            } else if ((relItemData._category as FRAGS.ItemAttribute).value == 'IFCMATERIAL'){
+                            } else if (itemCategory == 'IFCMATERIAL'){
                                 const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
                                     data: {},
                                 }
@@ -4492,7 +4514,7 @@ export function MainViewer () {
 
     //#region FINAL PART
     React.useEffect(() => {
-        setViewer() //set the viewer, devMode default = false
+        setViewer(true) //set the viewer, devMode default = false
         return () => {
             if (components) {
                 components.dispose()
