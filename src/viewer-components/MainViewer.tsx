@@ -4514,7 +4514,7 @@ export function MainViewer () {
 
     //#region FINAL PART
     React.useEffect(() => {
-        setViewer(true) //set the viewer, devMode default = false
+        setViewer() //set the viewer, devMode default = false
         return () => {
             if (components) {
                 components.dispose()
