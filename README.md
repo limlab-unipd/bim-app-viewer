@@ -4,7 +4,7 @@ A web-based BIM viewer for IFC-native cost data visualization and model-based co
 
 **Link viewer:** The application is deployed on Vercel and can be accessed at: https://bim-app-viewer.vercel.app
 
-**Video demo:** A short video-tutorial demonstrates the main functionalities of the viewer, including model loading, cost inspection, unit-cost exploration, resource-based cost analysis, and scene-visibility controls at: https://www.youtube.com/watch?v=VLsOLtp-TaI
+**Video demo:** A short video-tutorial demonstrates the main functionalities of the viewer, including model loading, cost inspection, unit-cost exploration, resource-based cost analysis, and scene-visibility controls at: https://www.youtube.com/watch?v=H27Z64oZJkk
 
 This repository contains the source code of a research prototype developed to explore how cost information embedded in IFC models can be inspected, filtered, aggregated, and visualized directly in a browser-based BIM environment. The viewer focuses on openBIM workflows, IFC-native cost structures, and interactive cost-data visualization.
 
