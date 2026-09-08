@@ -63,7 +63,7 @@ const colorScaleList: { [key: string]: [number, string][] } = {
         [3/4,'rgba(94, 201, 98, 1)'],
         [1,'rgba(253, 231, 37, 1)']
     ],
-    ylgnbu: [
+    ylgn: [
         [0, 'rgba(255, 255, 204, 1)'],
         [1/4, 'rgba(194, 230, 153, 1)'],
         [2/4, 'rgba(120, 198, 121, 1)'],
