@@ -2230,7 +2230,7 @@ export function MainViewer () {
             if (state.count < 6){
                 loadStatement = ''
             } else {
-                loadStatement = '→ Click the Load button to show properties'
+                loadStatement = '→ Click any button below here to show information'
             }
             return BUI.html`
                 <bim-label>Selected items count: ${state.count} ${loadStatement}</bim-label>
