@@ -670,8 +670,7 @@ export function MainViewer () {
                 }, 4000); // Nasconde dopo 4 secondi
             }
         }
-        const getPropertyValueForNormalization = async (itemData: FRAGS.ItemData, pSetName: string, propertyName: string, model:string): Promise<number | undefined> => {
-            const propertyChoice = normalizationPropertyChoiceButton.label
+        const getPropertyValueForNormalization = async (itemData: FRAGS.ItemData, pSetName: string, propertyName: string, model:string, propertyChoice: string): Promise<number | undefined> => {
             if (propertyChoice == 'Instance') {
                 return getPsetPropertyValueInstance(itemData, pSetName, propertyName)
             } else if (propertyChoice == 'Type') {
@@ -747,6 +746,7 @@ export function MainViewer () {
                 ? availableIfcClasses.filter(category => !selectedIfcClasses.includes(category))
                 : selectedIfcClasses
             const [normalization] = normalizationDropdown.value //read the value of normalization by button (single choice)
+            const [normalizationThenBy] = normalizationThenByDropdown.value //read the value of normalization by button (single choice)
             const [colorscale] = colorScaleDropdown.value ? colorScaleDropdown.value : 'gnylrd'
             const rangeMin = rangeInputMin.value
             const rangeMax = rangeInputMax.value
@@ -986,9 +986,21 @@ export function MainViewer () {
                     const modelItemsById = mapItemsByLocalId(modelItems as any[])
                     const propertyNormalizationByItemId = new Map<number, number>()
                     const attributeNormalizationByItemId = new Map<number, number>()
-                    if (normalization == 'Property') {
+                    const propertyNormalizationThenByByItemId = new Map<number, number>()
+                    const attributeNormalizationThenByByItemId = new Map<number, number>()
+                    const volumeNormalizationByItemId = new Map<number, number>()
+                    const volumeNormalizationThenByByItemId = new Map<number, number>()
+                    const numberNormalizationByItemId = new Map<number, number>()
+                    const numberNormalizationThenByByItemId = new Map<number, number>()
+
+                    if (normalization == 'Property' || normalizationThenBy == 'Property') {
                         const pSetName = normalizationPSetName.value as string
                         const propertyName = normalizationPropertyName.value as string
+                        const pSetNameThenBy = normalizationThenByPSetName.value as string
+                        const propertyNameThenBy = normalizationThenByPropertyName.value as string
+                        const propertyChoice = normalizationPropertyChoiceButton.label as string
+                        const propertyChoiceThenBy = normalizationThenByPropertyChoiceButton.label as string
+                        console.log(pSetNameThenBy, propertyNameThenBy)
                         const itemsData = elementIds.size === 0 ? null : await fragments.getData({[model]: elementIds}, {
                             attributesDefault: true,
                             relations: {
@@ -1005,11 +1017,17 @@ export function MainViewer () {
                         for (const itemData of itemsData?.[model] ?? []) {
                             const localId = getLocalId(itemData)
                             if (typeof localId !== 'number') continue
-                            const value = await getPropertyValueForNormalization(itemData, pSetName, propertyName, model)
-                            if (Number.isFinite(value)) propertyNormalizationByItemId.set(localId, value!)
+                            if (normalization == 'Property') {
+                                const value = await getPropertyValueForNormalization(itemData, pSetName, propertyName, model, propertyChoice)
+                                if (Number.isFinite(value)) propertyNormalizationByItemId.set(localId, value!)
+                            }
+                            if (normalizationThenBy == 'Property') {
+                                const value = await getPropertyValueForNormalization(itemData, pSetNameThenBy, propertyNameThenBy, model, propertyChoiceThenBy)
+                                if (Number.isFinite(value)) propertyNormalizationThenByByItemId.set(localId, value!)
+                            }
                         }
                     }
-                    if (normalization == 'Attribute') {
+                    if (normalization == 'Attribute' || normalizationThenBy == 'Attribute') {
                         const attributeName = normalizationAttributeName.value as string
                         const itemsData = elementIds.size === 0 ? null : await fragments.getData({[model]: elementIds}, {
                             attributesDefault: true,
@@ -1018,8 +1036,40 @@ export function MainViewer () {
                         for (const itemData of itemsData?.[model] ?? []) {
                             const localId = getLocalId(itemData)
                             if (typeof localId !== 'number') continue
-                            const value = (itemData[attributeName] as FRAGS.ItemAttribute)?.value
-                            if (Number.isFinite(value)) attributeNormalizationByItemId.set(localId, value!)
+                            if (normalization == 'Attribute') {
+                                const value = (itemData[attributeName] as FRAGS.ItemAttribute)?.value
+                                if (Number.isFinite(value)) attributeNormalizationByItemId.set(localId, value!)
+                            }
+                            if (normalizationThenBy == 'Attribute') {
+                                const value = (itemData[attributeName] as FRAGS.ItemAttribute)?.value
+                                if (Number.isFinite(value)) attributeNormalizationThenByByItemId.set(localId, value!)
+                            }
+                        }
+                    }
+                    if (normalization == 'Volume' || normalizationThenBy == 'Volume') {
+                        for (const elemId of elementIds) {
+                            if (typeof elemId !== 'number') continue
+                            if (normalization == 'Volume') {
+                                const value = await fragments.list.get(model)?.getItemsVolume([Number(elemId)])
+                                if (Number.isFinite(value)) volumeNormalizationByItemId.set(elemId, value!)
+                            }
+                            if (normalizationThenBy == 'Volume') {
+                                const value = await fragments.list.get(model)?.getItemsVolume([Number(elemId)])
+                                if (Number.isFinite(value)) volumeNormalizationThenByByItemId.set(elemId, value!)
+                            }
+                        }
+                    }
+                    if (normalization == 'Number' || normalizationThenBy == 'Number') {
+                        for (const elemId of elementIds) {
+                            if (typeof elemId !== 'number') continue
+                            if (normalization == 'Number') {
+                                const value = Number(normalizationNumber.value as string) ? Number(normalizationNumber.value as string) : 1
+                                if (Number.isFinite(value)) numberNormalizationByItemId.set(elemId, value!)
+                            }
+                            if (normalizationThenBy == 'Number') {
+                                const value = Number(normalizationThenByNumber.value as string) ? Number(normalizationThenByNumber.value as string) : 1
+                                if (Number.isFinite(value)) numberNormalizationThenByByItemId.set(elemId, value!)
+                            }
                         }
                     }
 
@@ -1095,26 +1145,35 @@ export function MainViewer () {
                         const item = [modelItemsById[Number(elemId)]]
                         if (!item[0]) continue //checks if the item exists
                         let normalizationValue: number | undefined
-                        let normalizationQuantityLabel = 'nd'
+                        let normalizationThenByValue: number | undefined
+                        if (normalizationThenBy == 'Property'){
+                            normalizationThenByValue = propertyNormalizationThenByByItemId.get(Number(elemId))
+                        } else if (normalizationThenBy == 'Attribute'){
+                            normalizationThenByValue = attributeNormalizationThenByByItemId.get(Number(elemId))
+                        } else if (normalizationThenBy == 'Volume'){
+                            normalizationThenByValue = volumeNormalizationThenByByItemId.get(Number(elemId))
+                        } else if (normalizationThenBy == 'Number'){
+                            normalizationThenByValue = numberNormalizationThenByByItemId.get(Number(elemId))
+                        }
                         if (normalization == 'Volume'){
-                            normalizationValue = await fragments.list.get(model)?.getItemsVolume([Number(elemId)])
-                            normalizationQuantityLabel = normalizationValue ? `${formatNumber(normalizationValue)} m³` : 'nd'
+                            normalizationValue = volumeNormalizationByItemId.get(Number(elemId))
                         } else if (normalization == 'Property'){
                             normalizationValue = propertyNormalizationByItemId.get(Number(elemId))
-                            normalizationQuantityLabel = normalizationValue ? `${formatNumber(normalizationValue)}` : 'nd'
                         } else if (normalization == 'Attribute'){
                             normalizationValue = attributeNormalizationByItemId.get(Number(elemId))
-                            normalizationQuantityLabel = normalizationValue ? `${formatNumber(normalizationValue)}` : 'nd'
                         } else if (normalization == 'Number'){
-                            normalizationValue = Number(normalizationNumber.value as string) ? Number(normalizationNumber.value as string) : 1
-                            normalizationQuantityLabel = normalizationValue ? `${formatNumber(normalizationValue)}` : 'nd'
+                            normalizationValue = numberNormalizationByItemId.get(Number(elemId))
                         }
+                        if (!normalizationThenBy || normalizationThenBy == 'None') normalizationThenByValue = 1
+                        const finalNormalizationValue = (normalizationValue && normalizationThenByValue) ? (normalizationValue * normalizationThenByValue) : undefined //invert the value to use it for normalization
+                        
+                        const normalizationQuantityLabel = finalNormalizationValue ? `${formatNumber(finalNormalizationValue)}` : 'nd'
                         elem_normalizationQuantity_Map[Number(elemId)] = {
-                            value: normalizationValue,
+                            value: finalNormalizationValue,
                             label: normalizeResourceCost ? normalizationQuantityLabel : 'nd'
                         }
                         elem_resourcesColor_Map[Number(elemId)] = normalizeResourceCost
-                            ? normalizationValue ? resourceCost / normalizationValue : 0
+                            ? finalNormalizationValue ? resourceCost / finalNormalizationValue : 0
                             : resourceCost
                         const elemData : elemDataType = {
                             elemModel: model,
@@ -1767,6 +1826,7 @@ export function MainViewer () {
                 const model_volume_map: {[key:string]:any} = {}
                 const model_cost_map: {[key:string]:{[key: number]: number}} = {}
                 const model_costCount_map: {[key:string]:any} = {}
+                const model_finalNormalizationValueByItemId_map: {[key:string]:Map<number, number|undefined>} = {}
                 const getLocalId = (item: any) => item?._localId?.value as number | undefined
                 const mapItemsByLocalId = (items: any[] = []) => { // qui crea solo la mappa localId-item
                     const itemsMap: {[key:number]:any} = {}
@@ -1798,12 +1858,24 @@ export function MainViewer () {
                         }
                     })
                     const costValuesById = mapItemsByLocalId(costValueRecord?.[model] as any[] ?? [])
+
+                    const itemIds = new Set<number>(costItemMeta.map(({ itemId }) => itemId))
                     const propertyNormalizationByItemId = new Map<number, number>()
                     const attributeNormalizationByItemId = new Map<number, number>()
-                    if (normalization == 'Property') {
+                    const propertyNormalizationThenByByItemId = new Map<number, number>()
+                    const attributeNormalizationThenByByItemId = new Map<number, number>()
+                    const volumeNormalizationByItemId = new Map<number, number>()
+                    const volumeNormalizationThenByByItemId = new Map<number, number>()
+                    const numberNormalizationByItemId = new Map<number, number>()
+                    const numberNormalizationThenByByItemId = new Map<number, number>()
+
+                    if (normalization == 'Property' || normalizationThenBy == 'Property') {
                         const pSetName = normalizationPSetName.value as string
                         const propertyName = normalizationPropertyName.value as string
-                        const itemIds = new Set<number>(costItemMeta.map(({ itemId }) => itemId))
+                        const pSetNameThenBy = normalizationThenByPSetName.value as string
+                        const propertyNameThenBy = normalizationThenByPropertyName.value as string
+                        const propertyChoice = normalizationPropertyChoiceButton.label as string
+                        const propertyChoiceThenBy = normalizationThenByPropertyChoiceButton.label as string
                         const itemsData = itemIds.size === 0 ? null : await fragments.getData({[model]: itemIds}, {
                             attributesDefault: true,
                             relations: {
@@ -1820,13 +1892,18 @@ export function MainViewer () {
                         for (const itemData of itemsData?.[model] ?? []) {
                             const localId = getLocalId(itemData)
                             if (typeof localId !== 'number') continue
-                            const value = await getPropertyValueForNormalization(itemData, pSetName, propertyName, model)
-                            if (Number.isFinite(value)) propertyNormalizationByItemId.set(localId, value!)
+                            if (normalization == 'Property') {
+                                const value = await getPropertyValueForNormalization(itemData, pSetName, propertyName, model, propertyChoice)
+                                if (Number.isFinite(value)) propertyNormalizationByItemId.set(localId, value!)
+                            }
+                            if (normalizationThenBy == 'Property') {
+                                const value = await getPropertyValueForNormalization(itemData, pSetNameThenBy, propertyNameThenBy, model, propertyChoiceThenBy)
+                                if (Number.isFinite(value)) propertyNormalizationThenByByItemId.set(localId, value!)
+                            }
                         }
                     }
-                    if (normalization == 'Attribute') {
+                    if (normalization == 'Attribute' || normalizationThenBy == 'Attribute') {
                         const attributeName = normalizationAttributeName.value as string
-                        const itemIds = new Set<number>(costItemMeta.map(({ itemId }) => itemId))
                         const itemsData = itemIds.size === 0 ? null : await fragments.getData({[model]: itemIds}, {
                             attributesDefault: true,
                             relationsDefault: { attributes: false, relations: false }
@@ -1834,29 +1911,44 @@ export function MainViewer () {
                         for (const itemData of itemsData?.[model] ?? []) {
                             const localId = getLocalId(itemData)
                             if (typeof localId !== 'number') continue
-                            const value = (itemData[attributeName] as FRAGS.ItemAttribute)?.value
-                            if (Number.isFinite(value)) attributeNormalizationByItemId.set(localId, value!)
+                            if (normalization == 'Attribute') {
+                                const value = (itemData[attributeName] as FRAGS.ItemAttribute)?.value
+                                if (Number.isFinite(value)) attributeNormalizationByItemId.set(localId, value!)
+                            }
+                            if (normalizationThenBy == 'Attribute') {
+                                const value = (itemData[attributeName] as FRAGS.ItemAttribute)?.value
+                                if (Number.isFinite(value)) attributeNormalizationThenByByItemId.set(localId, value!)
+                            }
+                        }
+                    }
+                    if (normalization == 'Volume' || normalizationThenBy == 'Volume') {
+                        for (const elemId of itemIds) {
+                            if (typeof elemId !== 'number') continue
+                            if (normalization == 'Volume') {
+                                const value = await fragments.list.get(model)?.getItemsVolume([Number(elemId)])
+                                if (Number.isFinite(value)) volumeNormalizationByItemId.set(elemId, value!)
+                            }
+                            if (normalizationThenBy == 'Volume') {
+                                const value = await fragments.list.get(model)?.getItemsVolume([Number(elemId)])
+                                if (Number.isFinite(value)) volumeNormalizationThenByByItemId.set(elemId, value!)
+                            }
+                        }
+                    }
+                    if (normalization == 'Number' || normalizationThenBy == 'Number') {
+                        for (const elemId of itemIds) {
+                            if (typeof elemId !== 'number') continue
+                            if (normalization == 'Number') {
+                                const value = Number(normalizationNumber.value as string) ? Number(normalizationNumber.value as string) : 1
+                                if (Number.isFinite(value)) numberNormalizationByItemId.set(elemId, value!)
+                            }
+                            if (normalizationThenBy == 'Number') {
+                                const value = Number(normalizationThenByNumber.value as string) ? Number(normalizationThenByNumber.value as string) : 1
+                                if (Number.isFinite(value)) numberNormalizationThenByByItemId.set(elemId, value!)
+                            }
                         }
                     }
 
-                    //const modelItemIds = [...new Set(costItemMeta.map(({ itemId }) => itemId))]
-                    //console.log(modelItemIds)
-                    // if (normalization == 'Volume' && modelItemIds.length > 0){
-                    //     const itemVolumes: number[] = []
-                    //     for (const i of modelItemIds) {
-                    //         const vol = await fragments.list.get(model)?.getItemsVolume([i])
-                    //         itemVolumes.push(vol ? vol : 1)
-                    //     }
-                    //     //console.log('itemVolumes',itemVolumes)
-                    //     if (Array.isArray(itemVolumes)) {
-                    //         modelItemIds.forEach((itemId, index) => {
-                    //             item_volume_map[itemId] = itemVolumes[index]
-                    //         })
-                    //     } else if (typeof itemVolumes === 'number' && modelItemIds.length === 1) {
-                    //         item_volume_map[modelItemIds[0]] = itemVolumes
-                    //     }
-                    // }
-
+                    const finalNormalizationValueByItemId = new Map<number, number|undefined>()
                     for (const { itemId, costItemObjectType, cvId } of costItemMeta){
 
                         //create a cost count per each item
@@ -1866,25 +1958,37 @@ export function MainViewer () {
                         
                         let costItemCost = ((costValue.AppliedValue as any)[0].ValueComponent as FRAGS.ItemAttribute).value
 
-                        if (normalization == 'Volume'){
-                            const m = fragments.list.get(model)
-                            const normalizationValue = await m?.getItemsVolume([itemId])
-                            costItemCost = normalizationValue ? costItemCost/normalizationValue : 0 //I can directly do this because in the panel the values will be created again, here is only for calculation purposes
-                        } else if (normalization == 'Property'){
-                            const normalizationValue = propertyNormalizationByItemId.get(itemId)
-                            costItemCost = normalizationValue ? costItemCost/normalizationValue : 0 //I can directly do this because in the panel the values will be created again, here is only for calculation purposes
-                        } else if (normalization == 'Attribute'){
-                            const normalizationValue = attributeNormalizationByItemId.get(itemId)
-                            costItemCost = normalizationValue ? costItemCost/normalizationValue : 0 //I can directly do this because in the panel the values will be created again, here is only for calculation purposes
-                        } else if (normalization == 'Number'){
-                            const normalizationValue = Number(normalizationNumber.value as string) ? Number(normalizationNumber.value as string) : 1
-                            costItemCost = normalizationValue ? costItemCost/normalizationValue : 0
+                        let normalizationValue: number | undefined
+                        let normalizationThenByValue: number | undefined
+                        if (normalizationThenBy == 'Property'){
+                            normalizationThenByValue = propertyNormalizationThenByByItemId.get(Number(itemId))
+                        } else if (normalizationThenBy == 'Attribute'){
+                            normalizationThenByValue = attributeNormalizationThenByByItemId.get(Number(itemId))
+                        } else if (normalizationThenBy == 'Volume'){
+                            normalizationThenByValue = volumeNormalizationThenByByItemId.get(Number(itemId))
+                        } else if (normalizationThenBy == 'Number'){
+                            normalizationThenByValue = numberNormalizationThenByByItemId.get(Number(itemId))
                         }
+                        if (normalization == 'Volume'){
+                            normalizationValue = volumeNormalizationByItemId.get(Number(itemId))
+                        } else if (normalization == 'Property'){
+                            normalizationValue = propertyNormalizationByItemId.get(Number(itemId))
+                        } else if (normalization == 'Attribute'){
+                            normalizationValue = attributeNormalizationByItemId.get(Number(itemId))
+                        } else if (normalization == 'Number'){
+                            normalizationValue = numberNormalizationByItemId.get(Number(itemId))
+                        }
+                        if (!normalizationThenBy || normalizationThenBy == 'None') normalizationThenByValue = 1
+                        const finalNormalizationValue = (normalizationValue && normalizationThenByValue) ? (normalizationValue * normalizationThenByValue) : undefined //invert the value to use it for normalization
+                        finalNormalizationValueByItemId.set(Number(itemId), finalNormalizationValue)
+                        
+                        const normalizedCostItemCost = finalNormalizationValue ? costItemCost/finalNormalizationValue : costItemCost
                         
                         if (costItemObjectType != IfcFileLabel_CostAssignment) continue //ATTENTION!!! this value is USERDEFINED so it could be different in projects
-                        item_totalCost_map[itemId] ? item_totalCost_map[itemId] += costItemCost : item_totalCost_map[itemId] = costItemCost
+                        item_totalCost_map[itemId] ? item_totalCost_map[itemId] += normalizedCostItemCost : item_totalCost_map[itemId] = normalizedCostItemCost
                     }
                     model_cost_map[model] = item_totalCost_map
+                    model_finalNormalizationValueByItemId_map[model] = finalNormalizationValueByItemId
                     //model_volume_map[model] = item_volume_map
                 }
 
@@ -1950,7 +2054,7 @@ export function MainViewer () {
                     
                     const startTime_5 = performance.now(); // Start timer
                     const norm = ['Volume','Property','Attribute','Number'].includes(normalization) ? true : false
-                    await onOpenElementXCostPanel(allSelectedItemsModelIdMap,norm,normalization,modelTo_localIdToColor_map,limitToCostItemNameList)
+                    await onOpenElementXCostPanel(allSelectedItemsModelIdMap,norm,model_finalNormalizationValueByItemId_map,modelTo_localIdToColor_map,limitToCostItemNameList)
                     const endTime_5 = performance.now(); // End timer
                     const loadTime_5 = ((endTime_5 - startTime_5) / 1000).toFixed(2); // seconds
                     console.log(`TIME ${loadTime_5} s: total time to create and render cost table`);
@@ -2945,25 +3049,13 @@ export function MainViewer () {
         categoriesDropdown.searchBox = true
         //normalization dropdown menu
         const normalizationPSetName = BUI.Component.create<BUI.TextInput>(() => {
-            return BUI.html`
-                <bim-text-input placeholder='Pset Name'></bim-text-input>
-            `
-        })
+            return BUI.html`<bim-text-input placeholder='Pset Name'></bim-text-input>`})
         const normalizationPropertyName = BUI.Component.create<BUI.TextInput>(() => {
-            return BUI.html`
-                <bim-text-input placeholder='Property Name'></bim-text-input>
-            `
-        })
+            return BUI.html`<bim-text-input placeholder='Property Name'></bim-text-input>`})
         const normalizationAttributeName = BUI.Component.create<BUI.TextInput>(() => {
-            return BUI.html`
-                <bim-text-input placeholder='Attribute Name'></bim-text-input>
-            `
-        })
+            return BUI.html`<bim-text-input placeholder='Attribute Name'></bim-text-input>`})
         const normalizationNumber = BUI.Component.create<BUI.TextInput>(() => {
-            return BUI.html`
-                <bim-text-input placeholder='e.g.: 123.456'></bim-text-input>
-            `
-        })
+            return BUI.html`<bim-text-input placeholder='e.g.: 123.456'></bim-text-input>`})
         const normalizationPropertyChoiceButton = BUI.Component.create<BUI.Button>(() => {
             return BUI.html`
                 <bim-button 
@@ -3001,6 +3093,53 @@ export function MainViewer () {
             </bim-dropdown>`,
         )
         normalizationDropdown.style.display = ''
+        //normalization "thenBy" dropdown menu
+        const normalizationThenByPSetName = BUI.Component.create<BUI.TextInput>(() => {
+            return BUI.html`<bim-text-input placeholder='Pset Name'></bim-text-input>`})
+        const normalizationThenByPropertyName = BUI.Component.create<BUI.TextInput>(() => {
+            return BUI.html`<bim-text-input placeholder='Property Name'></bim-text-input>`})
+        const normalizationThenByAttributeName = BUI.Component.create<BUI.TextInput>(() => {
+            return BUI.html`<bim-text-input placeholder='Attribute Name'></bim-text-input>`})
+        const normalizationThenByNumber = BUI.Component.create<BUI.TextInput>(() => {
+            return BUI.html`<bim-text-input placeholder='e.g.: 123.456'></bim-text-input>`})
+        const normalizationThenByPropertyChoiceButton = BUI.Component.create<BUI.Button>(() => {
+            return BUI.html`
+                <bim-button 
+                    label = 'Instance'
+                    @click=${(e:Event) => {
+                        const btn = e.target as BUI.Button;
+                        btn.label = btn.label=='Instance'?'Type':btn.label=='Type'?'Quantity':'Instance';
+                        if (btn.label=='Quantity'){
+                            normalizationThenByPSetName.style.display = 'none'
+                            normalizationThenByPropertyName.placeholder = 'Quantity Name'
+                        } else {
+                            normalizationThenByPSetName.style.display = ''
+                            normalizationThenByPropertyName.placeholder = 'Property Name'
+                        }
+                    }}
+                    tooltip-text='Click to choose a between Instance Property, Type Property, or Quantity for the second normalization'
+                    style='max-width:fit-content; min-width:fit-content'
+                >
+                </bim-button>
+            `
+        })
+        normalizationThenByPSetName.style.display = 'none'
+        normalizationThenByPropertyName.style.display = 'none'
+        normalizationThenByAttributeName.style.display = 'none'
+        normalizationThenByNumber.style.display = 'none'
+        normalizationThenByPropertyChoiceButton.style.display = 'none'
+        const normalizationThenByDropdown = BUI.Component.create<BUI.Dropdown>(
+            () => BUI.html`
+            <bim-dropdown name="normalizationThenByOptions" label='Then By (double normalization)' icon='gg:corner-down-right' style="min-width:fit-content; margin-left:1rem">
+                <bim-option label='None' icon='mdi:denied' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Number' icon='cuida:number-outline' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Volume' icon='proicons:cube' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Attribute' icon='material-symbols:user-attributes-rounded' style="padding:0 10px 0 10px"></bim-option>
+                <bim-option label='Property' icon='ic:round-list' style="padding:0 10px 0 10px"></bim-option>
+            </bim-dropdown>`,
+        )
+        normalizationThenByDropdown.style.display = ''
+
         resourcesDropdown.addEventListener('change', (event) => {
             if (!event.target) return
             if ((event.target as any).value[0] == IfcFileLabel_TotalCost){
@@ -3038,6 +3177,35 @@ export function MainViewer () {
                 normalizationPropertyChoiceButton.style.display = 'none'
                 normalizationAttributeName.style.display = 'none'
                 normalizationNumber.style.display = 'none'
+            }
+        })
+        
+        normalizationThenByDropdown.addEventListener('change', (event) => {
+            if (!event.target) return
+            if ((event.target as any).value[0] == 'Property'){
+                normalizationThenByPSetName.style.display = ''
+                normalizationThenByPropertyName.style.display = ''
+                normalizationThenByPropertyChoiceButton.style.display = ''
+                normalizationThenByAttributeName.style.display = 'none'
+                normalizationThenByNumber.style.display = 'none'
+            } else if ((event.target as any).value[0] == 'Attribute'){
+                normalizationThenByPSetName.style.display = 'none'
+                normalizationThenByPropertyName.style.display = 'none'
+                normalizationThenByPropertyChoiceButton.style.display = 'none'
+                normalizationThenByAttributeName.style.display = ''
+                normalizationThenByNumber.style.display = 'none'
+            } else if ((event.target as any).value[0] == 'Number'){
+                normalizationThenByPSetName.style.display = 'none'
+                normalizationThenByPropertyName.style.display = 'none'
+                normalizationThenByPropertyChoiceButton.style.display = 'none'
+                normalizationThenByAttributeName.style.display = 'none'
+                normalizationThenByNumber.style.display = ''
+            } else {
+                normalizationThenByPSetName.style.display = 'none'
+                normalizationThenByPropertyName.style.display = 'none'
+                normalizationThenByPropertyChoiceButton.style.display = 'none'
+                normalizationThenByAttributeName.style.display = 'none'
+                normalizationThenByNumber.style.display = 'none'
             }
         })
 
@@ -3187,6 +3355,14 @@ export function MainViewer () {
                         ${normalizationAttributeName}
                         ${normalizationNumber}
                     </div>
+                    <div style="display:flex; gap: 0.5rem; align-items:center">
+                        ${normalizationThenByDropdown}
+                        ${normalizationThenByPropertyChoiceButton}
+                        ${normalizationThenByPSetName}
+                        ${normalizationThenByPropertyName}
+                        ${normalizationThenByAttributeName}
+                        ${normalizationThenByNumber}
+                    </div>
                     <div style="display:flex; flex-direction:row; gap: 1rem; align-items:center; justify-content:space-between">
                         <div style="display:flex; gap: 0.5rem; align-items:center">
                             <bim-label icon='mdi:slider'>Range</bim-label>
@@ -3227,7 +3403,7 @@ export function MainViewer () {
         panelLeft.appendChild(colorResourcesPanelSection)
 
         //advanced costs functions and components
-        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined,normalization:boolean=false,normalizationMode:string='None',modelTo_localIdToColor_map?:{[key: string]: Record<string, string>},limitToCostItemNameList:string[]=[]) => {
+        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined,normalization:boolean=false,model_normalizationValueByItemId:{ [key: string]: Map<number, number | undefined>; }={},modelTo_localIdToColor_map?:{[key: string]: Record<string, string>},limitToCostItemNameList:string[]=[]) => {
             //clean panel
             panelDown.innerHTML=''
             panelDown.appendChild(loadingLabel)
@@ -3369,53 +3545,6 @@ export function MainViewer () {
                     }
                 })
                 const costValuesById = mapItemsByLocalId(costValuesRecord?.[model] as any[] ?? [])
-                const propertyNormalizationByItemId = new Map<number, number>()
-                const attributeNormalizationByItemId = new Map<number, number>()
-                if (normalization && normalizationMode == 'Property') {
-                    const pSetName = normalizationPSetName.value as string
-                    const propertyName = normalizationPropertyName.value as string
-                    const selectedItemIds = new Set<number>()
-                    for (const item of selectedItems) {
-                        const selectedItemId = getLocalId(item)
-                        if (typeof selectedItemId === 'number') selectedItemIds.add(selectedItemId)
-                    }
-                    const propertyItemsData = selectedItemIds.size === 0 ? null : await fragments.getData({[model]: selectedItemIds}, {
-                        attributesDefault: true,
-                        relations: {
-                            IsDefinedBy: {
-                                attributes: true,
-                                relations: true,
-                            },
-                            IsTypedBy: {
-                                attributes: true,
-                                relations: true,
-                            }
-                        },
-                    })
-                    for (const itemData of propertyItemsData?.[model] ?? []) {
-                        const localId = getLocalId(itemData)
-                        if (typeof localId !== 'number') continue
-                        const value = await getPropertyValueForNormalization(itemData, pSetName, propertyName, model)
-                        if (value !== undefined && Number.isFinite(value)) propertyNormalizationByItemId.set(localId, value)
-                    }
-                } else if (normalization && normalizationMode == 'Attribute') {
-                        const attributeName = normalizationAttributeName.value as string
-                        const selectedItemIds = new Set<number>()
-                        for (const item of selectedItems) {
-                            const selectedItemId = getLocalId(item)
-                            if (typeof selectedItemId === 'number') selectedItemIds.add(selectedItemId)
-                        }
-                        const attributeItemsData = selectedItemIds.size === 0 ? null : await fragments.getData({[model]: selectedItemIds}, {
-                            attributesDefault: true,
-                            relationsDefault: { attributes: false, relations: false }
-                        })
-                        for (const itemData of attributeItemsData?.[model] ?? []) {
-                            const localId = getLocalId(itemData)
-                            if (typeof localId !== 'number') continue
-                            const value = (itemData[attributeName] as FRAGS.ItemAttribute)?.value
-                            if (value !== undefined && Number.isFinite(value)) attributeNormalizationByItemId.set(localId, value!)
-                        }
-                    }
 
                 for (const item of selectedItems) { //loop over selected items
                     try { //needed to skip potential errors and do not interrupt the loop over items
@@ -3488,21 +3617,9 @@ export function MainViewer () {
                                     dynamicRow.data.ComponentsCostValues = dynamicRow.data.ComponentsCostValues = 'nd'
                                 }
 
-                                let normalizationValue: number | undefined
-                                if (normalizationMode == 'Volume') {
-                                    normalizationValue = await fragments.list.get(model)?.getItemsVolume([itemId])
-                                    dynamicRow.data.NormalizationQuantity = normalization ? `${normalizationValue?formatNumber(normalizationValue):'nd'} m³` : 'nd'
-                                } else if (normalizationMode == 'Property') {
-                                    normalizationValue = propertyNormalizationByItemId.get(Number(itemId))
-                                    dynamicRow.data.NormalizationQuantity = normalization ? `${normalizationValue?formatNumber(normalizationValue):'nd'}` : 'nd'
-                                } else if (normalizationMode == 'Attribute') {
-                                    normalizationValue = attributeNormalizationByItemId.get(Number(itemId))
-                                    dynamicRow.data.NormalizationQuantity = normalization ? `${normalizationValue?formatNumber(normalizationValue):'nd'}` : 'nd'
-                                } else if (normalizationMode == 'Number') {
-                                    normalizationValue = Number(normalizationNumber.value as string) ? Number(normalizationNumber.value as string) : 1
-                                    dynamicRow.data.NormalizationQuantity = normalization ? `${normalizationValue?formatNumber(normalizationValue):'nd'}` : 'nd'
-                                }
+                                const normalizationValue = model_normalizationValueByItemId[model]?.get(Number(itemId))
                                 dynamicRow.data.NormalizedCost = normalization ? `${normalizationValue?formatNumber_Cost(costValueAppliedValue/normalizationValue):'nd'} ${currency}` : 'nd'
+                                dynamicRow.data.NormalizationQuantity = normalization ? `${normalizationValue?formatNumber(normalizationValue):'nd'}` : 'nd'
                                 dynamicRow.data.CostRange = 'nd'
                                 
                                 itemTotalCost += costValueAppliedValue //element total cost: sum of all cost item related
@@ -4280,7 +4397,7 @@ export function MainViewer () {
                     <bim-button
                         icon="tabler:deselect"
                         tooltip-title="Clear Selection"
-                        @click=${() => {highlighter.clear()}}>
+                        @click=${() => {highlighter.clear('select')}}>
                     </bim-button>
                     <bim-button
                         icon="weui:previous-filled"
