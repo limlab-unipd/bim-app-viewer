@@ -12,7 +12,7 @@ type ColorRangeKey = "color_0_02" | "color_02_04" | "color_04_06" | "color_06_08
  * Data grouped by color range.
  * Each key corresponds to a ColorRangeKey and stores an array of element IDs.
  */
-type GroupedData = Record<ColorRangeKey, string[]>;
+type GroupedData = Record<ColorRangeKey | 'color_nd', string[]>;
 
 /**
  * Input data per model.
@@ -27,6 +27,8 @@ type PerModelColorMap = Record<string, Record<string, string>>;
  * Outer key is the model name, value is GroupedData (elements grouped by color range).
  */
 type PerModelGrouped = Record<string, GroupedData>;
+
+export const noCostColor = 'rgb(160, 160, 160)';
 
 // Custom function needed only here
 /**
@@ -143,12 +145,14 @@ export const setHighlighterStyles = (components:OBC.Components, colorscale:strin
         highlighter.styles.set('color_04_06', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.5)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
         highlighter.styles.set('color_06_08', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.75)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
         highlighter.styles.set('color_08_1', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 1)?.[1]),opacity: 1,transparent: false,renderedFaces: 0,})
+        highlighter.styles.set('color_nd', {color: new THREE.Color(noCostColor),opacity: 1,transparent: false,renderedFaces: 0,})
     
         highlighter.styles.set('color_0_02_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
         highlighter.styles.set('color_02_04_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.25)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
         highlighter.styles.set('color_04_06_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.5)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
         highlighter.styles.set('color_06_08_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 0.75)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
         highlighter.styles.set('color_08_1_transparent', {color: new THREE.Color(colorScaleList[colorscale].find(([pos]) => pos === 1)?.[1]),opacity: 0.3,transparent: false,renderedFaces: 0,})
+        highlighter.styles.set('color_nd_transparent', {color: new THREE.Color(noCostColor),opacity: 0.3,transparent: false,renderedFaces: 0,})
     } else {
         switch (lod) {
             case 0:
@@ -309,9 +313,14 @@ export function groupIdsByNormalizedValuePerModel(
             color_02_04: [],
             color_04_06: [],
             color_06_08: [],
-            color_08_1: []
+            color_08_1: [],
+            color_nd: []
         }
         for (const id of Object.keys(elements)) {
+            if (elements[id] === null || elements[id] === 'nd') {
+                grouped.color_nd.push(id)
+                continue
+            }
             const value = normalizedData[modelName]?.[id]
             if (value !== undefined) {
                 const color = colorForValue(Number(value))

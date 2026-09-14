@@ -8,7 +8,7 @@ import * as THREE from "three"
 import * as OBCF from '@thatopen/components-front'
 import { getIFCClassNamesFromCodes } from '../custom-components/ifc-code-converter'
 import { convertCurrency, convertUnits, formatNumber, formatNumber_Cost } from '../custom-components/conversion'
-import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel, getColorRangeKeyByColorValue, getNormalizedValueFromColor, getColorByColorRangeAndColorScale } from '../custom-components/colors'
+import { normalizeAndMapToColor, groupIdsByNormalizedValuePerModel, getColorRangeKeyByColorValue, getNormalizedValueFromColor, getColorByColorRangeAndColorScale, noCostColor } from '../custom-components/colors'
 import Stats, { Panel } from 'stats.js'
 
 // These constants: 
@@ -400,6 +400,7 @@ export function MainViewer () {
                 highlighter.highlightByID('color_04_06', highlighter.selection.color_04_06_transparent, false, false)
                 highlighter.highlightByID('color_06_08', highlighter.selection.color_06_08_transparent, false, false)
                 highlighter.highlightByID('color_08_1', highlighter.selection.color_08_1_transparent, false, false)    
+                highlighter.highlightByID('color_nd', highlighter.selection.color_nd_transparent, false, false)
             } else if (buttonLabel=='Ghost') {
                 //quando aggiorneranno i pacchetti sara' da aggiornare usando come prima direttamente il parametro exclude con setItems
                 await highlighter.highlightByID('color_0_02_transparent', highlighter.selection.color_0_02, true, false)
@@ -407,12 +408,14 @@ export function MainViewer () {
                 await highlighter.highlightByID('color_04_06_transparent', highlighter.selection.color_04_06, true, false)
                 await highlighter.highlightByID('color_06_08_transparent', highlighter.selection.color_06_08, true, false)
                 await highlighter.highlightByID('color_08_1_transparent', highlighter.selection.color_08_1, true, false)
+                await highlighter.highlightByID('color_nd_transparent', highlighter.selection.color_nd, true, false)
 
                 highlighter.highlightByID('color_0_02', OBC.ModelIdMapUtils.intersect([highlighter.selection.color_0_02_transparent,selItems]), false, false)
                 highlighter.highlightByID('color_02_04', OBC.ModelIdMapUtils.intersect([highlighter.selection.color_02_04_transparent,selItems]), false, false)
                 highlighter.highlightByID('color_04_06', OBC.ModelIdMapUtils.intersect([highlighter.selection.color_04_06_transparent,selItems]), false, false)
                 highlighter.highlightByID('color_06_08', OBC.ModelIdMapUtils.intersect([highlighter.selection.color_06_08_transparent,selItems]), false, false)
                 highlighter.highlightByID('color_08_1', OBC.ModelIdMapUtils.intersect([highlighter.selection.color_08_1_transparent,selItems]), false, false)
+                highlighter.highlightByID('color_nd', OBC.ModelIdMapUtils.intersect([highlighter.selection.color_nd_transparent,selItems]), false, false)
             } else {
                 console.log('Analysis still not performed.')
             }
@@ -478,7 +481,7 @@ export function MainViewer () {
             table:BUI.Table<any>,
             field:string,
             ascending:boolean=true,
-            totalOrResourceCostPerGroupedTable: {[group: string]: {cost?: number, resourceCost?: number, normalizedCost?: number}},
+            totalOrResourceCostPerGroupedTable: {[group: string]: {cost?: number, resourceCost?: number, normalizedCost?: number | null}},
             totalOrResource:string='total'
         ) => {
             function parseValue(value: string | number): number | string {
@@ -503,7 +506,7 @@ export function MainViewer () {
                     if (groupKey && totalOrResourceCostPerGroupedTable[groupKey]) {
                         const groupedCost = totalOrResourceCostPerGroupedTable[groupKey]
                         if (field === 'NormalizedCost') {
-                            return groupedCost.normalizedCost ?? ''
+                            return groupedCost.normalizedCost === null ? 'nd' : groupedCost.normalizedCost ?? ''
                         }
                         return groupedCost.cost ?? groupedCost.resourceCost ?? ''
                     }
@@ -753,7 +756,19 @@ export function MainViewer () {
             const rangeIntervalInOut = rangeInterval.label
             const rangeNormalOrCost = rangeCost.label
             const limitSelection = limitToSelection.checked
+            const removeNulls = removeNullValues.checked
             const limitToCostItemNameList = limitToCostItemName.value ? limitToCostItemName.value.split(',').map(s => s.trim()) : []
+            // Only numbers determine the color scale; this does not change the analysis maps.
+            const numericCostsForColorScale = (costsByModel: {[model:string]:{[itemId:number]:number | null}}) => {
+                const numericCostsByModel: {[model:string]:{[itemId:number]:number}} = {}
+                for (const [model, costs] of Object.entries(costsByModel)) {
+                    numericCostsByModel[model] = {}
+                    for (const [itemId, cost] of Object.entries(costs)) {
+                        if (cost !== null) numericCostsByModel[model][Number(itemId)] = cost
+                    }
+                }
+                return numericCostsByModel
+            }
 
             resource = resource == undefined ? IfcFileLabel_TotalCost : resource //if any resource selected use TotalCost as default
             category = category.length == 0 && !excludeIfcClasses ? availableIfcClasses : category  //if any category selected use all categories as default
@@ -891,11 +906,11 @@ export function MainViewer () {
                 }
                 //initialize some maps needed for the process
                 const model_resources_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
-                const model_resourcesColor_Map: {[key:string]:{[key:number]:number}} = {} //resource costs used for coloring and filtering
+                const model_resourcesColor_Map: {[key:string]:{[key:number]:number | null}} = {} //resource costs used for coloring and filtering
                 const model_normalizationQuantity_Map: {[key:string]:{[key:number]:{value?:number, label:string}}} = {}
                 const model_costCount_Map: {[key:string]:{[key:number]:number}} = {} //map per each model
                 const elementsData_Array: elemDataType[] = [] //array to stock data of each element to be shown in the table
-                const elem_resourcesDetails_Map: {[key:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string, resourceName:string}[]} = {} //resource details object
+                const model_resourcesDetails_Map: {[model:string]:{[elemId:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string, resourceName:string}[]}} = {}
                 const getLocalId = (item: any) => item?._localId?.value as number | undefined
                 const mapItemsByLocalId = (items: any[] = []) => {
                     const itemsMap: {[key:number]:any} = {}
@@ -910,9 +925,10 @@ export function MainViewer () {
                 for (const [model,costItems] of Object.entries(filteredCostItems)){ //loop over each model
                     let resourceCurrency = 'nd' //default value, here because is supposed that is used always the same currency in the same project
                     const elem_resources_Map: {[key:number]:number} = {} //map to associate to each element id the related sum of ALL costs of the chosen resource category
-                    const elem_resourcesColor_Map: {[key:number]:number} = {}
+                    const elem_resourcesColor_Map: {[key:number]:number | null} = {}
                     const elem_normalizationQuantity_Map: {[key:number]:{value?:number, label:string}} = {}
                     const elem_costCount_Map: {[key:number]:number} = {} //map to associate to each element id the number of related cost items
+                    const elem_resourcesDetails_Map: {[elemId:number]:{resourceUnitCost:string, elemQuantity:string, resourceDescription:string, resourceName:string}[]} = {}
                     const costItemMeta = costItems.map((ci) => {
                         // --> pay attention: multiple cost items could be related to the same object and moreover each cost item could have more than one unit cost of the same category
                         // example: one column with 5 cost items related and each cost item has 1,2,3 or more unit costs of the same category
@@ -1167,14 +1183,23 @@ export function MainViewer () {
                         if (!normalizationThenBy || normalizationThenBy == 'None') normalizationThenByValue = 1
                         const finalNormalizationValue = (normalizationValue && normalizationThenByValue) ? (normalizationValue * normalizationThenByValue) : undefined //invert the value to use it for normalization
                         
+                        const normalizedResourceCost = finalNormalizationValue === undefined
+                            ? null
+                            : resourceCost / finalNormalizationValue
+                        const analysisResourceCost = normalization === 'None' ? resourceCost : normalizedResourceCost
+                        if (removeNulls && analysisResourceCost === null) {
+                            delete elem_resources_Map[Number(elemId)]
+                            delete elem_costCount_Map[Number(elemId)]
+                            delete elem_resourcesDetails_Map[Number(elemId)]
+                            continue
+                        }
+
                         const normalizationQuantityLabel = finalNormalizationValue ? `${formatNumber(finalNormalizationValue)}` : 'nd'
                         elem_normalizationQuantity_Map[Number(elemId)] = {
                             value: finalNormalizationValue,
                             label: normalizeResourceCost ? normalizationQuantityLabel : 'nd'
                         }
-                        elem_resourcesColor_Map[Number(elemId)] = normalizeResourceCost
-                            ? finalNormalizationValue ? resourceCost / finalNormalizationValue : 0
-                            : resourceCost
+                        elem_resourcesColor_Map[Number(elemId)] = analysisResourceCost
                         const elemData : elemDataType = {
                             elemModel: model,
                             elemId: Number(elemId),
@@ -1196,6 +1221,7 @@ export function MainViewer () {
                     model_resourcesColor_Map[model] = elem_resourcesColor_Map
                     model_normalizationQuantity_Map[model] = elem_normalizationQuantity_Map
                     model_costCount_Map[model] = elem_costCount_Map
+                    model_resourcesDetails_Map[model] = elem_resourcesDetails_Map
                 }
                 const endTime_resourceCostData = performance.now(); // End timer
                 const loadTime_resourceCostData = ((endTime_resourceCostData - startTime_resourceCostData) / 1000).toFixed(2); // seconds
@@ -1211,7 +1237,7 @@ export function MainViewer () {
                 if (btn == 'Color'){
                     //this step is moved here to handle with ranges, in this way the localIdToColor_map contains only item within the range
                     //step 5.0.1: normalize total resource cost to color across models
-                    const [modelTo_localIdToColor_map, modelTo_localIdToNormalizedValue_map] = normalizeAndMapToColor(model_resourcesColor_Map,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost) //use this function to normalize values between 0 and 1 and return color and normalized value
+                    const [modelTo_localIdToColor_map, modelTo_localIdToNormalizedValue_map] = normalizeAndMapToColor(numericCostsForColorScale(model_resourcesColor_Map),colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost) //use this function to normalize values between 0 and 1 and return color and normalized value
 
                     //step 5: RESOURCE TABLE CREATION
                     //table type for resource table
@@ -1287,11 +1313,12 @@ export function MainViewer () {
                     //so the table is correctly created
                     for (const elem of elementsData_Array) {
                         const elemColor = modelTo_localIdToColor_map[elem.elemModel]?.[elem.elemId]
-                        if (!elemColor) continue //checks if the item id is outside of the selected form the range or not
+                        const analysisCost = model_resourcesColor_Map[elem.elemModel]?.[elem.elemId]
+                        if (!elemColor && analysisCost !== null) continue //numeric costs still follow the selected range
                         countItems += 1
                         countCostItems += model_costCount_Map[elem.elemModel]?.[elem.elemId] || 0 //sum all the count of cost items only of the items within the range
                         
-                        for (const resourceDetails of elem_resourcesDetails_Map[elem.elemId]){
+                        for (const resourceDetails of model_resourcesDetails_Map[elem.elemModel]?.[elem.elemId] ?? []){
                             countResources += 1
                             const resourceRowCost = Math.round((Number(resourceDetails.resourceUnitCost.split(' ')[0])*Number(resourceDetails.elemQuantity.split(' ')[0]))*100)/100
                             const normalizationValue = model_normalizationQuantity_Map[elem.elemModel]?.[elem.elemId]?.value
@@ -1309,7 +1336,7 @@ export function MainViewer () {
                                     ResourceName: resourceDetails.resourceName,
                                     ResourceDescription: resourceDetails.resourceDescription,
                                     ResourceCost: `${resourceRowCost} ${elem.currency}`,
-                                    ResourceCostRange: getColorRangeKeyByColorValue(elemColor), //this is the range key to which the resource cost belongs based on its color
+                                    ResourceCostRange: elemColor ? getColorRangeKeyByColorValue(elemColor) : 'nd', //null costs have no color range
                                     ResourceUnitCost: resourceDetails.resourceUnitCost,
                                     ElementQuantity: resourceDetails.elemQuantity,
                                     NormalizationQuantity: normalizeResourceCost ? normalizationQuantity : 'nd',
@@ -1341,7 +1368,8 @@ export function MainViewer () {
                     dynamicResourceTable.dataTransform.NormalizedValue = (value, rowData) => {
                         const { Model, ItemId } = rowData
                         if (!Model || !ItemId) return value //if Model or ItemId is not defined, return the original value
-                        return Math.round(modelTo_localIdToNormalizedValue_map[Model]?.[ItemId]*1000)/1000
+                        const normalizedValue = modelTo_localIdToNormalizedValue_map[Model]?.[ItemId]
+                        return normalizedValue === undefined ? 'nd' : Math.round(normalizedValue*1000)/1000
                     }
                     //document.getElementById('resource_groupby_costrange')!.click()
 
@@ -1366,7 +1394,11 @@ export function MainViewer () {
                     const groupResourceElements = new Set<string>()
                     const groupResourceNames = new Set<string>()
     
-                    const resourceCostPerGroupedTable: {[group: string]: {resourceCost: number, normalizedCost: number, currency: string, resourceDescription?: string, resourceUnitCost?: string, model?:string, itemId?: number}} = {}
+                    const resourceCostPerGroupedTable: {[group: string]: {resourceCost: number, normalizedCost: number | null, currency: string, resourceDescription?: string, resourceUnitCost?: string, model?:string, itemId?: number}} = {}
+                    const addGroupedNormalizedCost = (group: string, value: number | null) => {
+                        const current = resourceCostPerGroupedTable[group].normalizedCost
+                        resourceCostPerGroupedTable[group].normalizedCost = current === null || value === null ? null : current + value
+                    }
                     
                     for (const row of dynamicResourceTable.data){
                         const groupIfcClass = row.data.ElementIfcClass
@@ -1376,7 +1408,7 @@ export function MainViewer () {
                         const cost = Number((row.data.ResourceCost as string).split(' ')[0])
                         const currency = (row.data.ResourceCost as string).split(' ')[1]
                         const normalizedCostValue = Number((row.data.NormalizedCost as string).replace(currency, '').replace(' ', ''))
-                        const normalizedCost = Number.isFinite(normalizedCostValue) ? normalizedCostValue : 0
+                        const normalizedCost = Number.isFinite(normalizedCostValue) ? normalizedCostValue : null
                         const itemId = row.data.ItemId
                         const model = row.data.Model
     
@@ -1389,21 +1421,21 @@ export function MainViewer () {
                             resourceCostPerGroupedTable[groupIfcClass] = { resourceCost: 0, normalizedCost: 0, currency, model }
                         }
                         resourceCostPerGroupedTable[groupIfcClass].resourceCost += cost
-                        resourceCostPerGroupedTable[groupIfcClass].normalizedCost += normalizedCost
+                        addGroupedNormalizedCost(groupIfcClass, normalizedCost)
                         groupResourceIfcClasses.add(groupIfcClass)
     
                         if (!resourceCostPerGroupedTable[groupElement]) {
                             resourceCostPerGroupedTable[groupElement] = { resourceCost: 0, normalizedCost: 0, currency, model, itemId}
                         }
                         resourceCostPerGroupedTable[groupElement].resourceCost += cost
-                        resourceCostPerGroupedTable[groupElement].normalizedCost += normalizedCost
+                        addGroupedNormalizedCost(groupElement, normalizedCost)
                         groupResourceElements.add(groupElement)
     
                         if (!resourceCostPerGroupedTable[groupResourceName]) {
                             resourceCostPerGroupedTable[groupResourceName] = { resourceCost: 0, normalizedCost: 0, currency, model, resourceDescription: row.data.ResourceDescription, resourceUnitCost: row.data.ResourceUnitCost}
                         }
                         resourceCostPerGroupedTable[groupResourceName].resourceCost += cost
-                        resourceCostPerGroupedTable[groupResourceName].normalizedCost += normalizedCost
+                        addGroupedNormalizedCost(groupResourceName, normalizedCost)
                         groupResourceNames.add(groupResourceName)
                     }
                     dynamicResourceTable.dataTransform = {
@@ -1435,8 +1467,9 @@ export function MainViewer () {
                             }
                         },
                         ResourceCostRange: (value) => {
+                            //if (value === 'nd') return 'nd'
                             const colorScale = colorScaleDropdown.value[0]
-                            const color = getColorByColorRangeAndColorScale(value!, colorScale)
+                            const color = getColorByColorRangeAndColorScale(value!, colorScale) ?? noCostColor
                             return BUI.html`
                                 <div style="display: flex; flex-direction:row; gap:0.5rem; min-width:100%">
                                     <div style="height:1rem; width: 1rem; border-radius:5px; 
@@ -1451,13 +1484,15 @@ export function MainViewer () {
                             if (!normalizeResourceCost) return value
                             if (!ElementName && !ResourceName && ElementIfcClass) {
                                 if (value!='') return value
+                                if (resourceCostPerGroupedTable[ElementIfcClass]?.normalizedCost === null) return 'nd'
                                 return formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ElementIfcClass]?.normalizedCost*100)/100)+' '+resourceCostPerGroupedTable[ElementIfcClass]?.currency
                             } else if (!ElementName && ResourceName && !ElementIfcClass) {
                                 if (value!='') return value
+                                if (resourceCostPerGroupedTable[ResourceName]?.normalizedCost === null) return 'nd'
                                 return formatNumber_Cost(Math.round(resourceCostPerGroupedTable[ResourceName]?.normalizedCost*100)/100)+' '+resourceCostPerGroupedTable[ResourceName]?.currency
                             } else if (ElementName && !ResourceName && !ElementIfcClass) {
                                 if (value!='') return value
-                                if (!resourceCostPerGroupedTable[ElementName]?.normalizedCost) return value
+                                if (resourceCostPerGroupedTable[ElementName]?.normalizedCost === null) return 'nd'
                                 const m = resourceCostPerGroupedTable[ElementName]?.model
                                 if (modelTo_localIdToColor_map && normalizeResourceCost) {
                                     return BUI.html`
@@ -1478,7 +1513,8 @@ export function MainViewer () {
                         NormalizedValue: (value, rowData) => {
                             const { Model, ItemId } = rowData
                             if (!Model || !ItemId) return value
-                            return Math.round(modelTo_localIdToNormalizedValue_map[Model]?.[ItemId]*1000)/1000
+                            const normalizedValue = modelTo_localIdToNormalizedValue_map[Model]?.[ItemId]
+                            return normalizedValue === undefined ? 'nd' : Math.round(normalizedValue*1000)/1000
                         },
                         ResourceDescription: (value, rowData) => {
                             const { ElementName, ElementIfcClass, ResourceName } = rowData
@@ -1583,19 +1619,19 @@ export function MainViewer () {
                                 const itemId = resourceCostPerGroupedTable[groupElement]?.itemId
                                 const model = resourceCostPerGroupedTable[groupElement]?.model
                                 const color = model && itemId !== undefined ? modelTo_localIdToColor_map[model]?.[Number(itemId)] : undefined
-                                if (!color) continue
-                                if (!resourceCostPerColor[color]) {
-                                    resourceCostPerColor[color] = { items: 0, cost: 0 }
+                                const colorKey = color ?? 'nd'
+                                if (!resourceCostPerColor[colorKey]) {
+                                    resourceCostPerColor[colorKey] = { items: 0, cost: 0 }
                                 }
-                                resourceCostPerColor[color].cost += resourceCostPerGroupedTable[groupElement]?.resourceCost ?? 0
-                                resourceCostPerColor[color].items += 1
+                                resourceCostPerColor[colorKey].cost += resourceCostPerGroupedTable[groupElement]?.resourceCost ?? 0
+                                resourceCostPerColor[colorKey].items += 1
                             }
     
                             const orderedColorsWithValue = Object.keys(resourceCostPerColor)
                                 .map((color) => ({
-                                    color: color,
-                                    rangeValue: getNormalizedValueFromColor(color, colorscale) ?? 0,
-                                    rangeLabel: getColorRangeKeyByColorValue(color)?.slice(3) ?? color,
+                                    color: color === 'nd' ? noCostColor : color,
+                                    rangeValue: color === 'nd' ? -1 : getNormalizedValueFromColor(color, colorscale) ?? 0,
+                                    rangeLabel: color === 'nd' ? 'nd' : getColorRangeKeyByColorValue(color)?.slice(3) ?? color,
                                     totalCost: Math.round(resourceCostPerColor[color].cost*100)/100,
                                     itemsNumber: resourceCostPerColor[color].items
                                 }))
@@ -1773,6 +1809,7 @@ export function MainViewer () {
                                             (highlighter.styles.get('color_04_06_transparent') as any).opacity = target.value;
                                             (highlighter.styles.get('color_06_08_transparent') as any).opacity = target.value;
                                             (highlighter.styles.get('color_08_1_transparent') as any).opacity = target.value;
+                                            (highlighter.styles.get('color_nd_transparent') as any).opacity = target.value;
                                             await highlighter.updateColors()
                                         }}">
                                     </bim-number-input>
@@ -1824,7 +1861,7 @@ export function MainViewer () {
 
                 await highlighter.clear() //reset previous selections of highlighter
                 const model_volume_map: {[key:string]:any} = {}
-                const model_cost_map: {[key:string]:{[key: number]: number}} = {}
+                const model_cost_map: {[key:string]:{[key: number]: number | null}} = {}
                 const model_costCount_map: {[key:string]:any} = {}
                 const model_finalNormalizationValueByItemId_map: {[key:string]:Map<number, number|undefined>} = {}
                 const getLocalId = (item: any) => item?._localId?.value as number | undefined
@@ -1837,7 +1874,7 @@ export function MainViewer () {
                     return itemsMap
                 }
                 for (const [model,costItems] of Object.entries(filteredCostItems)){
-                    const item_totalCost_map: {[key:number]:number} = {}
+                    const item_totalCost_map: {[key:number]:number | null} = {}
                     //const item_volume_map: {[key:number]:number|undefined} = {}
                     model_costCount_map[model] = {}
                     const costItemMeta = costItems.map((ci) => {
@@ -1956,7 +1993,7 @@ export function MainViewer () {
                         const costValue = costValuesById[cvId] as any
                         if (!costValue?.AppliedValue?.[0]?.ValueComponent) continue
                         
-                        let costItemCost = ((costValue.AppliedValue as any)[0].ValueComponent as FRAGS.ItemAttribute).value
+                        const costItemCost = ((costValue.AppliedValue as any)[0].ValueComponent as FRAGS.ItemAttribute).value as number | null
 
                         let normalizationValue: number | undefined
                         let normalizationThenByValue: number | undefined
@@ -1982,10 +2019,25 @@ export function MainViewer () {
                         const finalNormalizationValue = (normalizationValue && normalizationThenByValue) ? (normalizationValue * normalizationThenByValue) : undefined //invert the value to use it for normalization
                         finalNormalizationValueByItemId.set(Number(itemId), finalNormalizationValue)
                         
-                        const normalizedCostItemCost = finalNormalizationValue ? costItemCost/finalNormalizationValue : costItemCost
+                        const normalizedCostItemCost = costItemCost === null || finalNormalizationValue === undefined
+                            ? null
+                            : costItemCost / finalNormalizationValue
+                        const costToAdd = normalization === 'None' ? costItemCost : normalizedCostItemCost
                         
                         if (costItemObjectType != IfcFileLabel_CostAssignment) continue //ATTENTION!!! this value is USERDEFINED so it could be different in projects
-                        item_totalCost_map[itemId] ? item_totalCost_map[itemId] += normalizedCostItemCost : item_totalCost_map[itemId] = normalizedCostItemCost
+                        if (costToAdd === null || item_totalCost_map[itemId] === null) {
+                            item_totalCost_map[itemId] = null
+                        } else {
+                            item_totalCost_map[itemId] = (item_totalCost_map[itemId] ?? 0) + costToAdd
+                        }
+                    }
+                    if (removeNulls) {
+                        for (const [itemId, totalCost] of Object.entries(item_totalCost_map)) {
+                            if (totalCost !== null) continue
+                            delete item_totalCost_map[Number(itemId)]
+                            delete model_costCount_map[model][Number(itemId)]
+                            finalNormalizationValueByItemId.delete(Number(itemId))
+                        }
                     }
                     model_cost_map[model] = item_totalCost_map
                     model_finalNormalizationValueByItemId_map[model] = finalNormalizationValueByItemId
@@ -1996,12 +2048,14 @@ export function MainViewer () {
                 const loadTime_4 = ((endTime_4 - startTime_4) / 1000).toFixed(2); // seconds
                 console.log(`TIME ${loadTime_4} s: whole process of getting total costs data`);
 
+                console.log(`model_cost_map`,model_cost_map)
+
                 //normalize cost to get colors and filter according to chosen range
                 const normalized_cost: {[key:string]:{[key:string]:number}} = {}
                 let modelTo_localIdToColor_map: Record<string, Record<string, string>>
                 let modelTo_localIdToNormalizedValue_map: Record<string, Record<string, number>>
 
-                [modelTo_localIdToColor_map,modelTo_localIdToNormalizedValue_map] = normalizeAndMapToColor(model_cost_map,colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost)
+                [modelTo_localIdToColor_map,modelTo_localIdToNormalizedValue_map] = normalizeAndMapToColor(numericCostsForColorScale(model_cost_map),colorscale,rangeMin,rangeMax,rangeIntervalInOut,rangeNormalOrCost)
 
                 //filter all the found elements according to the range
                 const allSelectedItemsModelIdMap = Object.fromEntries(
@@ -2009,7 +2063,7 @@ export function MainViewer () {
                         k,
                         new Set(Object.keys(v)
                             .map(Number)
-                            .filter(num => Boolean(modelTo_localIdToColor_map[k]?.[num]))
+                            .filter(num => v[num] === null || Boolean(modelTo_localIdToColor_map[k]?.[num]))
                         )
                     ])
                 )
@@ -3275,6 +3329,17 @@ export function MainViewer () {
                 </bim-checkbox>
             `
         })
+        const removeNullValues = BUI.Component.create<BUI.Checkbox>(() => {
+            return BUI.html`
+                <bim-checkbox
+                    checked
+                    label='Remove null values'
+                    tooltip-text='Click to remove null values from the analysis'
+                    icon='carbon:null-sign'
+                >
+                </bim-checkbox>
+            `
+        })
         const limitToCostItemName = BUI.Component.create<BUI.TextInput>(() => {
             return BUI.html`
                 <bim-text-input
@@ -3385,6 +3450,7 @@ export function MainViewer () {
                             </div>
                         </div>
                     </div>
+                    ${removeNullValues}
                     ${countLabel}
                     <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
                         <bim-button icon='ri:brush-ai-fill' label='COLOR' @click=${onColorByCost}></bim-button>
@@ -3676,7 +3742,11 @@ export function MainViewer () {
                     </bim-button>`,
             )
 
-            const totalCostPerGroupedTable: {[group: string]: {cost: number, normalizedCost: number, quantity: number, currency: string, um: string, model:string, itemId?: number, costItemUnitCost?: string|number, costItemDescription?: string, ComponentsValue?: any}} = {}
+            const totalCostPerGroupedTable: {[group: string]: {cost: number, normalizedCost: number | null, quantity: number, currency: string, um: string, model:string, itemId?: number, costItemUnitCost?: string|number, costItemDescription?: string, ComponentsValue?: any}} = {}
+            const addGroupedNormalizedCost = (group: string, value: number | null) => {
+                const current = totalCostPerGroupedTable[group].normalizedCost
+                totalCostPerGroupedTable[group].normalizedCost = current === null || value === null ? null : current + value
+            }
             const groupIfcClasses = new Set<string>()
             const groupElements = new Set<string>()
             const groupCostItems = new Set<string>()
@@ -3688,14 +3758,15 @@ export function MainViewer () {
                 const cost = Number((row.data.Cost as string).split(' ')[0])
                 const quantity = Number((row.data.Quantity as string).split(' ')[0])
                 const currency = (row.data.Cost as string).split(' ')[1]
-                const normalizedCost = Number((row.data.NormalizedCost as string).replace(currency, '').replace(' ', ''))
+                const normalizedCostValue = Number((row.data.NormalizedCost as string).replace(currency, '').replace(' ', ''))
+                const normalizedCost = Number.isFinite(normalizedCostValue) ? normalizedCostValue : null
                 const um = (row.data.Quantity as string).split(' ')[1] //unit of measure
                 const itemId = row.data.ItemId
                 const model = row.data.Model
 
                 if (modelTo_localIdToColor_map && itemId && model) {
                     const colorValue = modelTo_localIdToColor_map[model]?.[Number(itemId)]
-                    row.data.CostRange = colorValue ? getColorRangeKeyByColorValue(colorValue) ?? colorValue : colorValue
+                    row.data.CostRange = colorValue ? getColorRangeKeyByColorValue(colorValue) ?? colorValue : 'nd'
                 }
 
                 if (!model) continue
@@ -3703,21 +3774,21 @@ export function MainViewer () {
                     totalCostPerGroupedTable[groupIfcClass] = { cost: 0, normalizedCost: 0, quantity: 0, currency, um, model }
                 }
                 totalCostPerGroupedTable[groupIfcClass].cost += cost
-                totalCostPerGroupedTable[groupIfcClass].normalizedCost += normalizedCost
+                addGroupedNormalizedCost(groupIfcClass, normalizedCost)
                 groupIfcClasses.add(groupIfcClass)
 
                 if (!totalCostPerGroupedTable[groupElement]) {
                     totalCostPerGroupedTable[groupElement] = { cost: 0, normalizedCost: 0, quantity: 0, currency, um, model, itemId}
                 }
                 totalCostPerGroupedTable[groupElement].cost += cost
-                totalCostPerGroupedTable[groupElement].normalizedCost +=normalizedCost
+                addGroupedNormalizedCost(groupElement, normalizedCost)
                 groupElements.add(groupElement)
 
                 if (!totalCostPerGroupedTable[groupCostItem]) {
                     totalCostPerGroupedTable[groupCostItem] = { cost: 0, normalizedCost: 0, quantity: 0, currency, um, model, costItemUnitCost: row.data.CostItemUnitCost, costItemDescription: row.data.CostItemDescription, ComponentsValue: row.data.ComponentsCostValues }
                 }
                 totalCostPerGroupedTable[groupCostItem].cost += cost
-                totalCostPerGroupedTable[groupCostItem].normalizedCost += normalizedCost
+                addGroupedNormalizedCost(groupCostItem, normalizedCost)
                 totalCostPerGroupedTable[groupCostItem].quantity += quantity
                 groupCostItems.add(groupCostItem)
             }
@@ -3751,8 +3822,9 @@ export function MainViewer () {
                     }
                 },
                 CostRange: (value) => {
+                    //if (value === 'nd') return 'nd'
                     const colorScale = colorScaleDropdown.value[0]
-                    const color = getColorByColorRangeAndColorScale(value!, colorScale)
+                    const color = getColorByColorRangeAndColorScale(value!, colorScale) ?? noCostColor
                     return BUI.html`
                         <div style="display: flex; flex-direction:row; gap:0.5rem; min-width:100%">
                             <div style="height:1rem; width: 1rem; border-radius:5px; 
@@ -3766,13 +3838,15 @@ export function MainViewer () {
                     const { ElementName, ElementIfcClass, CostItemName } = rowData
                     if (!ElementName && !CostItemName && ElementIfcClass) {
                         if (value!='') return value
+                        if (totalCostPerGroupedTable[ElementIfcClass]?.normalizedCost === null) return 'nd'
                         return formatNumber_Cost(Math.round(totalCostPerGroupedTable[ElementIfcClass]?.normalizedCost*100)/100)+' '+totalCostPerGroupedTable[ElementIfcClass]?.currency
                     } else if (!ElementName && CostItemName && !ElementIfcClass) {
                         if (value!='') return value
+                        if (totalCostPerGroupedTable[CostItemName]?.normalizedCost === null) return 'nd'
                         return formatNumber_Cost(Math.round(totalCostPerGroupedTable[CostItemName]?.normalizedCost*100)/100)+' '+totalCostPerGroupedTable[CostItemName]?.currency
                     } else if (ElementName && !CostItemName && !ElementIfcClass) {
                         if (value!='') return value
-                        if (!totalCostPerGroupedTable[ElementName]?.normalizedCost) return value
+                        if (totalCostPerGroupedTable[ElementName]?.normalizedCost === null) return 'nd'
                         const m = totalCostPerGroupedTable[ElementName]?.model // this is needed only here because the Element grouping is the only one with colors
                         if (modelTo_localIdToColor_map && normalization) {
                             return BUI.html`
@@ -3916,18 +3990,18 @@ export function MainViewer () {
                         const model = totalCostPerGroupedTable[groupElement]?.model
                         if (!model || !itemId) continue
                         const color = itemId !== undefined ? modelTo_localIdToColor_map[model]?.[Number(itemId)] : undefined
-                        if (!color) continue
-                        totalCostPerColor[color] = totalCostPerColor[color] ? totalCostPerColor[color] : { items: 0, cost: 0 }
-                        totalCostPerColor[color].cost = (totalCostPerColor[color].cost ?? 0) + (totalCostPerGroupedTable[groupElement]?.cost ?? 0)
-                        totalCostPerColor[color].items = (totalCostPerColor[color].items ?? 0) + 1
+                        const colorKey = color ?? 'nd'
+                        totalCostPerColor[colorKey] = totalCostPerColor[colorKey] ? totalCostPerColor[colorKey] : { items: 0, cost: 0 }
+                        totalCostPerColor[colorKey].cost = (totalCostPerColor[colorKey].cost ?? 0) + (totalCostPerGroupedTable[groupElement]?.cost ?? 0)
+                        totalCostPerColor[colorKey].items = (totalCostPerColor[colorKey].items ?? 0) + 1
                     }
 
                     const [colorscale] = colorScaleDropdown.value ? colorScaleDropdown.value : 'gnylrd'
                     const orderedColorsWithValue = Object.keys(totalCostPerColor)
                         .map((color) => ({
-                            color: color,
-                            rangeValue: getNormalizedValueFromColor(color, colorscale) ?? 0,
-                            rangeLabel: getColorRangeKeyByColorValue(color)?.slice(3) ?? color,
+                            color: color === 'nd' ? noCostColor : color,
+                            rangeValue: color === 'nd' ? -1 : getNormalizedValueFromColor(color, colorscale) ?? 0,
+                            rangeLabel: color === 'nd' ? 'nd' : getColorRangeKeyByColorValue(color)?.slice(3) ?? color,
                             totalCost: Math.round(totalCostPerColor[color].cost*100)/100,
                             itemsNumber: totalCostPerColor[color].items
                         }))
@@ -4114,6 +4188,7 @@ export function MainViewer () {
                                     (highlighter.styles.get('color_04_06_transparent') as any).opacity = target.value;
                                     (highlighter.styles.get('color_06_08_transparent') as any).opacity = target.value;
                                     (highlighter.styles.get('color_08_1_transparent') as any).opacity = target.value;
+                                    (highlighter.styles.get('color_nd_transparent') as any).opacity = target.value;
                                     await highlighter.updateColors()
                                 }}">
                             </bim-number-input>
