@@ -13,7 +13,7 @@ import * as BUI from '@thatopen/ui'
 //#region REACT COMPONENTS
 function UrbanViewerRedirect() {
     React.useEffect(() => {
-        window.location.replace('https://bim-app-viewer-urban.vercel.app/urban-viewer');
+        window.location.replace('https://bim-app-viewer-urban.vercel.app');
     }, [])
     return null
 }
