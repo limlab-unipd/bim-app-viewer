@@ -1,3 +1,4 @@
+import * as React from 'react'
 import * as ReactDOM from 'react-dom/client'
 import * as Router from 'react-router-dom'
 
@@ -10,6 +11,13 @@ import * as BUI from '@thatopen/ui'
 //import { UrbanViewer } from './viewer-components/UrbanViewer'
 
 //#region REACT COMPONENTS
+function UrbanViewerRedirect() {
+    React.useEffect(() => {
+        window.location.replace('https://bim-app-viewer-urban.vercel.app/urban-viewer');
+    }, [])
+    return null
+}
+
 const rootElement = document.getElementById('app') as HTMLDivElement
 const appRoot = ReactDOM.createRoot(rootElement)
 BUI.Manager.init()
@@ -37,12 +45,7 @@ appRoot.render(
                 />
                 <Router.Route
                     path="/urban-viewer"
-                    element={
-                        <div className="app-layout">
-                            <MenuSidebar />
-                            {/* <UrbanViewer /> */}
-                        </div>
-                    }
+                    element={<UrbanViewerRedirect />}
                 />
                 <Router.Route
                     path="/survey"
