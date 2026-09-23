@@ -27,7 +27,7 @@ export async function readArrow(file: ArrowFile = 'materials') {
         loadedFile = 'Suburbs boundaries'
     } else if (file=='boundaries_sa1') {
         resp = await fetch('/ARROW/ACT_boundaries_sa1.arrow')
-        loadedFile = 'Population'
+        loadedFile = 'Sections boundaries'
     } else if (file=='population') {
         resp = await fetch('/ARROW/ACT_population.arrow')
         loadedFile = 'Population'
