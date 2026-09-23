@@ -10,10 +10,10 @@ export function MenuSidebar() {
     let downTitle = ''
     if (page=='') {
         upTitle='viewer'
-        downTitle='costs'
-    } else if (page=='urban-viewer') {
-        upTitle='viewer'
         downTitle='urban'
+    } else if (page=='cost-viewer') {
+        upTitle='viewer'
+        downTitle='costs'
     }
 
     // Sidebar up title component
