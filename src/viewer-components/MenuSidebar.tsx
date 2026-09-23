@@ -66,7 +66,7 @@ export function MenuSidebar() {
                         tooltip-title="Costs Viewer"
                         style="display:flex; min-width:2.5rem; min-height:2.5rem; align-items:center; justify-content:center"
                         @click=${(e: any) => {
-                            navigate('/');
+                            navigate('/cost-viewer');
                         }}>
                     </bim-button>
                     <bim-button
@@ -75,7 +75,7 @@ export function MenuSidebar() {
                         tooltip-title="Urban Viewer"
                         style="display:flex; min-width:2.5rem; min-height:2.5rem; align-items:center; justify-content:center"
                         @click=${(e: any) => {
-                            navigate('/urban-viewer');
+                            navigate('/');
                         }}>
                     </bim-button>
                     <bim-button

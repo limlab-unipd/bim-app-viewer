@@ -10,49 +10,30 @@ import { SurveyPage } from './viewer-components/SurveyPage'
 import * as BUI from '@thatopen/ui'
 import { UrbanViewer } from './viewer-components/UrbanViewer'
 
-
 //#region REACT COMPONENTS
+const rootElement = document.getElementById('app') as HTMLDivElement
+const appRoot = ReactDOM.createRoot(rootElement)
+
 function CostViewerRedirect({ page }: { page: string }) {
     React.useEffect(() => {
-        window.location.replace(page);
+        window.location.replace(page)
     }, [page])
     return null
 }
 
-const rootElement = document.getElementById('app') as HTMLDivElement
-const appRoot = ReactDOM.createRoot(rootElement)
 BUI.Manager.init()
 appRoot.render(
     <>
-        <Router.BrowserRouter>
-            <Router.Routes>
-                <Router.Route
-                    path="/"
-                    element={<CostViewerRedirect page="https://bim-app-viewer.vercel.app/home" />}
-                />
-                <Router.Route
-                    path="/cost-viewer"
-                    element={<CostViewerRedirect page="https://bim-app-viewer.vercel.app" />}
-                />
-                <Router.Route
-                    path="/urban-viewer"
-                    element={
-                        <div className="app-layout">
-                            <MenuSidebar />
-                            <UrbanViewer />
-                        </div>
-                    }
-                />
-                <Router.Route
-                    path="/survey"
-                    element={<CostViewerRedirect page="https://bim-app-viewer.vercel.app/survey" />}
-                />
-                <Router.Route
-                    path="/info"
-                    element={<CostViewerRedirect page="https://bim-app-viewer.vercel.app/info" />}
-                />
-            </Router.Routes>
-        </Router.BrowserRouter>
+    <Router.BrowserRouter>
+        <MenuSidebar></MenuSidebar>
+        <Router.Routes>
+            <Router.Route path='/home' element={ < CostViewerRedirect page = 'https://bim-app-viewer.vercel.app/home' />} />
+            <Router.Route path='/cost-viewer' element={ < CostViewerRedirect page = 'https://bim-app-viewer.vercel.app' />} />
+            <Router.Route path='/' element={ <UrbanViewer /> } />
+            <Router.Route path='/survey' element={ < CostViewerRedirect page = 'https://bim-app-viewer.vercel.app/survey' />} />
+            <Router.Route path='/info' element={ < CostViewerRedirect page = 'https://bim-app-viewer.vercel.app/info' />} />
+        </Router.Routes>
+    </Router.BrowserRouter>
     </>
 )
 //#endregion
