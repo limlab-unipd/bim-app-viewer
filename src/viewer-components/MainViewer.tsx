@@ -748,8 +748,8 @@ export function MainViewer () {
             let category = excludeIfcClasses
                 ? availableIfcClasses.filter(category => !selectedIfcClasses.includes(category))
                 : selectedIfcClasses
-            const [normalization] = normalizationDropdown.value //read the value of normalization by button (single choice)
-            const [normalizationThenBy] = normalizationThenByDropdown.value //read the value of normalization by button (single choice)
+            const [normalization] = normalizationDropdown.value && normalizationDropdown.value.length > 0 ? normalizationDropdown.value : ['None'] //read the value of normalization by button (single choice)
+            const [normalizationThenBy] = normalizationThenByDropdown.value && normalizationThenByDropdown.value.length > 0 ? normalizationThenByDropdown.value : ['None'] //read the value of normalization by button (single choice)
             const [colorscale] = colorScaleDropdown.value ? colorScaleDropdown.value : 'gnylrd'
             const rangeMin = rangeInputMin.value
             const rangeMax = rangeInputMax.value
@@ -2048,7 +2048,7 @@ export function MainViewer () {
                 const loadTime_4 = ((endTime_4 - startTime_4) / 1000).toFixed(2); // seconds
                 console.log(`TIME ${loadTime_4} s: whole process of getting total costs data`);
 
-                console.log(`model_cost_map`,model_cost_map)
+                //console.log(`model_cost_map`,model_cost_map)
 
                 //normalize cost to get colors and filter according to chosen range
                 const normalized_cost: {[key:string]:{[key:string]:number}} = {}
@@ -2104,7 +2104,7 @@ export function MainViewer () {
                     }
                     const endTime_8 = performance.now(); // End timer
                     const loadTime_8 = ((endTime_8 - startTime_8) / 1000).toFixed(2); // seconds
-                    console.log(`TIME ${loadTime_8} s: color elements using ranges color map (> 100 items)`)
+                    console.log(`TIME ${loadTime_8} s: color elements`)
                     
                     const startTime_5 = performance.now(); // Start timer
                     const norm = ['Volume','Property','Attribute','Number'].includes(normalization) ? true : false
