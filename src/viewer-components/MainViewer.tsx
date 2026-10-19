@@ -3616,11 +3616,11 @@ export function MainViewer () {
                     try { //needed to skip potential errors and do not interrupt the loop over items
                         if (!item['HasAssignments']) continue //checks if item has assignments --> it could have also different assignments
                         //item identity data
-                        itemId = (item['_localId'] as FRAGS.ItemAttribute).value ? (item['_localId'] as FRAGS.ItemAttribute).value : 'nd'
-                        itemGlobalId = (item['_guid'] as FRAGS.ItemAttribute).value ? (item['_guid'] as FRAGS.ItemAttribute).value : 'nd'
-                        itemName = (item['Name'] as FRAGS.ItemAttribute).value ? (item['Name'] as FRAGS.ItemAttribute).value : 'nd'
-                        itemObjectType = (item['ObjectType'] as FRAGS.ItemAttribute).value ? (item['ObjectType'] as FRAGS.ItemAttribute).value : 'nd'
-                        itemIfcClass = (item['_category'] as FRAGS.ItemAttribute).value ? (item['_category'] as FRAGS.ItemAttribute).value : 'nd'
+                        itemId = (item['_localId'] as FRAGS.ItemAttribute)?.value ? (item['_localId'] as FRAGS.ItemAttribute).value : 'nd'
+                        itemGlobalId = (item['_guid'] as FRAGS.ItemAttribute)?.value ? (item['_guid'] as FRAGS.ItemAttribute).value : 'nd'
+                        itemName = (item['Name'] as FRAGS.ItemAttribute)?.value ? (item['Name'] as FRAGS.ItemAttribute).value : 'nd'
+                        itemObjectType = (item['ObjectType'] as FRAGS.ItemAttribute)?.value ? (item['ObjectType'] as FRAGS.ItemAttribute).value : 'nd'
+                        itemIfcClass = (item['_category'] as FRAGS.ItemAttribute)?.value ? (item['_category'] as FRAGS.ItemAttribute).value : 'nd'
                         let itemTotalCost: number = 0
                         let itemTotalCurrency: string = ''
                         for (const [a,costItem] of Object.entries(item['HasAssignments'])){ //loop over each assignment of item
@@ -3634,7 +3634,7 @@ export function MainViewer () {
                             dynamicRow.data.Model = model
                             dynamicRow.data.ItemId = itemId
                             dynamicRow.data.GlobalId = itemGlobalId
-                            if (costItem['_category'].value != 'IFCCOSTITEM') continue //checks if the assignment is of IfcCostItem else go to the next one
+                            if (costItem['_category']?.value != 'IFCCOSTITEM') continue //checks if the assignment is of IfcCostItem else go to the next one
 
                             //cost item identity data
                             if (limitToCostItemNameList.length > 0 && !limitToCostItemNameList.includes(costItem['Name'].value)) continue
