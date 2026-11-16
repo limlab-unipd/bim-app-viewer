@@ -51,6 +51,8 @@ export function MainViewer () {
         const hider = components.get(OBC.Hider)
         const clipper = components.get(OBC.Clipper)
         const casters = components.get(OBC.Raycasters)
+        const marker = components.get(OBCF.Marker)
+        marker.threshold = 20
         
         let previousSelection: OBC.ModelIdMap
 
@@ -2132,6 +2134,7 @@ export function MainViewer () {
         const panelLeft = BUI.Component.create<BUI.Panel>(() => {
             return BUI.html`
             <bim-panel
+                style="z-index: 50"
                 class="blur-background-container">
             </bim-panel>
             `;
@@ -2140,6 +2143,7 @@ export function MainViewer () {
             return BUI.html`
             <bim-panel
                 label="Right Panel"
+                style="z-index: 50"
                 class="blur-background-container">
             </bim-panel>
             `;
@@ -2148,6 +2152,7 @@ export function MainViewer () {
             return BUI.html`
             <bim-panel
                 label="Down Panel"
+                style="z-index: 50"
                 class="blur-background-container">
             </bim-panel>
             `;
@@ -2157,6 +2162,7 @@ export function MainViewer () {
             return BUI.html`
                 <bim-panel
                     label="Scene Visibility Settings"
+                    style="z-index: 50"
                     class="blur-background-container">
                     <bim-panel-section label='Preset Styles'>
                         <bim-button label='Basic'
@@ -2418,7 +2424,7 @@ export function MainViewer () {
                     propertyType: '',
                     propertyName: '',
                     propertyValue: '',
-                    instanceOrType: ''
+                    instanceOrType: '',
                 }}]
         dynamicPropertiesTable.data = []
         dynamicPropertiesTable.preserveStructureOnFilter = true
@@ -2456,13 +2462,14 @@ export function MainViewer () {
                                 Math.round(Number(itemDataEntry.value)*100)/100 :
                                 itemDataEntry.value
                         rowData.data.propertyValue = value
+                        rowData.data.instanceOrType = 'none'
                         if (!rowData.data.propertyName) continue
                         dynamicPropertiesTable.data.push(rowData)
                     }
                 }
             }
             dynamicPropertiesTable.groupedBy = ['itemName']
-            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType']
+            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType','instanceOrType']
             loadingLabelProps.style.display = 'none'
         }
         const onLoadRelationsTable = async () => {
@@ -2488,6 +2495,7 @@ export function MainViewer () {
                             rowData.data.propertySetName = itemDataEntryName
                             rowData.data.propertyName = (relItemData._category as FRAGS.ItemAttribute).value
                             rowData.data.propertyValue = relItemData.Name ? (relItemData.Name as FRAGS.ItemAttribute).value : ''
+                            rowData.data.instanceOrType = 'none'
                             if (!rowData.data.propertyName) continue
                             dynamicPropertiesTable.data.push(rowData)
                         }
@@ -2495,7 +2503,7 @@ export function MainViewer () {
                 }
             }
             dynamicPropertiesTable.groupedBy = ['itemName','propertySetName']
-            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType']
+            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType','instanceOrType']
             loadingLabelProps.style.display = 'none'
         }
         const onLoadMaterialsTable = async () => {
@@ -2530,6 +2538,7 @@ export function MainViewer () {
                                     rowData.data.propertySetName = itemDataEntryName
                                     rowData.data.propertyName = materialName
                                     rowData.data.propertyValue = layerThickness
+                                    rowData.data.instanceOrType = 'none'
                                     if (!rowData.data.propertyName) continue
                                     dynamicPropertiesTable.data.push(rowData)
                                 }
@@ -2551,6 +2560,7 @@ export function MainViewer () {
                                     rowData.data.propertySetName = itemDataEntryName
                                     rowData.data.propertyName = materialName
                                     rowData.data.propertyValue = layerThickness
+                                    rowData.data.instanceOrType = 'none'
                                     if (!rowData.data.propertyName) continue
                                     dynamicPropertiesTable.data.push(rowData)
                                 }
@@ -2569,6 +2579,7 @@ export function MainViewer () {
                                     rowData.data.propertySetName = itemDataEntryName
                                     rowData.data.propertyName = materialName
                                     rowData.data.propertyValue = ''
+                                    rowData.data.instanceOrType = 'none'
                                     if (!rowData.data.propertyName) continue
                                     dynamicPropertiesTable.data.push(rowData)
                                 }
@@ -2587,6 +2598,7 @@ export function MainViewer () {
                                     rowData.data.propertySetName = itemDataEntryName
                                     rowData.data.propertyName = materialName
                                     rowData.data.propertyValue = ''
+                                    rowData.data.instanceOrType = 'none'
                                     if (!rowData.data.propertyName) continue
                                     dynamicPropertiesTable.data.push(rowData)                                    
                                 }
@@ -2605,6 +2617,7 @@ export function MainViewer () {
                                     rowData.data.propertySetName = itemDataEntryName
                                     rowData.data.propertyName = materialName
                                     rowData.data.propertyValue = ''
+                                    rowData.data.instanceOrType = 'none'
                                     if (!rowData.data.propertyName) continue
                                     dynamicPropertiesTable.data.push(rowData)                                    
                                 }
@@ -2620,6 +2633,7 @@ export function MainViewer () {
                                 rowData.data.propertySetName = itemDataEntryName
                                 rowData.data.propertyName = materialName
                                 rowData.data.propertyValue = ''
+                                rowData.data.instanceOrType = 'none'
                                 if (!rowData.data.propertyName) continue
                                 dynamicPropertiesTable.data.push(rowData)      
                             }
@@ -2628,7 +2642,7 @@ export function MainViewer () {
                 }
             }
             dynamicPropertiesTable.groupedBy = ['itemName']
-            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType']
+            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType','instanceOrType']
             loadingLabelProps.style.display = 'none'
         }
         const onLoadPropertiesTable = async () => {
@@ -2702,7 +2716,15 @@ export function MainViewer () {
             dynamicPropertiesTable.data = []
             const selection = highlighter.selection.select
             const itemsData = await fragments.getData(selection, {attributesDefault: true, relations: {'IsDefinedBy': {attributes: true, relations: true}}}) //questi sono gli attributi
-            const IfcPhisicalSimpleQuantities = ['AreaValue','CountValue','LengthValue','NumberValue','TimeValue','VolumeValue','WeightValue']
+            const IfcPhisicalSimpleQuantitiesClassAndValue: Record<string, string> = {
+                'IFCQUANTITYAREA': 'AreaValue',
+                'IFCQUANTITYCOUNT': 'CountValue',
+                'IFCQUANTITYLENGTH': 'LengthValue',
+                'IFCQUANTITYNUMBER': 'NumberValue',
+                'IFCQUANTITYTIME': 'TimeValue',
+                'IFCQUANTITYVOLUME': 'VolumeValue',
+                'IFCQUANTITYWEIGHT': 'WeightValue'
+            }
             for (const [modelId, itemIdSet] of Object.entries(selection)){
                 for (const itemId of itemIdSet){
                     const itemData = itemsData[modelId]?.find((item: FRAGS.ItemData) => (item._localId as FRAGS.ItemAttribute).value == itemId)
@@ -2711,23 +2733,38 @@ export function MainViewer () {
                         if (itemDataEntryName != 'IsDefinedBy') continue
                         if (!Array.isArray(itemDataEntry)) continue
                         for (const [,relItemData] of Object.entries(itemDataEntry)){
-                            if ((relItemData.Name as FRAGS.ItemAttribute).value != 'BaseQuantities') continue
+                            if (!(relItemData.Name as FRAGS.ItemAttribute).value.includes('BaseQuantities')) continue
                             for (const [, relPropertyData] of Object.entries(relItemData.Quantities)){
                                 const rowData: BUI.TableGroupData<dynamicPropertiesTableData> = {
                                     data: {},
+                                    children: []
                                 }
+                                rowData.children = []
                                 rowData.data.itemName = (itemData['Name'] as FRAGS.ItemAttribute)?.value || ''
                                 rowData.data.itemId = itemId
                                 rowData.data.modelId = modelId
                                 rowData.data.propertyType = 'Relation'
                                 rowData.data.propertySetName = (relItemData.Name as FRAGS.ItemAttribute).value
                                 rowData.data.propertyName = (relPropertyData.Name as FRAGS.ItemAttribute).value
-                                for (const phisicalQuantity of IfcPhisicalSimpleQuantities){
-                                    if (!relPropertyData[phisicalQuantity]) continue
+                                if (relPropertyData._category.value == 'IFCPHYSICALCOMPLEXQUANTITY') {
+                                    const complexQuantityData = await fragments.getData({[modelId]:new Set<number>([(relPropertyData._localId as FRAGS.ItemAttribute).value])}, {attributesDefault:true, relations: {'HasQuantities': { attributes: true, relations: true }}})
+                                    const value = ((complexQuantityData[modelId][0].HasQuantities as FRAGS.ItemData[])[0].LengthValue as FRAGS.ItemAttribute)?.value
+                                    const name = ((complexQuantityData[modelId][0].HasQuantities as FRAGS.ItemData[])[0].Name as FRAGS.ItemAttribute)?.value
+                                    rowData.children.push(
+                                        {
+                                            data: {
+                                                itemName: rowData.data.itemName,
+                                                propertyName: name,
+                                                propertyValue: value
+                                            }
+                                        }
+                                    )
+                                } else {
                                     const unit = relPropertyData.Unit ? (relPropertyData.Unit as FRAGS.ItemAttribute).value : null
-                                    const value = (relPropertyData[phisicalQuantity] as FRAGS.ItemAttribute).value
-                                    rowData.data.propertyValue = unit ? value + ' ' + unit : value
+                                    const value = Math.round((relPropertyData[IfcPhisicalSimpleQuantitiesClassAndValue[relPropertyData._category.value]] as FRAGS.ItemAttribute).value * 100) / 100
+                                    rowData.data.propertyValue = unit ? `${value} ${unit}` : `${value}`
                                 }
+                                rowData.data.instanceOrType = 'none'
                                 if (!rowData.data.propertyName) continue
                                 dynamicPropertiesTable.data.push(rowData)
                             }
@@ -2735,8 +2772,24 @@ export function MainViewer () {
                     }
                 }
             }
-            dynamicPropertiesTable.groupedBy = ['itemName']
-            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType']
+            // groupedBy flattens existing children in @thatopen/ui 3.3.3.
+            // Group only root rows so complex quantities keep their children.
+            const quantityGroups = new Map<string, BUI.TableGroupData<dynamicPropertiesTableData>>()
+            for (const rowData of dynamicPropertiesTable.data) {
+                const itemName = rowData.data.itemName || ''
+                let group = quantityGroups.get(itemName)
+                if (!group) {
+                    group = {
+                        data: { itemName, propertyName: itemName },
+                        children: []
+                    }
+                    quantityGroups.set(itemName, group)
+                }
+                group.children!.push(rowData)
+            }
+            dynamicPropertiesTable.groupedBy = []
+            dynamicPropertiesTable.data = [...quantityGroups.values()]
+            dynamicPropertiesTable.hiddenColumns = ['itemId','itemName','modelId','propertySetName','propertyType','instanceOrType']
             loadingLabelProps.style.display = 'none'
         }
 
@@ -3469,15 +3522,24 @@ export function MainViewer () {
         panelLeft.appendChild(colorResourcesPanelSection)
 
         //advanced costs functions and components
-        const onOpenElementXCostPanel = async (modelIdMap:OBC.ModelIdMap|undefined=undefined,normalization:boolean=false,model_normalizationValueByItemId:{ [key: string]: Map<number, number | undefined>; }={},modelTo_localIdToColor_map?:{[key: string]: Record<string, string>},limitToCostItemNameList:string[]=[]) => {
+        const onOpenElementXCostPanel = async (
+            modelIdMap:OBC.ModelIdMap|undefined=undefined,
+            normalization:boolean=false,
+            model_normalizationValueByItemId:{ [key: string]: Map<number, number | undefined>; }={},
+            modelTo_localIdToColor_map?:{[key: string]: Record<string, string>},
+            limitToCostItemNameList:string[]=[],
+            liveCostData: boolean = false
+        ) => {
             //clean panel
-            panelDown.innerHTML=''
-            panelDown.appendChild(loadingLabel)
-            panelDown.label = 'Element X Costs Panel'
-
-            currentVisibleColumnsDropdown = normalization ? visibleColumnsDropdown_classicGroups_withNormalization : visibleColumnsDropdown_classicGroups
-            setSortbyTotalCostNormalizedOption(normalization)
-            currentSortbyTotalCostDropdown.value = []
+            if (!liveCostData) {
+                panelDown.innerHTML=''
+                panelDown.appendChild(loadingLabel)
+                panelDown.label = 'Element X Costs Panel'
+    
+                currentVisibleColumnsDropdown = normalization ? visibleColumnsDropdown_classicGroups_withNormalization : visibleColumnsDropdown_classicGroups
+                setSortbyTotalCostNormalizedOption(normalization)
+                currentSortbyTotalCostDropdown.value = []
+            }
 
             //get selected elements
             //const selection = highlighter.selection.select ? highlighter.selection.select : await getAllItems() //selection = selected items or all items
@@ -3553,10 +3615,12 @@ export function MainViewer () {
             dynamicCostTable.data = []
             dynamicCostTable.preserveStructureOnFilter = true
             dynamicCostTable.style.borderRadius = "var(--bim-text-input--bdrs, var(--bim-ui_size-4xs))"
+
+            const liveCostDataObject: {itemModel: string, itemId: number, costItemName: string, costItemCost: number|undefined, costItemCurrency: string}[] = []
             // #endregion
 
             //get cost data
-            let itemId, itemGlobalId, itemName, itemObjectType, itemIfcClass, costItemName, costItemId, costItemDescription, costItemObjectType, costItemTotalCost, costItemUnitBasis, costItemUnitCost //initialize variables
+            let itemId, itemGlobalId, itemName, itemObjectType, itemIfcClass, costItemName, costItemId, costItemDescription, costItemObjectType, costItemTotalCostNumber, costItemUnitBasis, costItemUnitCost //initialize variables
             const getLocalId = (item: any) => item?._localId?.value as number | undefined
             const mapItemsByLocalId = (items: any[] = []) => {
                 const itemsMap: {[key:number]:any} = {}
@@ -3658,7 +3722,8 @@ export function MainViewer () {
                                 const costValueAppliedValue = (valueComponent !== undefined && valueComponent !== null) ? valueComponent : 'nd'
                                 const costValueUnitComponent = costValue['AppliedValue'][0]['UnitComponent'][0]['Currency'].value ? costValue['AppliedValue'][0]['UnitComponent'][0]['Currency'].value : 'nd'
                                 const currency = convertCurrency(costValueUnitComponent)
-                                costItemTotalCost = dynamicRow.data.Cost = `${Math.round(costValueAppliedValue*100)/100} ${currency}`
+                                costItemTotalCostNumber = Math.round(costValueAppliedValue*100)/100
+                                dynamicRow.data.Cost = `${costItemTotalCostNumber} ${currency}`
                                 //quantity of item
                                 const unitComponent = costValue['UnitBasis'][0]['ValueComponent'].value
                                 const costValueUnitBasis = (unitComponent !== undefined && unitComponent !== null) ? unitComponent : 'nd'
@@ -3692,6 +3757,13 @@ export function MainViewer () {
                                 itemTotalCurrency = currency
                             }
                             dynamicCostTable.data.push(dynamicRow)
+                            liveCostDataObject.push({
+                                itemModel: model,
+                                itemId: itemId,
+                                costItemName: costItemName,
+                                costItemCost: costItemTotalCostNumber,
+                                costItemCurrency: itemTotalCurrency
+                            })
                         }
                         totalCost += itemTotalCost
                         totalCurrency = itemTotalCurrency
@@ -3700,6 +3772,47 @@ export function MainViewer () {
                         continue //go to the next item of loop, do not interrupt the loop
                     }
                 }
+            }
+
+            const onCreateMarker = async () => {
+                for (const model in selection) {
+                    for (const itemId of selection[model]) {
+                        const itemBBox = await fragments.getBBoxes({[model]: new Set([itemId])})
+                        const itemBBoxCenter = itemBBox[0]?.getCenter(new THREE.Vector3())
+                        const liveCostLabel = BUI.Component.create(
+                            () => BUI.html`<div style="z-index: -1000; background-color: rgba(0, 0, 0, 0.4); padding: 10px; border-radius: 5px; backdrop-filter: blur(10px)"></div>`,
+                        )
+                        let totalCost = 0
+                        for (const liveCost of liveCostDataObject) {
+                            if (liveCost.itemModel === model && liveCost.itemId === itemId) {
+                                const liveCostSingleLabel = BUI.Component.create(
+                                    () => BUI.html`
+                                        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px;">
+                                            <bim-label style="font-size: 12px; text-align: left;">${liveCost.costItemName}</bim-label>
+                                            <bim-label style="font-size: 12px; flex-shrink: 0; text-align: right; white-space: nowrap;">${liveCost.costItemCost?.toFixed(2)} ${liveCost.costItemCurrency}</bim-label>
+                                        </div>
+                                    `,
+                                )
+                                liveCostLabel.appendChild(liveCostSingleLabel)
+                                totalCost += liveCost.costItemCost ?? 0
+                            }
+                        }
+                        const liveTotalCostLabel = BUI.Component.create(
+                            () => BUI.html`
+                                <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px; border-top: 1px solid rgba(255, 255, 255, 0.5); margin-top: 0.25rem">
+                                    <bim-label style="font-size: 12px; text-align: left;">Total</bim-label>
+                                    <bim-label style="font-size: 12px; flex-shrink: 0; text-align: right; white-space: nowrap;">${(Math.round(totalCost * 100) / 100)?.toFixed(2)} ${totalCurrency}</bim-label>
+                                </div>
+                            `,
+                        )
+                        liveCostLabel.appendChild(liveTotalCostLabel)
+                        marker.create(world, liveCostLabel, itemBBoxCenter)
+                    }
+                }
+            }
+            if(liveCostData){
+                await onCreateMarker()
+                return
             }
 
             const onSortbyTotalCostDropdownChange = (e: Event) => {
@@ -4545,11 +4658,22 @@ export function MainViewer () {
                 <bim-toolbar-section label="5D">
                     <bim-button
                         id='elementXCostButton'
-                        tooltip-title="Show costs of selection"
+                        tooltip-title="Show COSTS PANEL of selection"
                         icon="fontisto:dollar"
                         @click=${async ()=>{
                             await onOpenElementXCostPanel()
                             groupBy_CostRange_Btn.disabled = true
+                        }}
+                    ></bim-button>
+                    <bim-button
+                        id='liveCostButton'
+                        tooltip-title="Show LIVE COSTS of selection"
+                        icon="gravity-ui:tag-dollar"
+                        @click=${async ()=>{
+                            marker.getWorldMarkerList(world).forEach((markerId) => {
+                                marker.delete(markerId.key)
+                            });
+                            await onOpenElementXCostPanel(undefined,undefined,undefined,undefined,undefined,true)
                         }}
                     ></bim-button>
                 </bim-toolbar-section>
