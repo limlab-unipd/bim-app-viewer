@@ -3855,7 +3855,7 @@ export function MainViewer () {
                     </bim-button>`,
             )
 
-            const totalCostPerGroupedTable: {[group: string]: {cost: number, normalizedCost: number | null, quantity: number, currency: string, um: string, model:string, itemId?: number, costItemUnitCost?: string|number, costItemDescription?: string, ComponentsValue?: any}} = {}
+            const totalCostPerGroupedTable: {[group: string]: {cost: number, normalizedCost: number | null, quantity: number, currency: string, um: string, model:string, numberOfCostItems?: number, numberOfItems?: number, itemId?: number, costItemUnitCost?: string|number, costItemDescription?: string, ComponentsValue?: any}} = {}
             const addGroupedNormalizedCost = (group: string, value: number | null) => {
                 const current = totalCostPerGroupedTable[group].normalizedCost
                 totalCostPerGroupedTable[group].normalizedCost = current === null || value === null ? null : current + value
@@ -3863,6 +3863,7 @@ export function MainViewer () {
             const groupIfcClasses = new Set<string>()
             const groupElements = new Set<string>()
             const groupCostItems = new Set<string>()
+            const itemsCache = new Set<number>()
             for (const row of dynamicCostTable.data){
                 const groupIfcClass = row.data.ElementIfcClass
                 const groupElement = row.data.ElementName
@@ -3884,9 +3885,14 @@ export function MainViewer () {
 
                 if (!model) continue
                 if (!totalCostPerGroupedTable[groupIfcClass]) {
-                    totalCostPerGroupedTable[groupIfcClass] = { cost: 0, normalizedCost: 0, quantity: 0, currency, um, model }
+                    totalCostPerGroupedTable[groupIfcClass] = { cost: 0, normalizedCost: 0, quantity: 0, currency, um, model, numberOfCostItems: 0, numberOfItems: 0, itemId}
                 }
                 totalCostPerGroupedTable[groupIfcClass].cost += cost
+                totalCostPerGroupedTable[groupIfcClass].numberOfCostItems! += 1
+                if (!itemsCache.has(Number(itemId))) {
+                    totalCostPerGroupedTable[groupIfcClass].numberOfItems! += 1
+                    itemsCache.add(Number(itemId))
+                }
                 addGroupedNormalizedCost(groupIfcClass, normalizedCost)
                 groupIfcClasses.add(groupIfcClass)
 
@@ -4081,9 +4087,9 @@ export function MainViewer () {
 
             const onCreateChart_IfcClass = () => {
                 const groupIfcClassLabels = [...groupIfcClasses]
-                chartPrimary.colors = ['rgb(200, 200, 200)','rgb(138, 138, 138)']
+                chartPrimary.colors = ['rgb(200, 200, 200)','rgb(138, 138, 138)','rgb(138, 138, 138)']
                 chartPrimary.transparentBackground = true
-                chartPrimary.borderColor = 'transparent'
+                chartPrimary.borderColor = 'rgba(0, 0, 0, 0.2)'
                 chartPrimary.label = 'Total cost per IfcClass'
                 setChartPrimaryLabelsVisible(chartPrimaryLabelsVisible)
                 chartPrimary.inputData = {
@@ -4091,7 +4097,13 @@ export function MainViewer () {
                     datasets: {
                         TotalCost: groupIfcClassLabels.map((groupIfcClass) => ({
                             value: Math.round((totalCostPerGroupedTable[groupIfcClass]?.cost ?? 0)*100)/100
-                        }))
+                        })),
+                        NumberOfItems:groupIfcClassLabels.map((groupIfcClass) => ({
+                            value: totalCostPerGroupedTable[groupIfcClass]?.numberOfItems ?? 0
+                        })),
+                        // NumberOfCostItems:groupIfcClassLabels.map((groupIfcClass) => ({
+                        //     value: totalCostPerGroupedTable[groupIfcClass]?.numberOfCostItems ?? 0
+                        // }))
                     }
                 }
             }
